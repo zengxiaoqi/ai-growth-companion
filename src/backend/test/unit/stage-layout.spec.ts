@@ -7,25 +7,44 @@
  * 是算得出来的，必须自动守住——上一次就是靠人眼看出来才发现的。
  */
 import {
+  SAFE_X,
   STAGE,
   SUBJECT_BAND,
   SUBJECT_TOP,
+  boundsCenterX,
+  boundsWidth,
   framingFor,
   portraitFraming,
   shotForMotion,
+  unionAll,
+  type Bounds,
+  type Shot,
 } from '../../../video-remotion/src/character/stage-layout';
 import {
   LADDER,
   SLIDE,
   actorHeadTop,
+  ladderBounds,
   ladderTopY,
+  slideBounds,
   slideTopY,
   slideWorldHeight,
 } from '../../../video-remotion/src/character/setpiece';
-import { SPEC, SLIDE_SEAT_LIFT } from '../../../video-remotion/src/character/pose';
+import { ACTOR, CLIMB, SPEC, SLIDE_SEAT_LIFT } from '../../../video-remotion/src/character/pose';
 
 /** 世界高度 h 的主体在给定取景下，顶端落在屏幕第几行 */
 const topRow = (h: number, ppu: number) => STAGE.groundY - h * ppu;
+
+/** 包围盒在屏幕上落到哪几列（左/右/中心），以及取景给的 ppu */
+const projectBox = (box: Bounds, shot: Shot, subjectHeight = ACTOR.standHeight) => {
+  const f = framingFor({ bounds: box, subjectHeight }, shot);
+  return {
+    ppu: f.ppu,
+    left: f.originX + box.minX * f.ppu,
+    right: f.originX + box.maxX * f.ppu,
+    center: f.originX + boundsCenterX(box) * f.ppu,
+  };
+};
 
 describe('stage-layout / 取景定律', () => {
   it('任何内容高度都不会越进标题带', () => {
@@ -145,5 +164,144 @@ describe('setpiece / 布景高度', () => {
       const drawn = topRow(actorHeadTop(SPEC.standHipY, scale), ppu);
       expect(drawn).toBeGreaterThanOrEqual(SUBJECT_TOP - 0.5);
     }
+  });
+});
+
+/**
+ * 横向取景。
+ *
+ * 这些断言守的不是"某一帧好不好看"，而是**只要内容盒是对的，就一定不会
+ * 一边贴边、一边空一大块**。以前的取景只有高度，横向唯一的行为是把世界原点
+ * 按在画面中线：滑梯几何中心在 x=-0.41，于是左留白 106px、右留白 252px，
+ * 看起来像左边被裁了。修复方式不是给滑梯加偏移，而是让取景吃包围盒。
+ */
+describe('取景 / 横向（包围盒驱动）', () => {
+  const slide = slideBounds([-3.1, 2.7, 0], [2.9, 0.3, 0], 1);
+
+  it('内容中心落在画面中线（按内容对齐，而不是按世界原点对齐）', () => {
+    const boxes: Bounds[] = [
+      slide,
+      ladderBounds(0, ladderTopY(1.5)),
+      // 偏左 / 偏右 / 不对称内容：中心都必须被搬到画面中线
+      { minX: -3.5, maxX: -0.5, minY: 0, maxY: 2 },
+      { minX: 0.2, maxX: 4.4, minY: 0, maxY: 1.2 },
+    ];
+    for (const box of boxes) {
+      const p = projectBox(box, 'wide');
+      expect(p.center).toBeCloseTo(STAGE.centerX, 6);
+    }
+  });
+
+  it('滑梯幕两侧留白相等，且都不小于安全留白', () => {
+    const p = projectBox(slide, 'wide');
+    expect(p.left).toBeGreaterThanOrEqual(SAFE_X - 0.5);
+    expect(p.right).toBeLessThanOrEqual(STAGE.width - SAFE_X + 0.5);
+    // 两边对称：|左留白 − 右留白| 不超过 1px
+    expect(Math.abs(p.left - (STAGE.width - p.right))).toBeLessThanOrEqual(1);
+  });
+
+  it('内容越宽，缩放越小（横向约束会真的起作用）', () => {
+    const h = 1.5;
+    const widths = [1, 2, 4, 8, 14];
+    let prev = Infinity;
+    for (const half of widths) {
+      const box: Bounds = { minX: -half, maxX: half, minY: 0, maxY: h };
+      const { ppu } = framingFor({ bounds: box, subjectHeight: ACTOR.standHeight }, 'medium');
+      expect(ppu).toBeLessThanOrEqual(prev);
+      prev = ppu;
+    }
+  });
+
+  it('宽度超过可用区时，宁可两侧对等裁切，也不许一边出画一边空着', () => {
+    const huge: Bounds = { minX: -30, maxX: 30, minY: 0, maxY: 1.5 };
+    const p = projectBox(huge, 'wide');
+    // 缩放下限保护（不能把角色缩成米粒），此时必然溢出，但溢出必须对称
+    expect(p.left).toBeLessThan(0);
+    expect(p.right).toBeGreaterThan(STAGE.width);
+    expect(p.left + p.right).toBeCloseTo(STAGE.width, 6);
+  });
+
+  it('包围盒一旦给了，纵向也以它为准（与只报高度等价）', () => {
+    for (const h of [1.2, 1.67, 2.8, 3.98]) {
+      const byHeight = framingFor({ contentHeight: h, subjectHeight: ACTOR.standHeight }, 'wide');
+      const byBox = framingFor(
+        { bounds: { minX: -0.4, maxX: 0.4, minY: 0, maxY: h }, subjectHeight: ACTOR.standHeight },
+        'wide',
+      );
+      expect(byBox.ppu).toBeCloseTo(byHeight.ppu, 9);
+    }
+  });
+
+  it('三维相机的横向平移与二维 originX 同源（切渲染器时位置不跳）', () => {
+    const f = framingFor({ bounds: slide, subjectHeight: ACTOR.standHeight }, 'wide');
+    expect(f.camera.lookX).toBeCloseTo(boundsCenterX(slide), 9);
+    expect(f.originX).toBeCloseTo(STAGE.centerX - f.camera.lookX * f.ppu, 9);
+  });
+
+  it('unionAll 把多个盒并成一个，漏一项就等于漏一块画面', () => {
+    const a: Bounds = { minX: -1, maxX: 0, minY: 0, maxY: 1.5 };
+    const b: Bounds = { minX: 0.2, maxX: 1.8, minY: 0, maxY: 0.9 };
+    expect(unionAll([a, b])).toEqual({ minX: -1, maxX: 1.8, minY: 0, maxY: 1.5 });
+    expect(boundsWidth(unionAll([a, b]))).toBeCloseTo(2.8, 9);
+  });
+});
+
+/**
+ * 布景比例守卫。
+ *
+ * 上一轮抽帧发现"梯子单独出现时像一面格子墙"。根因不是某个数字不好看，而是
+ * 布景尺寸各自凭手感定、与角色无关：2D 梯宽 0.92（角色身宽的 1.5 倍），
+ * 3D 梯宽 0.56，同一个梯子两种宽度。这里把"布景必须由角色导出"写成断言，
+ * 以后调角色体型或加布景时，比例跑偏会在测试里失败，而不是在下一条成片里。
+ */
+describe('setpiece / 比例与覆盖守卫', () => {
+  it('梯子宽度由角色身宽导出，不再是一面格子墙', () => {
+    const width = LADDER.railHalf * 2;
+    expect(width / ACTOR.bodyWidth).toBeLessThanOrEqual(1.2);
+    expect(width / ACTOR.bodyWidth).toBeGreaterThanOrEqual(0.9);
+    // 横档长 : 间距过大就成了窗格；爬到顶也够不到两侧
+    expect(width / CLIMB.step).toBeLessThanOrEqual(3.4);
+  });
+
+  it('2D 与 3D 是同一把梯子：横档长 = 两杆间距，不再各写一套', () => {
+    expect(LADDER.sideRungLength).toBeCloseTo(LADDER.railHalf * 2, 9);
+  });
+
+  it('梯子顶端余量 = 手能抓到的最高点 + 两阶', () => {
+    expect(LADDER.topHeadroom).toBeCloseTo(CLIMB.gripY + 2 * CLIMB.step, 9);
+    expect(LADDER.topHeadroom).toBeGreaterThanOrEqual(CLIMB.gripY + CLIMB.step);
+  });
+
+  it('攀爬的手落在立杆内侧（手位与杆距同源，不是两个数对不上）', () => {
+    // climbPose 的 handX = gripWidth/2 * 0.96，必须严格小于杆位
+    expect((ACTOR.gripWidth / 2) * 0.96).toBeLessThan(LADDER.railHalf);
+  });
+
+  it('滑梯包围盒覆盖渲染器真实画出的每一块几何', () => {
+    const start: [number, number, number] = [-3.1, 2.7, 0];
+    const end: [number, number, number] = [2.9, 0.3, 0];
+    const b = slideBounds(start, end, 1);
+    const len = Math.hypot(end[0] - start[0], end[1] - start[1]);
+    const cos = (end[0] - start[0]) / len;
+
+    // 顶端平台整体
+    expect(b.minX).toBeLessThanOrEqual(
+      start[0] - cos * SLIDE.platformInset - SLIDE.platformWidth / 2 + 1e-9,
+    );
+    // 爬梯两根立杆
+    expect(b.minX).toBeLessThanOrEqual(
+      start[0] - cos * SLIDE.ladderInset - LADDER.sideRungLength / 2 + 1e-9,
+    );
+    // 滑到底站起来还要往前迈一步
+    expect(b.maxX).toBeGreaterThanOrEqual(end[0] + 0.8 + ACTOR.bodyWidth / 2 - 1e-9);
+    // 平台上的坐姿角色比结构本身还高
+    expect(b.maxY).toBeGreaterThanOrEqual(actorHeadTop(start[1] + SLIDE_SEAT_LIFT, 1) - 1e-9);
+    // 支柱落地
+    expect(b.minY).toBeLessThanOrEqual(0);
+  });
+
+  it('滑梯幕的横向范围确实需要 8 个世界单位——这就是"只报高度"会失衡的原因', () => {
+    const b = slideBounds([-3.1, 2.7, 0], [2.9, 0.3, 0], 1);
+    expect(boundsWidth(b)).toBeGreaterThan(8);
   });
 });

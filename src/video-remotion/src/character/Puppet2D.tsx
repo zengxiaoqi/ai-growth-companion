@@ -18,6 +18,7 @@
 
 import React from 'react';
 import {
+  ACTOR,
   BALL_RADIUS,
   SPEC,
   blendPose,
@@ -30,8 +31,15 @@ import {
   type Pose,
   type Tri,
 } from './pose';
-import { framingFor, shotForMotion, type Shot } from './stage-layout';
-import { LADDER, actorHeadTop, ladderTopY } from './setpiece';
+import {
+  framingFor,
+  propBounds,
+  shotForMotion,
+  unionAll,
+  type Bounds,
+  type Shot,
+} from './stage-layout';
+import { LADDER, actorHeadTop, ladderBounds, ladderTopY } from './setpiece';
 
 /* ------------------------------------------------------------------ *
  * 取景
@@ -73,9 +81,13 @@ export type Puppet2DScene = {
   accent: string;
   label?: string;
   /**
-   * 布景道具。坐标是屏幕像素（1920×1080 画布），node 由调用方预先渲染成
-   * SVG 片段——组件本身不认识"滑梯""皮球"这些业务道具，只负责把它们按
-   * 场景需要摆到位。这样新增道具不用改这个文件。
+   * 布景道具。坐标是**世界单位**（与角色、布景同一套坐标），node 由调用方
+   * 预先渲染成 SVG 片段——组件本身不认识"滑梯""皮球"这些业务道具，只负责
+   * 把它们按场景需要摆到位。这样新增道具不用改这个文件。
+   *
+   * 用世界坐标而不是屏幕坐标，是为了让道具跟着取景一起缩放/平移，并且能
+   * 参与内容包围盒——否则"被指着的东西"会被摆到画面外，或者平板地贴在
+   * 背景上不随角色变大。
    */
   props?: Array<{ x: number; y: number; size: number; label?: string; node: React.ReactNode }>;
   /** 漂浮在角色之上的覆盖层（对话气泡等 HTML 元素，不能塞进 SVG） */
@@ -489,55 +501,84 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
     : root[0];
 
   /**
-   * 取景：两个数分开问。
+   * 取景：只回答"这一幕占了世界上哪一块"，不回答"该放多大"。
    *
-   *  - contentHeight = 这一幕最高的东西（爬梯时是**梯子顶端**，不是角色头）。
-   *    这就是以前漏掉的一项：角色 2.51、梯子 2.75，估低了 0.24 世界单位，
-   *    屏幕上就是 60 多像素的越界。
-   *  - subjectHeight = **站立身高**，只表示"这个角色该画多大"。用动作终点
-   *    的头顶高度会把"爬得高"误当成"角色很大"，全景被无谓地推远
-   *    （实测梯子会缩到 365px，画面空一半）。
+   * 以前这里算的是两个数（内容高度 / 主体高度），横向完全没有约束——
+   * 于是"内容偏左""横向太宽"没有地方表达，只能靠人眼看出来再逐个调坐标，
+   * 那就是"针对某个场景特定优化"。现在交给包围盒：
+   *   - 角色轨迹（每一段沿途采样，带 carry 位移）；
+   *   - 布景（爬梯时整把梯子，含描边）；
+   *   - 道具（被指着的东西）。
+   * 取景定律据此同时约束纵向与横向，并把画面按内容中心对齐。
    *
+   * subjectHeight 仍然只用"站立身高"：动作终点的头顶高度会把"爬得高"
+   * 误当成"角色很大"，全景被无谓地推远（实测梯子会缩到 365px，画面空一半）。
    * rig.scale 只按"不小于 1"计入：小动物画小一点是造型意图，但取景要给
    * 满尺寸留够空间，否则 giraffe(1.1) 会顶出去。
    */
   const subjectHeight = actorHeadTop(SPEC.standHipY, Math.max(1, scale));
-  /**
-   * 这一幕最高点：取**所有段落终点**的最大值，而不是只看最后一段。
-   * 只看最后一段的话，"爬上去再挥手"这种顺序会把 1.5 的高度算漏。
-   */
-  const peakY = plan.reduce(
-    (top, slice) => Math.max(top, poseAt(slice.input, slice.durationFrames).root[1] + slice.carry[1]),
-    SPEC.standHipY,
-  );
-  const actorTop = actorHeadTop(peakY, Math.max(1, scale));
-  const worldHeight = climb ? Math.max(ladderTop, actorTop) : actorTop;
-  const shot = scene.shot ?? shotForMotion(climb ? 'climb' : activeMotion);
-  const framing = framingFor({ contentHeight: worldHeight, subjectHeight }, shot);
+  const drawScale = Math.max(1, scale);
+  const bodyHalf = (ACTOR.bodyWidth / 2) * drawScale;
 
-  const cx = framing.centerX;
+  /**
+   * 角色轨迹的包围盒：每段取 5 个采样点。
+   * 不能只看段落端点——`alongPath` 现在是线性的，但动作原语随时可能改成
+   * 带弧线/弹跳的轨迹，那时端点就不再是极值，漏采样就会把角色裁掉半截。
+   */
+  const actorBoundsOf = (slice: Slice): Bounds => {
+    const n = 4;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i <= n; i++) {
+      const pose = poseAt(slice.input, (slice.durationFrames * i) / n);
+      const x = pose.root[0] + slice.carry[0];
+      const y = pose.root[1] + slice.carry[1];
+      minX = Math.min(minX, x - bodyHalf);
+      maxX = Math.max(maxX, x + bodyHalf);
+      maxY = Math.max(maxY, actorHeadTop(y, drawScale));
+    }
+    return { minX, maxX, minY: 0, maxY };
+  };
+
+  const contentBoxes: Bounds[] = plan.map(actorBoundsOf);
+  if (climb) contentBoxes.push(ladderBounds(ladderX, ladderTop));
+  for (const p of scene.props || []) contentBoxes.push(propBounds(p));
+  const content = unionAll(contentBoxes);
+
+  const shot = scene.shot ?? shotForMotion(climb ? 'climb' : activeMotion);
+  const framing = framingFor({ bounds: content, subjectHeight }, shot);
+
+  const cx = framing.originX;
   const GROUND_Y = framing.groundY;
   // 角色造型缩放仍作用在角色上；取景已经为满尺寸留了空间
   const s = framing.ppu * scale;
 
   /**
    * 局部坐标（相对髋部）→ 屏幕。
-   * 三步：绕髋部施加躯干倾角 → 加髋部世界位置 → 翻 y 并缩放。
-   * 所有部件（含四肢）都走这一条路，所以身体倾的时候四肢一定跟着走。
+   *
+   * 两步张开的写法是必要的：**世界位置不镜像，只有角色自身的左右镜像**。
+   * 以前写成 `(root[0] + lx) * facing`，位置和形状一起翻——后果不是角色走反，
+   * 而是"取景按世界坐标算、画面按镜像后的坐标画"：
+   *   - 向左走的幕，包围盒算在左半边（平移把左半边让出来），角色却画在右半边，
+   *     半个身子出画；
+   *   - 布景和道具摆在角色旁边时，角色一转身它们就跳到另一侧。
+   * 现在 root 走世界坐标、local 走 facing，取景与绘制用的是同一套坐标。
    */
   const cosL = Math.cos(pose.rotZ);
   const sinL = Math.sin(pose.rotZ);
   const project: Projector = (p) => {
     const lx = p[0] * cosL - p[1] * sinL;
     const ly = p[0] * sinL + p[1] * cosL;
-    return [cx + (root[0] + lx) * s * facing, GROUND_Y - (root[1] + ly) * s];
+    return [cx + root[0] * s + lx * s * facing, GROUND_Y - (root[1] + ly) * s];
   };
 
   /**
-   * 布景投影：只做"世界 → 屏幕"，不施加躯干倾角。
-   * 梯子如果跟着角色前倾，就成了"整个梯子被推歪"，而不是"熊贴着梯子"。
+   * 布景投影：只做"世界 → 屏幕"，不施加躯干倾角、也不施加朝向镜像。
+   * 梯子如果跟着角色前倾，就成了"整个梯子被推歪"；跟着镜像，就成了
+   * "角色一转身梯子瞬移到另一边"。物理世界不会因为角色转向而重排。
    */
-  const projectWorld: Projector = (p) => [cx + p[0] * s * facing, GROUND_Y - p[1] * s];
+  const projectWorld: Projector = (p) => [cx + p[0] * s, GROUND_Y - p[1] * s];
 
   const head = project([0, SPEC.headY, 0.02]);
   const headR = SPEC.headR * s;
@@ -549,8 +590,8 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
   const lean = (pose.rotZ * 180) / Math.PI;
   const hipPoint = project([0, 0, 0]);
   const torsoTransform = `rotate(${lean} ${hipPoint[0]} ${hipPoint[1]})`;
-  // 阴影永远在地面上，不参与角色旋转
-  const shadowX = cx + root[0] * s * facing;
+  // 阴影永远在地面上，不参与角色旋转，也不参与镜像（它标的是世界里的落点）
+  const shadowX = cx + root[0] * s;
 
   const legColor = shade(rig.fur, 0.84);
   const armColor = rig.fur;
@@ -563,25 +604,34 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
         viewBox="0 0 1920 1080"
         style={{ position: 'absolute', inset: 0, overflow: 'visible' }}
       >
-        {/* 道具画在角色之前：被手指着的东西应该在身体后面，不然会挡住脸 */}
-        {(scene.props || []).map((p, i) => (
-          <g key={`prop-${i}`} transform={`translate(${p.x} ${p.y})`}>
-            {/* node 的绘制盒子是 -80..80，按目标尺寸缩放 */}
-            <g transform={`scale(${p.size / 160})`}>{p.node}</g>
-            {p.label ? (
-              // 标签放道具上方：地面线以下是字幕区，写在下面会被字幕压住
-              <text
-                y={-p.size / 2 - 14}
-                textAnchor="middle"
-                fontSize={34}
-                fontWeight={900}
-                fill={accent}
-              >
-                {p.label}
-              </text>
-            ) : null}
-          </g>
-        ))}
+        {/* 道具画在角色之前：被手指着的东西应该在身体后面，不然会挡住脸。
+            坐标是世界单位，和角色/布景走同一条投影——取景一旦平移（内容偏左
+            就整体右移），屏幕坐标的道具不会跟着动，角色和道具就会错位。 */}
+        {(scene.props || []).map((p, i) => {
+          const [px, py] = projectWorld([p.x, p.y, 0]);
+          const sizePx = p.size * s;
+          return (
+            <g key={`prop-${i}`} transform={`translate(${px} ${py})`}>
+              {/* node 的绘制盒子是 -80..80，按目标尺寸缩放 */}
+              <g transform={`scale(${sizePx / 160})`}>{p.node}</g>
+              {p.label ? (
+                // 标签放道具上方：地面线以下是字幕区，写在下面会被字幕压住
+                <text
+                  y={-sizePx / 2 - 14}
+                  textAnchor="middle"
+                  fontSize={34}
+                  fontWeight={900}
+                  fill={accent}
+                  stroke="#ffffff"
+                  strokeWidth={6}
+                  paintOrder="stroke"
+                >
+                  {p.label}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
 
         {/* 梯子必须在角色之前画（背景层），否则会盖住手脚 */}
         {climb ? (
@@ -692,14 +742,11 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
         {/* 球：画在近侧肢体之后——球在小熊身前，压住前臂才像"手在球上" */}
         {dribble
           ? (() => {
-              // 球是世界坐标，转成相对髋部的局部坐标再投影（dribble 的 rotZ=0，等价直传）
-              const bp = project([
-                dribble.ball[0] - root[0],
-                dribble.ball[1] - root[1],
-                dribble.ball[2],
-              ]);
+              // 球是**世界坐标**里的物体（会离开身体），所以走世界投影：
+              // 换成"相对髋部再镜像"的局部投影，球会跟着角色转身翻到另一侧。
+              const bp = projectWorld(dribble.ball);
               const r = BALL_RADIUS * s;
-              const groundP = project([dribble.ball[0] - root[0], -root[1], dribble.ball[2]]);
+              const groundP = projectWorld([dribble.ball[0], 0, dribble.ball[2]]);
               return (
                 <g>
                   <ellipse

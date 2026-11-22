@@ -38,6 +38,49 @@ export const SPEC = {
   standHipY: 0.66,
 };
 
+/**
+ * 角色尺度基线：**布景尺寸的唯一来源**。
+ *
+ * 为什么布景要由角色导出，而不是各写一套数字：
+ *   - 梯子曾经 2D 宽 0.92、3D 宽 0.56（railHalf 0.46 vs 0.28），同一个"梯子"
+ *     两种宽度，因为两组数字各自凭手感定的；
+ *   - 0.92 是角色身宽的 1.5 倍，画出来不是梯子而是一面格子墙——这是"比例
+ *     脱离了主体"的典型症状，只调一个常量解决不了：下次改角色体型又会错。
+ *
+ * 所以布景只允许使用这里的量（身宽、肩宽、身高等）作为单位。规则写在
+ * setpiece.ts 顶部，并由 stage-layout.spec.ts 的比例守卫自动检查。
+ */
+export const ACTOR = {
+  /** 躯干外缘宽度（椭圆长轴的两倍） */
+  bodyWidth: SPEC.torsoR * 2,
+  /** 双肩关节间距 */
+  shoulderWidth: SPEC.shoulder[0] * 2,
+  /** 站立总高（脚底 0.02 → 头顶） */
+  standHeight: SPEC.standHipY + SPEC.headY + SPEC.headR,
+  /**
+   * 攀爬时的双手横向间距。
+   * 手要落在立杆**内侧**，所以梯子宽度由它反推，而不是反过来给梯子定一个
+   * 好看的数字再把手摆上去——那样手会漂在杆外。
+   */
+  gripWidth: SPEC.torsoR * 2 * 1.1,
+} as const;
+
+/**
+ * 攀爬动作的两个关键高度（相对髋部，向上为正）。
+ *
+ * 布景要用它们算"梯子该比角色高出多少"，动作要用它们摆手的位置——
+ * 同一个数只写一份，否则"手够得着"和"梯子够长"会各自漂移，
+ * 表现就是爬到顶手悬在半空。
+ */
+export const CLIMB = {
+  /** 抓握点的最高处（离髋部） */
+  gripY: 0.88,
+  /** 换手时的收手高度 */
+  reachY: 0.46,
+  /** 一阶的高度。梯子横档间距必须等于它，手脚才会正好落在横档上 */
+  step: 0.21,
+} as const;
+
 /** 球半径（注册表是权威值，这里只给渲染兜底） */
 export const BALL_RADIUS = 0.26;
 
@@ -321,7 +364,7 @@ function climbPose(input: MotionInput, frame: number): Pose {
   const progress = clamp((k + smooth(phase)) / steps, 0, 1);
 
   const start = input.start ?? [-0.55, SPEC.standHipY, 0];
-  const end = input.end ?? [-0.55, SPEC.standHipY + 0.84, 0];
+  const end = input.end ?? [-0.55, SPEC.standHipY + CLIMB.step * steps, 0];
   const root = alongPath(start, end, progress);
   const stepH = Math.max(0.05, (end[1] - start[1]) / steps);
 
@@ -338,12 +381,18 @@ function climbPose(input: MotionInput, frame: number): Pose {
    * 如果让 hand 相对髋部恒定，画面上就是"手黏在梯子上跟身体一起滑"，
    * 完全没有"一把一把往上抓"的感觉。这是爬梯最关键的一条。
    */
-  const gripY = (ph: number) => 0.88 - ph * stepH;
+  const gripY = (ph: number) => CLIMB.gripY - ph * stepH;
   // 另一只手在换手：从上一档松手，收到胸前再抓上去
-  const reachY = (ph: number) => 0.46 - ph * stepH * 0.6;
+  const reachY = (ph: number) => CLIMB.reachY - ph * stepH * 0.6;
 
-  const handLead: Tri = [lead * 0.44, gripY(phaseLead), 0.18];
-  const handTrail: Tri = [-lead * 0.44, reachY(phaseTrail), 0.12];
+  /**
+   * 手的横向位置来自"攀爬握距"，梯子立杆间距再由它反推（setpiece.LADDER）。
+   * 反过来先定梯子宽度、再把手摆上去，就会出现手落在立杆外侧——画面上是
+   * 熊抱着梯子的两边，抓空。0.96 让掌心落在立杆内侧而不压线。
+   */
+  const handX = (ACTOR.gripWidth / 2) * 0.96;
+  const handLead: Tri = [lead * handX, gripY(phaseLead), 0.18];
+  const handTrail: Tri = [-lead * handX, reachY(phaseTrail), 0.12];
 
   // 脚：踩住的那只不抬，抬起的那只收到脚踝高度再踩下一档
   const stepLift = (ph: number) => Math.max(0, Math.sin(Math.PI * ph)) * 0.2;

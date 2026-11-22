@@ -26,6 +26,7 @@ import { useVideoConfig } from "remotion";
 // 姿态解算在 character/pose.ts（与渲染器无关）。这个文件只负责"把关节目标点
 // 画成圆柱和四元数"，不负责"角色该怎么动"——那是 pose 层的事。
 import {
+  ACTOR,
   BALL_RADIUS,
   SPEC,
   clamp,
@@ -35,9 +36,16 @@ import {
   type Tri,
 } from "../character/pose";
 // 取景规则与布景几何都在 character/ 下：相机不再是"每个动作一组魔法数字"，
-// 而是由景别（worldHeight + shot）反推，地面永远落在 STAGE.groundY。
-import { framingFor, shotForMotion, STAGE, type Shot } from "../character/stage-layout";
-import { LADDER, SLIDE, actorHeadTop, slideWorldHeight } from "../character/setpiece";
+// 而是由内容包围盒 + 景别反推，地面永远落在 STAGE.groundY。
+import {
+  framingFor,
+  shotForMotion,
+  STAGE,
+  unionAll,
+  type Bounds,
+  type Shot,
+} from "../character/stage-layout";
+import { LADDER, SLIDE, actorHeadTop, slideBounds } from "../character/setpiece";
 
 export type ThreeRig = {
   fur: string;
@@ -69,13 +77,38 @@ export type ThreeStageScene = {
  * dribble: z=6.2/lookY=1.15）。那套写法有两个后果：地面行跟着动作跳
  * （2D 856、3D 827），以及"结构再高一点就出画"无法自动处理。
  *
- * 现在只由取景定律给一个 ppu，相机距离与 lookY 反推：
+ * 现在只由取景定律给一个 ppu，相机距离与 lookY/lookX 反推：
  *   屏幕Y = 540 + lookY * ppu ⇒ lookY = (地面行 − 540) / ppu
+ *   屏幕X = 960 − (lookX − x) * ppu ⇒ lookX = 内容中心的世界 x
  *   z = 1080 / (2 * ppu * tan(fov/2))
  *
  * 注意：不能用 camera.position.y 抬高视角——R3F 的默认相机会 lookAt(0,0,0)，
  * 抬高相机等于让画面俯视，地面会被拉到中线。相机留在 y=0，把世界下移 lookY。
+ * 横向同理：相机不动，世界整体平移 lookX。
  * ------------------------------------------------------------------ */
+
+/**
+ * 非滑梯幕的内容范围：角色轨迹 + 球。
+ *
+ * 为什么采样而不是只取末帧：拍球是往复运动，末帧多半不是极值；改了动作
+ * 曲线之后"末帧即极值"这个假设也不成立。采样是通用的——新增动作不用改这里。
+ */
+function actorBounds(scene: ThreeStageScene, scale: number): Bounds {
+  const n = 12;
+  const dur = Math.max(1, scene.durationFrames);
+  const half = (ACTOR.bodyWidth / 2) * scale;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i <= n; i++) {
+    const d = dribblePose(scene, (dur * i) / n);
+    const root = d.pose.root;
+    minX = Math.min(minX, root[0] - half, d.ball[0] - BALL_RADIUS);
+    maxX = Math.max(maxX, root[0] + half, d.ball[0] + BALL_RADIUS);
+    maxY = Math.max(maxY, actorHeadTop(root[1], scale), d.ball[1] + BALL_RADIUS);
+  }
+  return { minX, maxX, minY: 0, maxY };
+}
 
 
 /**
@@ -381,11 +414,12 @@ const SlideRig: React.FC<{ start: Tri; end: Tri }> = ({ start, end }) => {
           <meshStandardMaterial color={postColor} roughness={0.8} />
         </mesh>
       ))}
-      {/* 爬梯：两根立杆（左右分开，正面才看得出是梯子）+ 横档 */}
+      {/* 爬梯：两根立杆（左右分开，正面才看得出是梯子）+ 横档。
+          杆距 = 横档长的一半，与 2D 梯子同一个宽度（setpiece.LADDER 导出）。 */}
       {[-1, 1].map((side) => (
         <mesh
           key={`ladder-${side}`}
-          position={[start[0] - Math.cos(angle) * SLIDE.ladderInset + side * LADDER.sideRailHalf, start[1] / 2 - SLIDE.postLift, 0]}
+          position={[start[0] - Math.cos(angle) * SLIDE.ladderInset + side * LADDER.railHalf, start[1] / 2 - SLIDE.postLift, 0]}
         >
           <cylinderGeometry args={[LADDER.sidePostRadius, LADDER.sidePostRadius, Math.max(0.5, start[1] - SLIDE.ladderFoot), 8]} />
           <meshStandardMaterial color={postColor} roughness={0.8} />
@@ -455,16 +489,20 @@ export const ThreeActionStage: React.FC<{
   const scale = scene.rig.scale || 1;
 
   /**
-   * 取景：滑梯要装下"结构 + 平台上的坐姿角色"（contentHeight），
-   * 而"角色该画多大"只看站立身高（subjectHeight）——把坐姿高度当主体尺寸，
-   * 滑梯会被无谓推远。地面行固定，所以 2D/3D 之间切换时脚不会上下跳。
+   * 取景：观众要看到的是"这一幕占了世界上哪一块"，不是"某个动作该配哪个
+   * 机位"。滑梯横跨 7.7 个世界单位、平台上的坐姿角色还比结构更高，两者都
+   * 必须整块进画；而"角色该画多大"只看站立身高。
+   *
+   * 用包围盒而不是只报高度：横向范围决定 ppu 与平移。以前只报高度，
+   * 滑梯的左端贴到 x=115px、右端空出 437px —— 看起来像左边被裁了，
+   * 其实是画面没按内容中心对齐。
    */
   const subjectHeight = actorHeadTop(SPEC.standHipY, Math.max(1, scale));
-  const worldHeight = isSlide
-    ? slideWorldHeight(scene.start, scene.end, Math.max(1, scale))
-    : subjectHeight;
+  const content = isSlide
+    ? slideBounds(scene.start, scene.end, Math.max(1, scale))
+    : actorBounds(scene, Math.max(1, scale));
   const shot = shotOverride ?? shotForMotion(scene.motion);
-  const view = framingFor({ contentHeight: worldHeight, subjectHeight }, shot).camera;
+  const view = framingFor({ bounds: content, subjectHeight }, shot).camera;
 
   const slide = isSlide ? slidePose(scene, frame) : null;
   const dribble = isSlide ? null : dribblePose(scene, frame);
@@ -482,8 +520,10 @@ export const ThreeActionStage: React.FC<{
         <directionalLight position={[4, 7, 6]} intensity={1.15} />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
 
-        {/* 世界整体下移 lookY：相机留在 y=0，靠位移把地面压到屏幕下方 */}
-        <group position={[0, -view.lookY, 0]}>
+        {/* 世界整体下移 lookY、左移 lookX：相机留在原点方向，靠平移把地面压到
+            STAGE.groundY、把内容中心对到画面中线。2D 用 originX 表达同一件事，
+            两边算出的屏幕位置逐像素相同。 */}
+        <group position={[-view.lookX, -view.lookY, 0]}>
           <ProceduralChar rig={scene.rig} pose={pose} />
 
           {isSlide ? <SlideRig start={scene.start} end={scene.end} /> : null}

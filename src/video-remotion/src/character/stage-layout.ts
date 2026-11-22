@@ -25,7 +25,15 @@
  *
  * 三维相机不是另一套参数：给定 ppu 与地面线，相机距离与 lookY 由公式反推，
  * 保证 3D 的地面**也**落在 STAGE.groundY。这是"2D/3D 同源"的第一层。
+ *
+ * 第二层是横向：取景吃的不是"内容多高"，而是**内容包围盒**（Bounds）。有了盒，
+ * "内容偏左""内容太宽"才有地方表达，才能靠公式而不是靠逐个调坐标解决：
+ *   - ppu 同时被"纵向装得下"和"横向装得下（含两侧留白）"约束；
+ *   - 画面按内容中心对齐，而不是把世界原点硬按在画面中线。
+ * 所以渲染器只需要回答"这一幕占了世界上哪一块"，不需要知道取景怎么算。
  */
+
+import { ACTOR } from './pose';
 
 /** 画面尺寸。与 Remotion composition 一致，渲染器不做第二次取整 */
 export const STAGE = {
@@ -54,6 +62,51 @@ export const SUBJECT_TOP = STAGE.titleBandBottom + STAGE.titleGap;
 export const SUBJECT_BAND = STAGE.groundY - SUBJECT_TOP;
 
 /**
+ * 画面左右的安全留白（像素）。
+ *
+ * 为什么留白要参与**缩放**而不是只做平移：滑梯横跨 7.7 个世界单位，按高度
+ * 算出来的 ppu 让它在屏幕上占 1367px，落在 960 中心时左端只剩 115px、右端
+ * 剩 437px——左边像被裁掉了，右边空一大块。只平移能居中，但两个边距都会
+ * 变小；只有让留白成为 ppu 的上限约束，"装得下且两边都有呼吸"才是算出来的。
+ */
+export const SAFE_X = 72;
+
+/**
+ * 内容包围盒（世界单位）。取景只吃这一个东西，不认识具体是梯子还是滑梯。
+ *
+ * 引入它之前，取景只有"内容高度"一个数：所以"内容偏左/偏右""横向太宽"
+ * 这类问题根本无处表达，只能靠人眼看出来再逐个调坐标——那正是"针对某个
+ * 场景特定优化"。有了盒，新增任何布景/道具只要报告自己的范围，取景自动
+ * 把它算进去：装不下就后退，偏了就平移。
+ */
+export type Bounds = { minX: number; maxX: number; minY: number; maxY: number };
+
+/** 空盒（用于 reduce 起点）。宽高为负，union 任何真盒后即被覆盖 */
+export const EMPTY_BOUNDS: Bounds = {
+  minX: Infinity,
+  maxX: -Infinity,
+  minY: Infinity,
+  maxY: -Infinity,
+};
+
+export function unionBounds(a: Bounds, b: Bounds): Bounds {
+  return {
+    minX: Math.min(a.minX, b.minX),
+    maxX: Math.max(a.maxX, b.maxX),
+    minY: Math.min(a.minY, b.minY),
+    maxY: Math.max(a.maxY, b.maxY),
+  };
+}
+
+export function unionAll(boxes: Bounds[]): Bounds {
+  return boxes.reduce(unionBounds, EMPTY_BOUNDS);
+}
+
+export const boundsWidth = (b: Bounds) => b.maxX - b.minX;
+export const boundsHeight = (b: Bounds) => b.maxY - b.minY;
+export const boundsCenterX = (b: Bounds) => (b.minX + b.maxX) / 2;
+
+/**
  * 景别。取值不多，因为每多一档就多一组要维护的取舍：
  *  - wide：动作幕。主体仍是"中景大小"，但**必须装下布景**（梯子、滑梯），
  *    装不下就自动往后退——全景是"为布景让路"的结果，不是无条件缩小。
@@ -77,46 +130,77 @@ export type Framing = {
   ppu: number;
   /** 地面在屏幕上的行（像素） */
   groundY: number;
-  centerX: number;
-  /** 三维相机参数：由 ppu/groundY 反推，保证地面落在同一行 */
-  camera: { fov: number; z: number; lookY: number };
+  /** 世界原点（x=0）落在屏幕第几列。投影就是 originX + x*ppu，别再写 960 */
+  originX: number;
+  /** 内容中心的世界 x（三维持景按它整体平移，与 originX 同源） */
+  worldCenterX: number;
+  /** 三维相机参数：由 ppu/地面行/内容中心反推，保证与 2D 落在同一位置 */
+  camera: { fov: number; z: number; lookY: number; lookX: number };
 };
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export type FramingInput = {
+  /** 必须完整可见的内容盒。给了它就能同时管住"装得下"和"居中" */
+  bounds?: Bounds;
   /**
-   * 必须完整可见的内容高度（从地面 y=0 往上），例如"梯子顶端""平台上的坐姿头顶"。
-   * 这一项就是"标题压角色"那次事故的关键：当时只有角色高度，没有布景高度。
+   * 只有高度、没有横向要求时的简写（兼容旧调用）。
+   * 注意它**不会**约束宽度——不知道内容的横向范围时，假装它很窄反而会让
+   * 宽布景被裁，所以宁可不管。
    */
-  contentHeight: number;
-  /** 主体的世界高度（角色站高）。不给就与 contentHeight 相同 */
+  contentHeight?: number;
+  /** 主体的世界高度（角色站高）。不给就与内容高度相同 */
   subjectHeight?: number;
 };
 
 /**
- * 取景：ppu = min(带高 × 景别占比 ÷ 主体高度, 带高 ÷ 内容高度)
+ * 取景：ppu = min(带高 × 景别占比 ÷ 主体高度, 带高 ÷ 内容高度, 可用宽 ÷ 内容宽度)
  *
- * 两个约束分别对应两件事：
- *  - 前一项是"主体看起来多大"（景别意图）；
- *  - 后一项是"不许裁掉布景"（物理约束）。
- * 取小者，于是"远景"永远不会比"中景"更近，而"内容太高"时全景会自然后退。
+ * 三个约束分别对应三件事：
+ *  - 第一项是"主体看起来多大"（景别意图）；
+ *  - 第二项是"纵向不许裁掉布景"（物理约束）；
+ *  - 第三项是"横向不许裁掉布景，且两边都留出安全留白"。
+ * 取小者，于是"内容太宽/太高"时全景会自然后退，而不是把两侧切掉。
+ *
+ * 平移：内容中心不再被强行按到画面中线。滑梯的几何中心在 x=-0.9，硬按到
+ * 中线会让左端贴边、右端空出一大块；现在按内容中心对齐，两边留白相等。
  */
 export function framingFor(input: FramingInput, shot: Shot): Framing {
-  const content = Math.max(0.2, input.contentHeight);
-  const subject = Math.max(0.2, input.subjectHeight ?? content);
-  const ppu = clamp(Math.min((SUBJECT_BAND * SHOT_FILL[shot]) / subject, SUBJECT_BAND / content), PPU_LIMIT.min, PPU_LIMIT.max);
+  // 空盒（全是 ±Infinity 或还没并出任何内容）当作"没给"，否则中心会算出 NaN，
+  // 整块 transform 变成 NaN 后画面是空白——这种故障比"稍微裁一点"难查得多。
+  const box =
+    input.bounds && Number.isFinite(input.bounds.minX) && Number.isFinite(input.bounds.maxX)
+      ? input.bounds
+      : undefined;
+  const contentH = Math.max(0.2, box ? boundsHeight(box) : (input.contentHeight ?? 1));
+  const subject = Math.max(0.2, input.subjectHeight ?? contentH);
+  const ppuFitWidth = box
+    ? (STAGE.width - 2 * SAFE_X) / Math.max(0.4, boundsWidth(box))
+    : Infinity;
+  const ppu = clamp(
+    Math.min(
+      (SUBJECT_BAND * SHOT_FILL[shot]) / subject,
+      SUBJECT_BAND / contentH,
+      ppuFitWidth,
+    ),
+    PPU_LIMIT.min,
+    PPU_LIMIT.max,
+  );
+  const worldCenterX = box ? boundsCenterX(box) : 0;
   const tanHalf = Math.tan((CAMERA_FOV * Math.PI) / 360);
   // 屏幕Y = H/2 + lookY * ppu ⇒ lookY = (地面行 - H/2) / ppu
+  // 屏幕X = W/2 - (lookX - x) * ppu ⇒ 世界平移量就是内容中心
   return {
     shot,
     ppu,
     groundY: STAGE.groundY,
-    centerX: STAGE.centerX,
+    originX: STAGE.centerX - worldCenterX * ppu,
+    worldCenterX,
     camera: {
       fov: CAMERA_FOV,
       z: STAGE.height / (2 * ppu * tanHalf),
       lookY: (STAGE.groundY - STAGE.height / 2) / ppu,
+      lookX: worldCenterX,
     },
   };
 }
@@ -136,18 +220,38 @@ export function shotForMotion(motion: string): Shot {
 }
 
 /**
- * 道具槽位：被指着的东西摆在哪、画多大。
+ * 道具槽位（**世界单位**，不是屏幕像素）。
  *
- * 以前这三个数写死在模板里（x:1430 / y:690 / size:280），与角色大小、地面线
- * 都没有关系：换景别后角色变高，道具还停在半空，看起来像贴在背景上的图标。
- * 现在道具底边贴地、尺寸随可用带高走，角色变大它也变大。
+ * 以前返回的是屏幕坐标（x = centerX ± 470、size = 带高 × 0.4）。两个后果：
+ *   - 取景一旦平移（内容偏左就整体右移），屏幕坐标的道具不会跟着动，
+ *     角色和道具会错位；
+ *   - 尺寸按"带高比例"给，与角色大小无关，换景别后要么压住角色，要么小得
+ *     像贴在背景上的图标。
+ * 改成世界单位后，道具与角色、布景在同一套坐标里，由取景统一投影；它也
+ * 自动进入内容包围盒，"被指着的东西"永远不会落在画面外。
  *
+ * 尺寸与间距都由 ACTOR 导出：道具高约 0.57 个角色，横向留出一个身宽的
+ * 空隙，于是无论角色多大，道具都不会糊到脸上。
+ */
+const PROP_SIZE = ACTOR.standHeight * 0.57;
+const PROP_GAP = ACTOR.bodyWidth / 2 + PROP_SIZE / 2 + ACTOR.bodyWidth * 0.8;
+
+/**
  * side: -1 放左侧，+1 放右侧。调用方按"角色走/站的方向"决定，别把道具摆在
- * 角色脸前。
+ * 角色脸前。y 是道具**中心**离地高度（= 半个高，底边正好贴地）。
  */
 export function propSlot(side: 1 | -1): { x: number; y: number; size: number } {
-  const size = SUBJECT_BAND * 0.4;
-  return { x: STAGE.centerX + side * 470, y: STAGE.groundY - size / 2, size };
+  return { x: side * PROP_GAP, y: PROP_SIZE / 2, size: PROP_SIZE };
+}
+
+/** 道具的包围盒：底边贴地，宽度等于绘制尺寸 */
+export function propBounds(slot: { x: number; y: number; size: number }): Bounds {
+  return {
+    minX: slot.x - slot.size / 2,
+    maxX: slot.x + slot.size / 2,
+    minY: 0,
+    maxY: slot.size,
+  };
 }
 
 /**

@@ -15,5 +15,15 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // 运行时生成的组件不进类型检查。
+  //
+  // 这两个文件由出片流程在运行时写进 src/（.gitignore 里有同名条目），内容是
+  // 模型当场生成的 TSX，**随时可能带语法错误**。一旦它们被纳入检查，整仓
+  // `tsc` 就会被一份临时产物搞红，于是所有人都改用它处的局部检查绕过去——
+  // 这正是"整仓类型检查长期不可用"的成因。
+  //
+  // 它们的正确闸门是 author-contract 校验（固定导出 + props 契约 + 禁 fs/网络），
+  // 那是语义级检查，比 tsc 更贴近真实要求；tsc 在这里只会重复报语法噪音。
+  "exclude": ["src/GeneratedLesson.tsx", "src/compositions/TeachingLesson.tsx"]
 }

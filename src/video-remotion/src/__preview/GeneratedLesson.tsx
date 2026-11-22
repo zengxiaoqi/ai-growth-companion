@@ -34,7 +34,7 @@ type ChoreographyView = {
   beats: BeatView[];
 };
 
-type GeneratedScene = {
+export type GeneratedScene = {
   id: string;
   title: string;
   narration: string;

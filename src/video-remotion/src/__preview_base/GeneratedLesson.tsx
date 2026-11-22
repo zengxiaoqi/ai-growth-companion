@@ -13,7 +13,7 @@ import { Audio } from "@remotion/media";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = {};
 
-type GeneratedScene = {
+export type GeneratedScene = {
   id: string;
   title: string;
   narration: string;
@@ -50,6 +50,12 @@ type GeneratedScene = {
   figure?: FigureView;
   graphIcons?: Record<string, string>;
   audioSrc?: string;
+  /**
+   * 编排层时间线。**基线组件有意不实现**：`__preview_base` 是"没有编排"的
+   * A/B 对照组，夹具里带上 choreography 只是为了与 `__preview` 用同一份数据。
+   * 这里声明成可选字段，是为了让夹具能被类型检查，而不是把字段静默丢掉。
+   */
+  choreography?: unknown;
 };
 
 type GeneratedLessonProps = {

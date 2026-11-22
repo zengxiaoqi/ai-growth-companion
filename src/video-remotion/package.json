@@ -8,7 +8,8 @@
     "build": "remotion render NumbersVideo out/numbers-1-10.mp4 --codec=h264",
     "render:characters": "remotion render ChineseCharactersVideo out/chinese-characters.mp4 --codec=h264",
     "typecheck:3d": "tsc -p tsconfig.check3d.json --noEmit",
-    "render:3d-check": "node scripts/render-3d-lesson.cjs"
+    "render:3d-check": "node scripts/render-3d-lesson.cjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

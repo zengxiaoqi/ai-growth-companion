@@ -80,7 +80,7 @@ function flag(name: string, fallback: string): string {
 async function loadPreviewScenes(): Promise<any[]> {
   const file = path.resolve(__dirname, '../../video-remotion/src/__preview/Root.tsx');
   const source = await fs.readFile(file, 'utf8');
-  const matched = source.match(/const SCENES = (\[[\s\S]*?\]);\n/);
+  const matched = source.match(/const SCENES(?::\s*[^=]+)?\s*=\s*(\[[\s\S]*?\]);\n/);
   if (!matched) throw new Error('Root.tsx 里没找到 SCENES');
   return JSON.parse(matched[1]);
 }

@@ -65,8 +65,13 @@ export type StoryboardScene = {
   /** 句级编排：讲到哪句、强调谁、揭示什么、用什么动效。缺失时渲染层自行推导 */
   beats?: Beat[];
   /**
-   * 角色交互关系：谁对谁做什么（递/一起抬/说话/指/手持）。
-   * 缺失时渲染层会从 visualDescription 确定性提取，但 LLM 直接写出来最准。
+   * 演出：一幕里的动作序列（`{ actors, actions: [...] }`）。
+   * 缺失时渲染层从 interaction 或 visualDescription 确定性提取，但 LLM 直接写最准。
+   */
+  performance?: Record<string, unknown>;
+  /**
+   * 旧契约（单个动作）。仅为兼容旧分镜保留——渲染层读 performance 优先，
+   * 这里只负责不把老数据丢掉。
    */
   interaction?: Record<string, unknown>;
 };
@@ -270,13 +275,14 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       "narration": "string (TTS旁白，40-80个中文字符，2-3个完整句子，温暖师生对话风格)",
       "onScreenText": "string (屏幕显示文字，4-12个中文字符)",
       "visualDescription": "string (30-60字的视觉构图描述：角色动作、物品位置、背景风格)",
-      "interaction": "object|null (角色之间有动作时才填，否则省略。让画面演出'谁对谁做什么'，不是只把角色摆着)",
-      "interaction.verb": "handover | lift-together | speak | point | hold | slide | dribble | climb | walk",
-      "interaction.actors": "array of 1-3 { id, label, role }. id 用具体名词的英文或拼音小写(如 bear/rabbit/tiger); label 用旁白里的中文叫法(如 小熊/小兔); role 按动词: handover→giver+receiver, lift-together→helper+helper, speak→speaker+target, point/hold/slide/dribble/climb/walk→helper",
-      "interaction.propId": "string (可选, 道具英文 id: ball | cookie | apple | banana | book | block | table | slide | star | heart; slide 动词必须是 slide, dribble 动词必须是 ball)",
-      "interaction.action3d": "object (可选, 仅 slide/dribble 填: { motion: 'slide'|'dribble', actorId: 主角 id }。只描述意图，不要填坐标/高度/帧数——几何与时长由渲染层的资产注册表决定，填了也会被忽略)",
-      "interaction.speech": "string (可选, verb=speak 时角色说的话, 或递东西时说的'谢谢你'; 不要填提问式教学提示语)",
-      "interaction.caption": "string (可选, ≤10字, 画面下方的关系说明, 如'一起抬，更省力')",
+      "performance": "object|null (这一幕角色真的在动时才填，否则省略。让画面演出动作，不是只把角色摆着)",
+      "performance.actors": "array of 1-3 { id, label, role }，只写一次，后续 action 继承。id 用具体名词的英文小写(bear/rabbit/tiger); label 用旁白里的中文叫法(小熊/小兔); role 按动词: handover→giver+receiver, lift-together→helper+helper, speak→speaker+target, 其余→helper",
+      "performance.actions": "array of 1-3 动作, 按时间先后排列（最多 3 个）。这是'一幕多动作'的载体: '走过去→指着滑梯→说一句话' 写在同一幕的 3 个 action 里, 不要拆成三幕",
+      "performance.actions[].verb": "walk | climb | point | speak | cheer | sit | hold | slide | dribble | handover | lift-together（climb/slide/dribble 只能放在最后一个: 它们结束时角色已在高处或滑行终点）",
+      "performance.actions[].propId": "string (可选, 道具英文 id: ball | cookie | apple | banana | book | block | table | slide | star | heart; slide 动词必须是 slide, dribble 动词必须是 ball)",
+      "performance.actions[].action3d": "object (可选, 仅 slide/dribble 填: { motion: 'slide'|'dribble', actorId: 主角 id }。只描述意图，不要填坐标/高度/帧数——几何与时长由渲染层的资产注册表决定，填了也会被忽略)",
+      "performance.actions[].speech": "string (可选, verb=speak 时角色说的话, 或递东西时说的'谢谢你'; 不要填提问式教学提示语)",
+      "performance.actions[].caption": "string (可选, ≤10字, 画面下方的关系说明, 如'一起抬，更省力')",
       "durationSec": 6,
       "transitionToNext": "fade | slide | wipe | zoom",
       "emphasis": "intro | core-concept | example | practice | summary",
@@ -332,12 +338,16 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       "- Each scene's concept must be a distinct knowledge point related to the topic.",
       '- visualDescription must describe specific characters, actions, items, and background.',
       '',
-      '## Character interaction (MANDATORY when the scene shows someone DOING something to someone):',
-      '- If two characters interact (pass an object, lift together, talk, point), you MUST fill "interaction".',
-      '  The renderer uses it to ACT OUT the relation; without it the picture is just characters standing still.',
+      '## Performance (MANDATORY when the scene shows someone DOING something):',
+      '- When a character actually moves or acts, fill "performance". It is an ORDERED list of',
+      '  actions: the renderer plays them in array order, one camera, no cuts.',
+      '- Two or three consecutive actions belong in ONE scene ("walks over -> points at the slide',
+      '  -> says a line" = 3 actions), not three scenes. Splitting them turns a gesture into three',
+      '  shot changes and the child loses the action. Max 3 actions per scene.',
+      '- Write "performance.actors" once; each action inherits it. Do not repeat the cast per action.',
       '- handover: one character gives a prop to another (giver + receiver, set propId).',
       '- lift-together: two characters lift/carry one prop together (two helpers, set propId).',
-      '- speak: a character speaks a line (speaker + optional target, set speech to the exact words spoken).',
+      '- speak: a character speaks a line (speaker + optional target, set speech to the exact words).',
       '- point / hold: one character points at or holds a prop (helper, set propId).',
       '- slide: a character slides DOWN a slide (one helper, propId must be "slide"). narration must say',
       '  the character actually goes down ("从滑梯上滑下来"), not just climbs up.',
@@ -347,16 +357,19 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       '  ("一步一步爬上去"), not merely stands next to it. Do NOT use climb for "climbed up and',
       '  then slid down" — that is a slide scene, pick slide.',
       '- walk: one character moves across the frame — walking in from off-screen, or walking to a',
-      '  place ("走过来""跑过去""走进森林"). Use it for the intro scene where the character',
-      '  arrives, instead of leaving the character standing still. One helper, no propId.',
+      '  place ("走过来""跑过去""走进森林"). Use it as the FIRST action of an intro scene, then',
+      '  follow with point/speak, instead of leaving the character standing still.',
+      '- climb / slide / dribble must be the LAST action: they end with the character up a ladder or',
+      '  at the end of a slide, and any action after them would teleport.',
       '- climb / walk need no extra field: the verb IS the action. Do not invent a "puppet" or',
       '  "motion" sub-object.',
-      '- For slide / dribble you may also fill interaction.action3d = { motion, actorId }.',
+      '- For slide / dribble you may also fill performance.actions[].action3d = { motion, actorId }.',
       '  Do NOT invent coordinates, heights, durations or model file names — geometry and timing come',
       '  from the renderer asset registry, and anything you write there is ignored.',
       '- Crucially: role "giver"/"speaker" must be the character the narration says is ACTING,',
       '  not merely the first one mentioned. Set speech only to words a character actually says—',
       '  never put teaching prompts like "小熊手里有什么？" into speech.',
+      '- Do not also fill the legacy "interaction" field: it is only read when "performance" is absent.',
       '',
       '## Narrative Arc:',
       `- Scene 1: intro (引入主题，激发兴趣)`,
@@ -560,6 +573,9 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         : {}),
       ...(raw?.sceneGraph && typeof raw.sceneGraph === 'object'
         ? { sceneGraph: raw.sceneGraph as Record<string, unknown> }
+        : {}),
+      ...(raw?.performance && typeof raw.performance === 'object'
+        ? { performance: raw.performance as Record<string, unknown> }
         : {}),
       ...(raw?.interaction && typeof raw.interaction === 'object'
         ? { interaction: raw.interaction as Record<string, unknown> }

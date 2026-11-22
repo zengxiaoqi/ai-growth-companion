@@ -641,4 +641,88 @@ describe('VideoGenerationAgentService', () => {
     expect(built.interaction?.verb).toBe('walk');
     expect(built.interaction?.puppet?.motion).toBe('walk');
   });
+
+  /**
+   * 一幕多动作：performance 是新的演出契约（有序动作表），interaction 只作兼容读。
+   *
+   * 这条测试盯的是"契约到渲染层的那一跳"：动作顺序、分帧、台词与道具的归属。
+   * 少任何一项，画面就会退化成"只演第一个动作"或"指着一片空白"。
+   */
+  it('performance 的多个动作被下发成播放表，台词与道具挂在正确的那一步', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition({
+      title: '认识滑梯',
+      topic: '认识滑梯',
+      domain: 'social',
+      totalDurationSec: 6,
+      sceneCount: 1,
+      scenes: [
+        {
+          id: 'scene-1',
+          sequence: 1,
+          title: '走到滑梯前',
+          concept: '认识滑梯',
+          narration: '小熊走过来，指着滑梯说：看，这就是滑梯。',
+          onScreenText: '滑梯',
+          visualDescription: '小熊走到滑梯前，抬手介绍',
+          durationSec: 6,
+          transitionToNext: 'fade',
+          emphasis: 'core-concept',
+          performance: {
+            actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+            actions: [
+              { verb: 'walk' },
+              { verb: 'point', propId: 'slide' },
+              { verb: 'speak', speech: '看，这就是滑梯' },
+            ],
+          },
+        },
+      ],
+    } as any);
+
+    const built = manifest.props.scenes[0] as any;
+    const puppet = built.interaction?.puppet;
+    expect(built.interaction?.verb).toBe('walk');
+    expect(puppet?.sequence?.map((step: any) => step.motion)).toEqual(['walk', 'point', 'speak']);
+    // 分帧总和必须等于场景帧数，否则最后一帧会停在动作中途
+    const frames = puppet.sequence.reduce((sum: number, step: any) => sum + step.durationFrames, 0);
+    expect(frames).toBe(180);
+    // 台词取最后一个说话动作，道具取指认那一步——不是因为它们恰好在第一段
+    expect(built.interaction?.speech).toBe('看，这就是滑梯');
+    expect(built.interaction?.propId).toBe('slide');
+    // 气泡要等到说话那一段再出现：多动作幕里从第一帧就挂着等于剧透
+    expect(built.interaction?.speechAt).toBeGreaterThan(0.5);
+    expect(built.interaction?.speechAt).toBeLessThan(1);
+  });
+
+  it('performance 写坏时回落到 interaction，而不是整幕变白卡片', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition({
+      title: '小熊爬梯',
+      topic: '小熊爬梯',
+      domain: 'social',
+      totalDurationSec: 6,
+      sceneCount: 1,
+      scenes: [
+        {
+          id: 'scene-1',
+          sequence: 1,
+          title: '爬上去',
+          concept: '坚持',
+          narration: '小熊一步一步爬上去。',
+          onScreenText: '爬上去',
+          visualDescription: '小熊在梯子上往上爬',
+          durationSec: 6,
+          transitionToNext: 'fade',
+          emphasis: 'core-concept',
+          performance: { actors: [{ id: 'bear', label: '小熊', role: 'helper' }], actions: [{ verb: 'jump' }] },
+          interaction: { verb: 'climb', actors: [{ id: 'bear', label: '小熊', role: 'helper' }] },
+        },
+      ],
+    } as any);
+
+    const built = manifest.props.scenes[0] as any;
+    expect(built.interaction?.verb).toBe('climb');
+    expect(built.interaction?.puppet?.motion).toBe('climb');
+  });
 });

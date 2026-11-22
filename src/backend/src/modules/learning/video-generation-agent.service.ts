@@ -34,14 +34,22 @@ import {
 import { normalizeSceneGraph } from './video/scene-graph';
 import { normalizeFigureSpec } from './video/figure-spec';
 import {
+  VERB_AS_MOTION,
+  composePerformance,
   deriveInteractionFromText,
   hasAnyMotionCue,
   normalizeSceneInteraction,
+  normalizeScenePerformance,
   type InteractionVerb,
   type PuppetMotion,
   type SceneInteraction,
 } from './video/scene-interaction';
-import { resolveAction3D, resolveActorRig, resolvePuppet } from './video/action3d-registry';
+import {
+  resolveAction3D,
+  resolveActorRig,
+  resolvePuppet,
+  resolvePuppetSequence,
+} from './video/action3d-registry';
 import { STAGE_TEMPLATE_FILES } from './video/stage-template';
 import {
   ageMotionProfile,
@@ -75,24 +83,7 @@ function is3dStageEnabled(): boolean {
 }
 
 /**
- * 动词 → 二维原语。这是"能力表"的另一半：prompt 里教 LLM 能写哪些 verb，
- * 这里必须把同一个 verb 接到渲染器上。
- *
- * 两处一旦脱节，LLM 明明写了 climb，画面仍然退回静态构图，而且**降级是静默的**
- * ——只有抽帧才能发现。上一版正是这么漏掉了整整两幕。
- *
- * 只列"一个身体就能演完"的动词。handover / lift-together 故意不在这里：
- * 它们需要两个身体之间的接触关系，单角色骨架演不了，留在 ActionStage。
- * 增加原语时先改这张表，而不是改渲染器的 if 链。
- */
-const VERB_AS_MOTION: Partial<Record<InteractionVerb, PuppetMotion>> = {
-  point: 'point',
-  speak: 'speak',
-  climb: 'climb',
-  walk: 'walk',
-};
-
-/** 场景里点名的实物 → 别名。与矢量库 assets/vector 下的素材一一对应。 */
+ * 场景里点名的实物 → 别名。与矢量库 assets/vector 下的素材一一对应。 */
 const SCENE_PROP_KEYWORDS: Record<string, string[]> = {
   ball: ['皮球', '足球', '球', 'ball'],
   cookie: ['饼干', 'cookie', '小饼干'],
@@ -660,7 +651,18 @@ export class VideoGenerationAgentService {
       // 英文别名能认出角色但认不出"小熊乐乐"这种叫法；旁白才是孩子听到的名字，
       // 而且总结幕常常只有旁白提到角色（"小熊先玩滑梯，再拍皮球"）。
       const mentions = findAnimalMentions(`${visualDescription} ${narration} ${source}`);
+      /**
+       * 演出契约的读取顺序：performance（一幕多动作）→ interaction（兼容读）
+       * → 文案确定性提取（旧分镜兜底）。
+       *
+       * 三级都不能省：performance 是新契约，模型可能整份写坏（动词不在白名单），
+       * 这时必须退到 interaction 而不是直接掉到静态构图——退一步还有画面，
+       * 全退就是白卡片。
+       */
+      const performance = normalizeScenePerformance(scene?.performance);
+      const composed = performance ? composePerformance(performance) : null;
       const interaction =
+        composed?.primary ||
         normalizeSceneInteraction(scene?.interaction) ||
         deriveInteractionFromText({
           visualDescription,
@@ -681,6 +683,21 @@ export class VideoGenerationAgentService {
               `该幕退回静态构图（回顾/列举幕可忽略，否则说明路由漏了）`,
           );
         }
+      }
+      // 写坏了与演不全，是两种不同的故障，分开记：
+      //  - 整份 performance 不合法 → 契约/提示词问题，看这一条就知道模型写了什么；
+      //  - 只是部分动作串不上 → 能力边界（多动作里有攀爬、双人动作），属正常取舍。
+      if (scene?.performance && !performance) {
+        this.logger.warn(
+          `[buildDynamicSceneProps] 场景${index + 1}「${title}」的 performance 无可用动作，` +
+            `已回落到 interaction/文案推导`,
+        );
+      }
+      if (composed && composed.dropped.length) {
+        this.logger.warn(
+          `[buildDynamicSceneProps] 场景${index + 1}「${title}」的演出有 ${composed.dropped.length} 个动作` +
+            `无法串演（${composed.dropped.join('/')}），只播「${composed.primary.verb}」及之前的地面动作`,
+        );
       }
       const template =
         this.toText(scene?.animationTemplate?.id || scene?.animationTemplate) ||
@@ -776,7 +793,22 @@ export class VideoGenerationAgentService {
         interaction && !action3d && interaction.actors.length === 1
           ? (VERB_AS_MOTION[interaction.verb] ?? null)
           : null;
-      const puppetMotion: PuppetMotion | null = interaction?.puppet?.motion ?? singleActorGesture;
+      /**
+       * 一幕多动作：把可串演的地面动作按顺序分帧。
+       *
+       * 只在"确实有 2 个以上能演的动作"时才建序列，且 3D 幕不参与——
+       * 序列播放器是 2D 骨架的播放表，3D 舞台有自己的连续轨迹（滑行/拍球），
+       * 把两者混在一条时间线里会得到"滑到一半站起来再走"的空想动作。
+       */
+      const sequence =
+        composed && !action3d && composed.motions.length > 1
+          ? resolvePuppetSequence(composed.motions, {
+              actorId: interaction?.actors[0]?.id,
+              sceneDurationFrames: Math.round(durationSec * 30),
+            })
+          : null;
+      const puppetMotion: PuppetMotion | null =
+        sequence?.[0]?.motion ?? interaction?.puppet?.motion ?? singleActorGesture;
       const puppet =
         !action3d && puppetMotion
           ? resolvePuppet(puppetMotion, {
@@ -785,13 +817,61 @@ export class VideoGenerationAgentService {
               sceneDurationFrames: Math.round(durationSec * 30),
             })
           : null;
+      /**
+       * 串演幕的台词与道具挂在哪一节上，需要单独挑：
+       * speech 取**最后一个**有台词的 action（说到最后一句时气泡里该是这句），
+       * 道具取指向/举着那一步的 propId——主动作往往是"走过去"，没有道具，
+       * 若沿用主动作的 propId，画面上就是"指着一片空白"。
+       */
+      const sequenceSpeech = sequence
+        ? [...(performance?.actions ?? [])].reverse().find((a) => a.speech)?.speech
+        : undefined;
+      const sequencePropId = sequence
+        ? (performance?.actions ?? []).find(
+            (a) => a.propId && (a.verb === 'point' || a.verb === 'hold'),
+          )?.propId
+        : undefined;
+      /**
+       * 台词该在第几段出现（0..1）。
+       * 多动作幕里气泡若从第一帧就挂着，"走过去→指一下→说话"的顺序在第一秒
+       * 就被剧透了；按说话那一段的起点延迟出场，动作顺序才读得出来。
+       */
+      let speechAt: number | undefined;
+      if (sequence && sequenceSpeech) {
+        const actions = performance?.actions ?? [];
+        let index = -1;
+        for (let i = actions.length - 1; i >= 0; i -= 1) {
+          if (actions[i].speech) {
+            index = i;
+            break;
+          }
+        }
+        const total = sequence.reduce((sum, seg) => sum + seg.durationFrames, 0);
+        if (index > 0 && index < sequence.length && total > 0) {
+          const before = sequence
+            .slice(0, index)
+            .reduce((sum, seg) => sum + seg.durationFrames, 0);
+          speechAt = before / total;
+        }
+      }
       const interactionForRender = interaction
         ? {
             ...interactionBase,
+            ...(sequencePropId ? { propId: sequencePropId } : {}),
+            ...(sequenceSpeech ? { speech: sequenceSpeech } : {}),
+            ...(speechAt !== undefined ? { speechAt } : {}),
             ...(action3d
               ? { action3d: { ...action3d, rig: resolveActorRig(action3d.actorId) } }
               : {}),
-            ...(puppet ? { puppet: { ...puppet, rig: resolveActorRig(puppet.actorId) } } : {}),
+            ...(puppet
+              ? {
+                  puppet: {
+                    ...puppet,
+                    ...(sequence ? { sequence } : {}),
+                    rig: resolveActorRig(puppet.actorId),
+                  },
+                }
+              : {}),
           }
         : undefined;
 
@@ -1125,12 +1205,25 @@ type PuppetView = {
   steps?: number;
   durationFrames: number;
   rig: Action3DView["rig"];
+  /**
+   * 一幕多动作的播放表（按顺序）。仅当地面动作能串演时才存在，
+   * 长度大于 1 时 Puppet2D 按它分段取姿态；缺省时仍按 motion 单动作播放。
+   */
+  sequence?: Array<{
+    motion: MotionOp;
+    durationFrames: number;
+    start?: [number, number, number];
+    end?: [number, number, number];
+    steps?: number;
+  }>;
 };
 type SceneInteractionView = {
   verb: string;
   actors: InteractionActorView[];
   propId?: string;
   speech?: string;
+  /** 台词气泡的出场时刻（0..1 场景进度）；缺省从第一帧就显示 */
+  speechAt?: number;
   caption?: string;
   /** 有它就按三维动作演出（三个条件同时满足：动作受支持、资源已登记、开关开启） */
   action3d?: Action3DView;
@@ -4284,13 +4377,19 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
             start: puppet.start,
             end: puppet.end,
             steps: puppet.steps,
-            durationFrames: puppet.durationFrames,
+            sequence: puppet.sequence,
+            // 用场景的真实帧数（已按旁白音频拉长），不用分镜时的估算：
+            // 差 20~30 帧就是"动作演完了人还僵在那儿"。
+            durationFrames: duration,
             accent,
             label: scene.interaction!.actors[0] ? scene.interaction!.actors[0].label : undefined,
             // 指认幕必须把被指的东西画出来，否则"指着空气"比原来的小图标更差。
             // 道具由这里渲染（PropArt 只在这个文件里），Puppet2D 只负责摆位置。
+            // 串演幕同理：point 可能不在第一段，光看 puppet.motion 会漏掉道具。
             props:
-              puppet.motion === "point" && scene.interaction!.propId
+              scene.interaction!.propId &&
+              (puppet.motion === "point" ||
+                (puppet.sequence || []).some((step) => step.motion === "point"))
                 ? [
                     {
                       ...pointSlot,
@@ -4309,6 +4408,7 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
                 frame={stageFrame}
               />
             ) : undefined,
+            overlayFrom: scene.interaction!.speechAt,
           }}
         />
       ) : hasInteraction ? (

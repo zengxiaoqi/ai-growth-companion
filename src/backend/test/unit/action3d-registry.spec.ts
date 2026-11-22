@@ -14,6 +14,7 @@ import {
   resolveAction3D,
   resolveActorRig,
   resolvePropKind,
+  resolvePuppetSequence,
 } from '../../src/modules/learning/video/action3d-registry';
 
 describe('resolveActorRig', () => {
@@ -80,5 +81,53 @@ describe('resolveAction3D', () => {
   it('滑梯的接触帧是落地点，即动作末帧', () => {
     const r = resolveAction3D({ renderer: '3d-procedural', motion: 'slide', actorId: 'bear' }, {});
     expect(r?.contactFrame).toBe(r?.durationFrames);
+  });
+});
+
+/**
+ * 一幕多动作的分帧。
+ *
+ * 这一层只做一件事：把"这一幕要演三下"翻译成"每一下各占多少帧"。
+ * 必须钉住的是**总帧数守恒**与**每段有下限**——0 帧段在渲染层等于抽帧式跳变，
+ * 比不演更糟，所以分不下去时宁可整串作废。
+ */
+describe('resolvePuppetSequence', () => {
+  const total = (seq: Array<{ durationFrames: number }>) =>
+    seq.reduce((sum, item) => sum + item.durationFrames, 0);
+
+  it('三段地面动作的总帧数正好等于场景帧数', () => {
+    const seq = resolvePuppetSequence(['walk', 'point', 'speak'], { sceneDurationFrames: 240 });
+    expect(seq).not.toBeNull();
+    expect(total(seq!)).toBe(240);
+    expect(seq!.map((item) => item.motion)).toEqual(['walk', 'point', 'speak']);
+  });
+
+  it('帧数按动作的自然时长分配：走路拿到的比指认多', () => {
+    const seq = resolvePuppetSequence(['walk', 'point'], { sceneDurationFrames: 240 })!;
+    expect(seq[0].durationFrames).toBeGreaterThan(seq[1].durationFrames);
+  });
+
+  it('每段至少 24 帧：短场景里也不给出 0 帧的段落', () => {
+    const seq = resolvePuppetSequence(['walk', 'point', 'speak'], { sceneDurationFrames: 96 });
+    if (seq) {
+      expect(Math.min(...seq.map((s) => s.durationFrames))).toBeGreaterThanOrEqual(24);
+      expect(total(seq)).toBe(96);
+    }
+  });
+
+  it('场景太短放不下两个动作时整串作废（返回 null，而不是挤出 0 帧段）', () => {
+    expect(resolvePuppetSequence(['walk', 'point'], { sceneDurationFrames: 30 })).toBeNull();
+  });
+
+  it('单个动作不构成序列，交回单动作路径', () => {
+    expect(resolvePuppetSequence(['walk'], { sceneDurationFrames: 240 })).toBeNull();
+  });
+
+  it('保留每个动作自己的默认轨迹：串演不改坐标，位移由注册表决定', () => {
+    const seq = resolvePuppetSequence(['walk', 'climb'], { sceneDurationFrames: 300 })!;
+    expect(seq[0].start).toEqual([-1.6, 0.66, 0]);
+    expect(seq[0].end).toEqual([0, 0.66, 0]);
+    expect(seq[1].start).toEqual([-0.55, 0.66, 0]);
+    expect(seq[1].end).toEqual([-0.55, 1.5, 0]);
   });
 });

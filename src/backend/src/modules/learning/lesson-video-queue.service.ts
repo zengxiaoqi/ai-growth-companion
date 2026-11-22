@@ -797,6 +797,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         // 整片只能靠 deriveInteractionFromText 的正则从旁白里猜动作——
         // 猜得出是运气，猜不出就退回静态构图。prompt 教了、装配层也接了，
         // 中间这一环断了等于全都没接上。
+        // performance 是同一类字段的新契约（一幕多动作），漏透传的后果一模一样。
+        ...(raw?.performance ? { performance: raw.performance } : {}),
         ...(raw?.interaction ? { interaction: raw.interaction } : {}),
       };
     });

@@ -20,6 +20,7 @@ import React from 'react';
 import {
   BALL_RADIUS,
   SPEC,
+  blendPose,
   clamp,
   dribblePose,
   poseAt,
@@ -46,6 +47,15 @@ import { LADDER, actorHeadTop, ladderTopY } from './setpiece';
 /** climb 的角色最高点：动作设计值（4 阶 × 0.21），不再承担"别撞标题"的职责 */
 const MAX_STAND_Y = 1.55;
 
+/** 一幕多动作里的一节。帧数由后端的注册表按"动作自然时长"分配，渲染层不重算。 */
+export type PuppetSegment = {
+  motion: MotionOp;
+  durationFrames: number;
+  start?: Tri;
+  end?: Tri;
+  steps?: number;
+};
+
 export type Puppet2DScene = {
   motion: MotionOp;
   rig: ActorRig;
@@ -55,6 +65,11 @@ export type Puppet2DScene = {
   bounce?: { periodFrames: number; height: number };
   ballRestY?: number;
   durationFrames: number;
+  /**
+   * 一幕多动作的播放表，按顺序播放。长度大于 1 时 `motion` 只作为兜底
+   * （例如序列为空的那一帧），实际姿态由当前所在的段落决定。
+   */
+  sequence?: PuppetSegment[];
   accent: string;
   label?: string;
   /**
@@ -65,6 +80,11 @@ export type Puppet2DScene = {
   props?: Array<{ x: number; y: number; size: number; label?: string; node: React.ReactNode }>;
   /** 漂浮在角色之上的覆盖层（对话气泡等 HTML 元素，不能塞进 SVG） */
   overlay?: React.ReactNode;
+  /**
+   * overlay 的出场时刻（0..1，按场景进度）。用于一幕多动作：台词气泡要等到
+   * 说话那一段再出现，否则"走过去→指一下→说话"的顺序在第一帧就被剧透了。
+   */
+  overlayFrom?: number;
   /**
    * 景别覆盖。不给就按动作自动判定（climb → wide，其余 → medium）。
    * 只影响取景，不影响动作本身：动作的世界坐标由后端定死。
@@ -337,34 +357,136 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
   const accent = scene.accent || '#4d96ff';
   const scale = rig.scale || 1;
 
-  const input: MotionInput = {
+  const toInput = (seg: PuppetSegment): MotionInput => ({
+    motion: seg.motion,
+    durationFrames: Math.max(1, seg.durationFrames),
+    start: seg.start,
+    end: seg.end,
+    steps: seg.steps,
+  });
+
+  /**
+   * 播放表：每一段带"入场偏移"carry。
+   *
+   * 为什么需要 carry：walk 的默认轨迹是"从画面左侧走到正中"（-1.6 → 0）。
+   * 如果第二段 point 仍按自己的绝对原点（0）播放，角色会从走到的位置瞬移回原点；
+   * 反过来，如果第二段 walk 也按 -1.6 起，角色会瞬移回左侧重走一遍。
+   * 所以每段的**起点被安放到上一段的终点**：carry = 上一段终点 − 本段局部起点。
+   * 位移量仍由各段自己的 start/end 决定，注册表仍然是唯一真源。
+   */
+  type Slice = { input: MotionInput; motion: MotionOp; from: number; durationFrames: number; carry: Tri };
+  const single: Slice = {
+    input: {
+      motion: scene.motion,
+      durationFrames: Math.max(1, scene.durationFrames),
+      start: scene.start,
+      end: scene.end,
+      steps: scene.steps,
+      bounce: scene.bounce,
+      ballRestY: scene.ballRestY,
+    },
     motion: scene.motion,
-    durationFrames: scene.durationFrames,
-    start: scene.start,
-    end: scene.end,
-    steps: scene.steps,
-    bounce: scene.bounce,
-    ballRestY: scene.ballRestY,
+    from: 0,
+    durationFrames: Math.max(1, scene.durationFrames),
+    carry: [0, 0, 0],
   };
-  const pose: Pose = poseAt(input, frame);
+
+  const plan: Slice[] = [];
+  if (scene.sequence && scene.sequence.length > 1) {
+    /**
+     * 拉伸系数：分镜给的时长是"这一幕该演多久"，而最终场景长度由**旁白音频**
+     * 决定（实测 8s 的幕会被拉到 8.8s）。不拉伸的后果很具体：动作在第 8 秒
+     * 演完，剩下的 0.8 秒角色僵在那里，而旁白还在说——观众看到的是"卡住了"。
+     * 只拉不压：场景比动作串短时宁可截掉尾巴，也不把动作挤到走形。
+     */
+    const planned = scene.sequence.reduce(
+      (sum, seg) => sum + Math.max(1, seg.durationFrames),
+      0,
+    );
+    const stretch = scene.durationFrames > planned ? scene.durationFrames / planned : 1;
+
+    let cursor: Tri | null = null;
+    let from = 0;
+    for (const seg of scene.sequence) {
+      const input: MotionInput = {
+        ...toInput(seg),
+        durationFrames: Math.max(1, Math.round(Math.max(1, seg.durationFrames) * stretch)),
+      };
+      const startPose = poseAt(input, 0);
+      const carry: Tri = cursor
+        ? [cursor[0] - startPose.root[0], cursor[1] - startPose.root[1], cursor[2] - startPose.root[2]]
+        : [0, 0, 0];
+      plan.push({ input, motion: seg.motion, from, durationFrames: input.durationFrames, carry });
+      const endPose = poseAt(input, input.durationFrames);
+      cursor = [
+        endPose.root[0] + carry[0],
+        endPose.root[1] + carry[1],
+        endPose.root[2] + carry[2],
+      ];
+      from += input.durationFrames;
+    }
+  }
+  if (!plan.length) plan.push(single);
+
+  const active = plan.find((slice) => frame < slice.from + slice.durationFrames) ?? plan[plan.length - 1];
+  // overlayFrom 是"场景进度的比例"，所以分母用场景帧数而不是动作串总帧数
+  const totalFrames = Math.max(1, scene.durationFrames);
+  const localFrame = clamp(frame - active.from, 0, active.durationFrames);
+  const activeIndex = plan.indexOf(active);
+  const activeMotion: MotionOp = active.motion;
+
+  const shift = (pose: Pose, carry: Tri): Pose => ({
+    ...pose,
+    root: [pose.root[0] + carry[0], pose.root[1] + carry[1], pose.root[2] + carry[2]],
+  });
+
+  let pose: Pose = shift(poseAt(active.input, localFrame), active.carry);
+  /**
+   * 段落接缝混合。硬切的现象很具体：走路末帧手臂在体侧、point 首帧手臂已平举，
+   * 一帧内跳过去，看起来像掉帧。8 帧线性混合后是"走两步，抬手指过去"。
+   * 只混姿态不混位置——位置已在 carry 里保证了连续。
+   */
+  const BLEND_FRAMES = 8;
+  if (activeIndex > 0 && localFrame < BLEND_FRAMES) {
+    const prev = plan[activeIndex - 1];
+    const prevPose = shift(poseAt(prev.input, prev.durationFrames), prev.carry);
+    const t = localFrame / BLEND_FRAMES;
+    pose = blendPose(prevPose, pose, t * t * (3 - 2 * t));
+  }
+
   const root = pose.root;
   // 拍球需要球本体：球心由同一个 dribblePose 算出，所以"掌搭球顶"和 3D 一样
-  // 是同一个变量决定的，不靠两条时间线对齐
-  const dribble = scene.motion === 'dribble' ? dribblePose(input, frame) : null;
+  // 是同一个变量决定的，不靠两条时间线对齐。串演序列里不会有 dribble。
+  const dribble =
+    activeMotion === 'dribble' ? dribblePose({ ...single.input, ...active.input }, localFrame) : null;
 
   // 朝向：向右走时镜像。没有 rotY 的动作按起点→终点决定，避免"倒着走"
-  const dirX = (scene.end?.[0] ?? 0) - (scene.start?.[0] ?? 0);
+  const dirX = (active.input.end?.[0] ?? 0) - (active.input.start?.[0] ?? 0);
   const facing: 1 | -1 =
     pose.rotY > 0.2 ? 1 : pose.rotY < -0.2 ? -1 : dirX < -0.05 ? -1 : 1;
 
-  const climb = scene.motion === 'climb';
+  /** 串演里的攀爬段：哪怕不是当前段，取景与梯子也要按它算 */
+  const climbSlice = plan.find((slice) => slice.motion === 'climb') ?? null;
+  const climb = !!climbSlice;
   // 每上一阶的高度：横档间距与它同源，所以手/脚永远落在横档附近
-  const climbStep = climb
-    ? ((scene.end?.[1] ?? SPEC.standHipY + 0.84) - (scene.start?.[1] ?? SPEC.standHipY)) /
-      Math.max(1, scene.steps ?? 4)
+  const climbStep = climbSlice
+    ? (poseAt(climbSlice.input, climbSlice.durationFrames).root[1] -
+        (climbSlice.input.start?.[1] ?? SPEC.standHipY)) /
+      Math.max(1, climbSlice.input.steps ?? 4)
     : 0.21;
   // 梯子要高过举起的手（站地时手在 1.54）：否则爬到一半就没有横档可抓了
-  const ladderTop = ladderTopY(Math.min(MAX_STAND_Y, scene.end?.[1] ?? SPEC.standHipY + 0.84));
+  const climbEndY = climbSlice
+    ? poseAt(climbSlice.input, climbSlice.durationFrames).root[1] + climbSlice.carry[1]
+    : SPEC.standHipY + 0.84;
+  const ladderTop = ladderTopY(Math.min(MAX_STAND_Y, climbEndY));
+  /**
+   * 梯子挂在爬梯段的落点上，不跟当前髋部走。
+   * 以前写的是 x={root[0]}——单幕爬梯时两者相等所以看不出问题，
+   * 但"走过去再爬"里，走路途中梯子会跟着角色横向平移，像被拖着走。
+   */
+  const ladderX = climbSlice
+    ? (climbSlice.input.start?.[0] ?? 0) + climbSlice.carry[0]
+    : root[0];
 
   /**
    * 取景：两个数分开问。
@@ -380,9 +502,17 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
    * 满尺寸留够空间，否则 giraffe(1.1) 会顶出去。
    */
   const subjectHeight = actorHeadTop(SPEC.standHipY, Math.max(1, scale));
-  const actorTop = actorHeadTop(Math.max(scene.end?.[1] ?? SPEC.standHipY, SPEC.standHipY), Math.max(1, scale));
+  /**
+   * 这一幕最高点：取**所有段落终点**的最大值，而不是只看最后一段。
+   * 只看最后一段的话，"爬上去再挥手"这种顺序会把 1.5 的高度算漏。
+   */
+  const peakY = plan.reduce(
+    (top, slice) => Math.max(top, poseAt(slice.input, slice.durationFrames).root[1] + slice.carry[1]),
+    SPEC.standHipY,
+  );
+  const actorTop = actorHeadTop(peakY, Math.max(1, scale));
   const worldHeight = climb ? Math.max(ladderTop, actorTop) : actorTop;
-  const shot = scene.shot ?? shotForMotion(scene.motion);
+  const shot = scene.shot ?? shotForMotion(climb ? 'climb' : activeMotion);
   const framing = framingFor({ contentHeight: worldHeight, subjectHeight }, shot);
 
   const cx = framing.centerX;
@@ -456,7 +586,7 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
         {/* 梯子必须在角色之前画（背景层），否则会盖住手脚 */}
         {climb ? (
           <Ladder
-            x={root[0]}
+            x={ladderX}
             baseY={0}
             topY={ladderTop}
             spacing={Math.max(LADDER.minRungSpacing, climbStep)}
@@ -625,8 +755,23 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
         </div>
       ) : null}
 
-      {/* 覆盖层：对话气泡这类 HTML 元素挂在角色之上 */}
-      {scene.overlay}
+      {/* 覆盖层：对话气泡这类 HTML 元素挂在角色之上。
+          出场时刻可延后（overlayFrom）：多动作幕里，气泡从第一帧就挂着等于剧透，
+          孩子还没看到"指"，台词已经先出现了。 */}
+      {scene.overlay ? (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            opacity:
+              scene.overlayFrom === undefined
+                ? 1
+                : clamp((frame / totalFrames - scene.overlayFrom) / 0.04, 0, 1),
+          }}
+        >
+          {scene.overlay}
+        </div>
+      ) : null}
 
       {/* 越界自检：climb 的参数如果给得太高，角色会顶出画面。
           这里不做自动缩放（那会让同一部片子里角色忽大忽小），

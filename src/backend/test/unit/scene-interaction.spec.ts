@@ -8,10 +8,12 @@
  */
 
 import {
+  composePerformance,
   deriveInteractionFromText,
   hasAnyMotionCue,
   hasThreeMotionCue,
   normalizeSceneInteraction,
+  normalizeScenePerformance,
 } from '../../src/modules/learning/video/scene-interaction';
 import { findAnimalMentions } from '../../src/modules/learning/animal-subjects.config';
 
@@ -358,3 +360,105 @@ describe('LLM 直接声明单人动作（不再只靠正则兜底）', () => {
   });
 });
 
+
+/**
+ * 演出契约（performance）：一幕多动作。
+ *
+ * 这组测试钉住的是"读契约"的边界，不是画面：模型写的顺序必须被保留、
+ * 演员表必须能继承、演不了的动作必须被明确丢掉（而不是静默消失）。
+ */
+describe('normalizeScenePerformance', () => {
+  const cast = [{ id: 'bear', label: '小熊', role: 'helper' }];
+
+  it('读取有序动作表，并让后续动作继承 performance.actors', () => {
+    const perf = normalizeScenePerformance({
+      actors: cast,
+      actions: [{ verb: 'walk' }, { verb: 'point', propId: 'slide' }, { verb: 'speak', speech: '看，这是滑梯' }],
+    });
+    expect(perf?.actions.map((a) => a.verb)).toEqual(['walk', 'point', 'speak']);
+    // 继承到位：每个动作都带上了演员，渲染层不用再按 index 找
+    expect(perf?.actions.every((a) => a.actors[0]?.id === 'bear')).toBe(true);
+    expect(perf?.actions[1].propId).toBe('slide');
+    expect(perf?.actions[2].speech).toBe('看，这是滑梯');
+  });
+
+  it('裸数组也收（模型偷懒时的常见形态）', () => {
+    const perf = normalizeScenePerformance([
+      { verb: 'walk', actors: cast },
+      { verb: 'cheer', actors: cast },
+    ]);
+    expect(perf?.actions).toHaveLength(2);
+  });
+
+  it('动作不合法就丢掉那一个，其余保留', () => {
+    const perf = normalizeScenePerformance({
+      actors: cast,
+      actions: [{ verb: 'walk' }, { verb: 'jump' }, { verb: 'point' }],
+    });
+    expect(perf?.actions.map((a) => a.verb)).toEqual(['walk', 'point']);
+  });
+
+  it('全部不合法 / 空表都返回 null，让上层回落而不是演半截', () => {
+    expect(normalizeScenePerformance({ actors: cast, actions: [{ verb: 'jump' }] })).toBeNull();
+    expect(normalizeScenePerformance({ actors: cast, actions: [] })).toBeNull();
+    expect(normalizeScenePerformance(null)).toBeNull();
+  });
+
+  it('相邻重复动作去重：模型写两次 walk 只会让角色原地卡住', () => {
+    const perf = normalizeScenePerformance({
+      actors: cast,
+      actions: [{ verb: 'walk' }, { verb: 'walk' }],
+    });
+    expect(perf?.actions).toHaveLength(1);
+  });
+
+  it('最多保留 3 个动作（再多就该拆幕，而不是挤在一个镜头里）', () => {
+    const perf = normalizeScenePerformance({
+      actors: cast,
+      actions: [{ verb: 'walk' }, { verb: 'point' }, { verb: 'speak' }, { verb: 'cheer' }],
+    });
+    expect(perf?.actions).toHaveLength(3);
+  });
+});
+
+describe('composePerformance', () => {
+  const cast = [{ id: 'bear', label: '小熊', role: 'helper' }];
+  const perf = (verbs: string[], extra: Array<Record<string, unknown>> = []) => ({
+    actions: verbs.map((verb, i) => ({
+      verb,
+      actors: cast,
+      ...(extra[i] || {}),
+    })),
+  }) as any;
+
+  it('地面动作按顺序串起来，主动作是第一个', () => {
+    const composed = composePerformance(perf(['walk', 'point', 'speak']));
+    expect(composed.primary.verb).toBe('walk');
+    expect(composed.motions).toEqual(['walk', 'point', 'speak']);
+    expect(composed.dropped).toEqual([]);
+  });
+
+  it('有三维动作时以它为主：先走两步不是这一幕要演的东西', () => {
+    const composed = composePerformance(perf(['walk', 'slide']));
+    expect(composed.primary.verb).toBe('slide');
+    expect(composed.motions).toEqual([]);
+    expect(composed.dropped).toEqual(['walk']);
+  });
+
+  it('双人动作必须当主动作（单角色骨架演不了），其余丢掉并记录', () => {
+    const composed = composePerformance(perf(['walk', 'handover']));
+    expect(composed.primary.verb).toBe('handover');
+    expect(composed.motions).toEqual([]);
+    expect(composed.dropped).toEqual(['walk']);
+  });
+
+  it('攀爬是终态：它之后的动作被丢弃，但攀爬本身要留着', () => {
+    const composed = composePerformance(perf(['climb', 'point']));
+    expect(composed.motions).toEqual(['climb']);
+    expect(composed.primary.verb).toBe('climb');
+    expect(composed.dropped).toEqual(['point']);
+
+    const walkThenClimb = composePerformance(perf(['walk', 'climb']));
+    expect(walkThenClimb.motions).toEqual(['walk', 'climb']);
+  });
+});

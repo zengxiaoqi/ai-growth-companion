@@ -177,6 +177,73 @@ export function resolvePuppet(
   };
 }
 
+/**
+ * 二维原语的"自然时长"（帧，@30fps）。
+ *
+ * 用途只有一个：一幕里串多个动作时，按这个比例分配帧数。
+ * 为什么不平均分：走路和举手在观众眼里的"该给多久"差一倍，
+ * 平均分会让走路像赶时间、指认像发呆。
+ */
+export const PUPPET_MOTION_FRAMES: Record<PuppetMotion, number> = {
+  idle: 60,
+  speak: 60,
+  point: 54,
+  cheer: 45,
+  sit: 60,
+  walk: 90,
+  enter: 75,
+  climb: 120,
+};
+
+/** 单段最短帧数：再短就看不出是一个动作，只剩关节抖动 */
+const MIN_SEGMENT_FRAMES = 24;
+
+/**
+ * 把一串动作分帧。
+ *
+ * 关键取舍：**宁可整串丢掉，也不给某一段 0 帧**。0 帧段在渲染层等于
+ * "瞬间切换姿态"，比不演更糟——观众看到的是抽帧式跳变。
+ * 所以分不下去（场景时长 < 段数×最小时长）就返回 null，让上层退回单动作。
+ */
+export function resolvePuppetSequence(
+  motions: unknown[],
+  context: { actorId?: string; sceneDurationFrames?: number; steps?: number } = {},
+): ResolvedPuppet[] | null {
+  const resolved = motions
+    .map((motion) => resolvePuppet(motion, { actorId: context.actorId, steps: context.steps }))
+    .filter((item): item is ResolvedPuppet => !!item);
+  if (resolved.length < 2) return null;
+
+  const sceneFrames =
+    context.sceneDurationFrames && context.sceneDurationFrames > 0 ? context.sceneDurationFrames : 120;
+  if (sceneFrames < resolved.length * MIN_SEGMENT_FRAMES) return null;
+
+  const weights = resolved.map((item) => PUPPET_MOTION_FRAMES[item.motion] || 60);
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  const frames = weights.map((w) =>
+    Math.max(MIN_SEGMENT_FRAMES, Math.round((sceneFrames * w) / total)),
+  );
+
+  // 取整误差落在最长的段上：它的相对误差最小，多/少几帧看不出来
+  const longest = frames.reduce((best, value, index) => (value > frames[best] ? index : best), 0);
+  let diff = sceneFrames - frames.reduce((sum, value) => sum + value, 0);
+  if (diff < 0) {
+    // 只能是"减到最小时长为止"，减不动的部分无法满足，整串作废
+    for (const index of frames.map((_, i) => i).sort((a, b) => frames[b] - frames[a])) {
+      if (diff === 0) break;
+      const take = Math.min(-diff, frames[index] - MIN_SEGMENT_FRAMES);
+      frames[index] -= take;
+      diff += take;
+    }
+  }
+  if (diff !== 0) {
+    if (diff > 0) frames[longest] += diff;
+    else return null;
+  }
+
+  return resolved.map((item, index) => ({ ...item, durationFrames: frames[index] }));
+}
+
 /** 动词到动作的默认映射：LLM 只给 verb 时也能演出 */
 const VERB_TO_MOTION: Record<string, Action3DMotion> = {
   slide: 'slide',

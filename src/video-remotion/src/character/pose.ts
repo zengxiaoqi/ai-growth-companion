@@ -87,6 +87,34 @@ export const STAND_POSE: Omit<Pose, "root"> = {
 };
 
 /**
+ * 两个姿态之间的线性混合（t=0 取 a，t=1 取 b）。
+ *
+ * 用途是一幕多动作的**段落接缝**：走路末帧手臂在体侧，point 首帧手臂已平举，
+ * 硬切会"啪"地跳一下。混合的是关节目标点，不是渲染结果——所以 2D 的两段肢体
+ * 求解、3D 的圆柱朝向都会自动跟上，不需要各自再写一份过渡。
+ *
+ * 不做弧线插值、不处理重心偏移：姿态差本来就是给人看的过渡，8 帧内线性足够；
+ * 弧线会让"抬手"变成"绕身体划一圈"，反而更假。
+ */
+export function blendPose(a: Pose, b: Pose, t: number): Pose {
+  const k = clamp(t, 0, 1);
+  const mix = (x: number, y: number) => x + (y - x) * k;
+  const mixPoint = (x: Tri, y: Tri): Tri => [mix(x[0], y[0]), mix(x[1], y[1]), mix(x[2], y[2])];
+  return {
+    root: mixPoint(a.root, b.root),
+    rotZ: mix(a.rotZ, b.rotZ),
+    rotY: mix(a.rotY, b.rotY),
+    handL: mixPoint(a.handL, b.handL),
+    handR: mixPoint(a.handR, b.handR),
+    footL: mixPoint(a.footL, b.footL),
+    footR: mixPoint(a.footR, b.footR),
+    tailSwing: mix(a.tailSwing, b.tailSwing),
+    headTilt: mix(a.headTilt, b.headTilt),
+    squash: mix(a.squash, b.squash),
+  };
+}
+
+/**
  * 动作原语。这是有限集，也是"字母表"：
  * 位移 5 个、操作 5 个、手势 4 个、状态 4 个，约 18 个足以覆盖儿童教学场景。
  * 新动作优先走"组合 + 参数 + 关键帧"，只有真正新的运动学拓扑才加到这里。

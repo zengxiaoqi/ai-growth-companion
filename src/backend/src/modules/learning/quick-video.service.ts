@@ -61,19 +61,24 @@ export class QuickVideoService {
 - 整体时长约 ${targetScenes * 8} 秒
 - 风格：${styleText}
 
-动作（写在 visualStory.scenes 的 interaction 里，可选但很重要）：
-- 只要这一幕里角色真的在动（而不是站着被讲解），就必须写 interaction，
-  否则画面只能画成"角色站着 + 道具在旁边"，孩子看不到动作。
+动作（写在 visualStory.scenes 的 performance 里，可选但很重要）：
+- 只要这一幕里角色真的在动（而不是站着被讲解），就必须写 performance。
+  它是一个**按时间排序的动作列表**，孩子看到的顺序就是数组顺序。
+- 只动一次就写 1 个动作；如果是"走过去 → 指着滑梯 → 说一句话"这样连续的两三下，
+  就把它们按顺序写进同一个 actions 数组，**不要拆成三幕**——拆开就是三次镜头切换，
+  孩子刚跟上动作画面就跳走了。一幕最多 3 个动作。
 - 能演的动作只有下面这些，不要发明新动词：
-  · 单人（actors 放 1 个人，role 写 "helper"）：walk 走过去/跑过去、climb 爬上去、
-    point 指着某物、speak 对着镜头说话、hold 举着某物、slide 从滑梯滑下来、
-    dribble 拍皮球
-  · 双人（actors 放 2 个人）：handover 把东西递给别人（role 写 giver + receiver）、
+  · 单人：walk 走过去/跑过去、climb 爬上去、point 指着某物、speak 对着镜头说话、
+    cheer 欢呼、sit 坐下、hold 举着某物、slide 从滑梯滑下来、dribble 拍皮球
+  · 双人：handover 把东西递给别人（role 写 giver + receiver）、
     lift-together 两人一起抬（role 写 helper + helper）
+- climb / slide / dribble 只能放在最后一个（它们结束时角色已在高处或滑行终点，
+  后面再接别的动作会瞬移）。
+- actors 只在 performance 层写一次，后续动作省略并自动继承；不要每个动作都重抄一遍。
 - actors 的 id 用英文小写名词（bear / rabbit / tiger），label 用旁白里的中文叫法（小熊 / 小兔）。
 - 有具体道具就写 propId：ball / cookie / apple / banana / book / block / table / slide / star / heart。
 - 只写意图，不要写坐标、高度、帧数、时长——画面几何与动作时长由渲染层决定，写了也会被忽略。
-- 这一幕没有明显动作（纯讲知识）就省略 interaction，不要硬凑。
+- 这一幕没有明显动作（纯讲知识）就省略 performance，不要硬凑。
 
 请严格按照以下 JSON 格式输出（不要包含其他文字）：
 
@@ -101,10 +106,13 @@ export class QuickVideoService {
         "onScreenText": "屏幕文字",
         "durationSec": 8,
         "animationTemplate": { "id": "dynamic.story-scene" },
-        "interaction": {
-          "verb": "walk | climb | point | speak | hold | slide | dribble | handover | lift-together",
+        "performance": {
           "actors": [{ "id": "bear", "label": "小熊", "role": "helper" }],
-          "propId": "slide"
+          "actions": [
+            { "verb": "walk" },
+            { "verb": "point", "propId": "slide" },
+            { "verb": "speak", "speech": "看，这就是滑梯" }
+          ]
         }
       }
     ]

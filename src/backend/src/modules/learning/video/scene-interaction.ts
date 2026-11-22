@@ -32,6 +32,11 @@ export const INTERACTION_VERBS = [
   // 把单人动作纳入语法，语义仍是"这一幕在演什么动作"，不再是"谁对谁做"。
   'climb',
   'walk',
+  // 情绪与状态：renderer 早就能演（pose.ts 的 cheer/sit），但契约里一直没有对应
+  // 动词，于是模型写"高兴地欢呼"只能落回静态构图。补上动词而不是让 prompt 绕开——
+  // 能力表的意义就是"渲染器会的，模型也能选"。
+  'cheer',
+  'sit',
 ] as const;
 export type InteractionVerb = (typeof INTERACTION_VERBS)[number];
 
@@ -60,6 +65,24 @@ export type Action3DMotion = (typeof ACTION3D_MOTIONS)[number];
  */
 export const PUPPET_MOTIONS = ['idle', 'speak', 'point', 'walk', 'enter', 'climb', 'cheer', 'sit'] as const;
 export type PuppetMotion = (typeof PUPPET_MOTIONS)[number];
+
+/**
+ * 动词 → 二维动作原语。
+ *
+ * 放在契约层而不是装配层，因为它回答的是"这个 verb 渲染器能不能演"，
+ * 属于能力表。以前这张表写在装配层，generate-video-content 的白名单又另抄
+ * 一份，两处一漂移就会出现"提示词允许 jump、渲染器不认识 jump"。
+ * 没有映射的动词（handover / lift-together / hold）代表"单角色骨架演不了"，
+ * 需要双人舞台或徽章分支——这是真实的渲染器边界，不是遗漏。
+ */
+export const VERB_AS_MOTION: Partial<Record<InteractionVerb, PuppetMotion>> = {
+  point: 'point',
+  speak: 'speak',
+  climb: 'climb',
+  walk: 'walk',
+  cheer: 'cheer',
+  sit: 'sit',
+};
 
 export interface PuppetAction {
   motion: PuppetMotion;
@@ -156,6 +179,10 @@ function normalizeVerb(input: unknown): InteractionVerb | null {
     拍球: 'dribble',
     拍皮球: 'dribble',
     运球: 'dribble',
+    欢呼: 'cheer',
+    高兴: 'cheer',
+    坐下: 'sit',
+    坐着: 'sit',
   };
   if (zh[value]) return zh[value];
   return VERB_SET.has(value) ? (value as InteractionVerb) : null;
@@ -287,6 +314,141 @@ export function normalizeSceneInteraction(raw: unknown): SceneInteraction | null
     ...(caption ? { caption } : {}),
     ...(action3d ? { action3d } : {}),
   };
+}
+
+/**
+ * 一幕的演出：**按时间排序**的动作序列。
+ *
+ * 为什么不是继续扩展 interaction：interaction 的语义是"谁对谁做什么"，
+ * 是**一个关系**。但孩子看到的一组动作常常是"走过来 → 指着滑梯 → 说一句话"，
+ * 这是三个动作。以前只能拆成三幕，代价是三次镜头切换——孩子刚跟上动作就跳走了。
+ *
+ * 契约形态刻意做成"动作数组 + 继承的 actors"：
+ *  - actions 的顺序就是播放顺序，渲染层不需要再猜时间；
+ *  - actors 写在 performance 层，各 action 可省略并继承，模型少写很多重复字段
+ *    （重复字段一多，模型就开始漏写 label 或写错 role）。
+ *
+ * 与 interaction 的关系：**performance 优先，interaction 只作兼容读**。
+ * 旧分镜（含已缓存的）没有 performance，走 interaction 或文案兜底，
+ * 画面与改动前一致——这是"换契约不换画面"的边界。
+ */
+export interface ScenePerformance {
+  actions: SceneInteraction[];
+}
+
+/** 一屏最多串三个动作：再多就不是"一个镜头里的连贯动作"，而是该拆幕了 */
+export const PERFORMANCE_MAX_ACTIONS = 3;
+
+/**
+ * 串演会撞上的"终态动作"：做完它，角色已经在高处或滑行终点，
+ * 再接一个从地面站姿开始的动作就会瞬移。所以它必须是最后一个。
+ */
+export const TERMINAL_MOTIONS: ReadonlySet<PuppetMotion> = new Set<PuppetMotion>(['climb']);
+
+/** 该动作需要三维舞台（接触关系）或双人舞台？ */
+function requiresOtherStage(action: SceneInteraction): boolean {
+  if (action.action3d) return true;
+  if (action.verb === 'slide' || action.verb === 'dribble') return true;
+  return false;
+}
+
+function motionOf(action: SceneInteraction): PuppetMotion | null {
+  return action.puppet?.motion ?? VERB_AS_MOTION[action.verb] ?? null;
+}
+
+/**
+ * 校验 LLM 输出的演出序列。
+ *
+ * 两种写法都收：`{ actions: [...] }` 与裸数组。前者能带共享的 actors，
+ * 后者是模型偷懒时的常见形态——两种都拒绝会白白丢掉一幕的动作。
+ */
+export function normalizeScenePerformance(raw: unknown): ScenePerformance | null {
+  if (!raw) return null;
+  const source = raw as Record<string, unknown>;
+  const list = Array.isArray(raw)
+    ? raw
+    : Array.isArray(source.actions)
+      ? (source.actions as unknown[])
+      : null;
+  if (!list || list.length === 0) return null;
+
+  // performance.actors 是默认演员表，各 action 没写 actors 时继承
+  const defaults = Array.isArray(source.actors) ? source.actors : null;
+
+  const actions: SceneInteraction[] = [];
+  for (const item of list.slice(0, PERFORMANCE_MAX_ACTIONS)) {
+    const merged =
+      defaults && item && typeof item === 'object' && !Array.isArray((item as Record<string, unknown>).actors)
+        ? { actors: defaults, ...(item as Record<string, unknown>) }
+        : item;
+    const action = normalizeSceneInteraction(merged);
+    if (!action) continue;
+    // 模型偶尔把同一个动作写两遍（"walk, walk"）：重复动作只会让画面卡住
+    const prev = actions[actions.length - 1];
+    if (prev && prev.verb === action.verb && (prev.propId || '') === (action.propId || '')) continue;
+    actions.push(action);
+  }
+  return actions.length ? { actions } : null;
+}
+
+export interface ComposedPerformance {
+  /** 这一幕的主动作：决定用哪个渲染器（3D / 双人舞台 / 2D 骨架） */
+  primary: SceneInteraction;
+  /**
+   * 可串演的动作原语（长度 1 表示只有 primary 一个动作）。
+   * 只有地面动作能串：攀爬/滑降是终态，后面不能再接。
+   */
+  motions: PuppetMotion[];
+  /** 被丢掉的动作，供上层记 warn——静默丢动作用于排查"这一幕怎么没动" */
+  dropped: InteractionVerb[];
+}
+
+/**
+ * 把演出序列压成"一个主动作 + 一条可播放的动作串"。
+ *
+ * 取舍顺序（不是随便定的）：
+ *  1. 有需要三维/双人舞台的动作 → 以它为主，其余全丢。语义上它是这一幕的核心，
+ *     换成"先走两步"当主动作会把真正要演的关系演丢。
+ *  2. 否则按顺序串地面动作；遇到终态动作（climb）就收尾。
+ *  3. 串不动的一律进 dropped，由上层记录，不静默。
+ */
+export function composePerformance(performance: ScenePerformance): ComposedPerformance {
+  const actions = performance.actions;
+
+  const stageAction = actions.find((a) => requiresOtherStage(a) || !motionOf(a));
+  if (stageAction) {
+    return {
+      primary: stageAction,
+      motions: [],
+      dropped: actions.filter((a) => a !== stageAction).map((a) => a.verb),
+    };
+  }
+
+  const kept: SceneInteraction[] = [];
+  const motions: PuppetMotion[] = [];
+  const dropped: InteractionVerb[] = [];
+
+  for (let i = 0; i < actions.length; i += 1) {
+    const action = actions[i];
+    const motion = motionOf(action);
+    if (!motion) {
+      dropped.push(action.verb);
+      continue;
+    }
+    kept.push(action);
+    motions.push(motion);
+    // 终态动作：演完就到这一幕的结尾，后面的动作接不上。
+    // 注意不能只是"跳过这一个"——那会让画面演成"先指一下，再爬上去"，
+    // 顺序反了，比不演更糟。
+    if (TERMINAL_MOTIONS.has(motion)) {
+      dropped.push(...actions.slice(i + 1).map((a) => a.verb));
+      break;
+    }
+  }
+
+  // 主动作必须是**第一个真正会播的**动作：它是 interaction 契约里 verb 的来源。
+  // 若它和序列首项不一致，渲染层会出现"契约说 climb、播放表从 point 开始"的分裂。
+  return { primary: kept[0] ?? actions[0], motions, dropped };
 }
 
 /**

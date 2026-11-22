@@ -35,6 +35,7 @@ export interface ToolActorContext {
 
 const LOW: ToolRiskPolicy = { risk: 'low', requiresParentApproval: false };
 const MEDIUM: ToolRiskPolicy = { risk: 'medium', requiresParentApproval: false };
+const MEDIUM_PARENT: ToolRiskPolicy = { risk: 'medium', requiresParentApproval: true };
 const HIGH_PARENT: ToolRiskPolicy = { risk: 'high', requiresParentApproval: true };
 
 /**
@@ -65,6 +66,9 @@ const POLICIES: Record<string, ToolRiskPolicy> = {
   updateParentControl: HIGH_PARENT,
   createGift: HIGH_PARENT,
   createBehaviorTemplate: HIGH_PARENT,
+
+  // ── open-web content: parent-only, never directly reachable by a child ──
+  webSearch: MEDIUM_PARENT,
 
   // ── expensive / slow side effects ──────────────────────────────────
   generateCoursePack: MEDIUM,

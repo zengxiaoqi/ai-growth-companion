@@ -1250,6 +1250,7 @@ export class AiService {
     includeAudio?: boolean;
     includeVideo?: boolean;
     parentPrompt?: string;
+    useWebSearch?: 'auto' | 'on' | 'off' | boolean;
     sessionId?: string;
     viewerId?: number;
     viewerType?: string;
@@ -1288,6 +1289,7 @@ export class AiService {
       includeAudio: params.includeAudio,
       includeVideo: params.includeVideo,
       parentPrompt: params.parentPrompt || params.topic,
+      useWebSearch: params.useWebSearch,
     });
 
     let parsed: Record<string, any>;
@@ -1349,6 +1351,7 @@ export class AiService {
     includeAudio?: boolean;
     includeVideo?: boolean;
     parentPrompt?: string;
+    useWebSearch?: 'auto' | 'on' | 'off' | boolean;
     sessionId?: string;
     startDate?: string;
     days?: number;
@@ -1394,6 +1397,7 @@ export class AiService {
           includeAudio: params.includeAudio,
           includeVideo: params.includeVideo,
           parentPrompt: dayPrompt,
+          useWebSearch: params.useWebSearch,
           sessionId: params.sessionId,
           viewerId: params.viewerId,
           viewerType: params.viewerType,

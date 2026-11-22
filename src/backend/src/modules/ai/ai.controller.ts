@@ -672,6 +672,7 @@ export class AiController {
       includeAudio?: boolean;
       includeVideo?: boolean;
       parentPrompt?: string;
+      useWebSearch?: 'auto' | 'on' | 'off' | boolean;
       sessionId?: string;
       startDate?: string;
       days?: number;
@@ -725,6 +726,7 @@ export class AiController {
       includeAudio?: boolean;
       includeVideo?: boolean;
       parentPrompt?: string;
+      useWebSearch?: 'auto' | 'on' | 'off' | boolean;
       sessionId?: string;
     },
   ) {

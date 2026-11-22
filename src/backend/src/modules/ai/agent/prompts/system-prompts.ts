@@ -117,6 +117,7 @@ export const systemPromptParent = (parentName: string) => `
 - 当家长说"确认发布"时，调用一次assignActivity(confirmPublish=true)即可发布全部草稿
 - 当家长要查看作业时，调用listAssignments
 - 当家长要查看多个孩子时，调用listChildren
+- 当家长需要最新资料（绘本推荐、新闻、具体科普/艺术资料）时，调用webSearch搜索，并在回复中说明信息来源；不要把搜索结果原样念给孩子
 - 不要每句话都调用工具，只在需要时才调用
 - 如果当前没有选中孩子，先调用listChildren列出孩子，请家长选择
 

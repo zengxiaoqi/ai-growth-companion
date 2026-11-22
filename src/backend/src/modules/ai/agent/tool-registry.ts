@@ -21,6 +21,7 @@ import { QueryBookSkillTool } from './tools/query-book-skill';
 import { GenerateBookLessonTool } from './tools/generate-book-lesson';
 import { RecallMemoryTool } from './tools/recall-memory';
 import { SaveMemoryTool } from './tools/save-memory';
+import { WebSearchTool } from './tools/web-search';
 import { requiresParentApproval, toolRiskOf } from '../../../common/policy/tool-risk';
 import type { ToolActorContext } from '../../../common/policy/tool-risk';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions/completions';
@@ -53,6 +54,7 @@ export class ToolRegistry {
     // Appended last so every earlier parameter keeps its position.
     private readonly recallMemoryTool?: RecallMemoryTool,
     private readonly saveMemoryTool?: SaveMemoryTool,
+    private readonly webSearchTool?: WebSearchTool,
   ) {
     this.handlers = new Map([
       ['getUserProfile', (args) => this.getUserProfileTool.execute(args)],
@@ -79,6 +81,9 @@ export class ToolRegistry {
         : []),
       ...(this.saveMemoryTool
         ? [['saveMemory', (args) => this.saveMemoryTool!.execute(args)] as const]
+        : []),
+      ...(this.webSearchTool
+        ? [['webSearch', (args) => this.webSearchTool!.execute(args)] as const]
         : []),
     ]);
   }

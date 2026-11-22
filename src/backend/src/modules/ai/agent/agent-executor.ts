@@ -228,7 +228,7 @@ export class AgentExecutor {
       ...toLlmMessages(rawHistory),
     ];
 
-    const tools = this.toolRegistry.getToolDefinitions() as any;
+    const tools = this.visibleToolDefinitions(ageGroup);
     const toolCallLog: ToolCallInfo[] = [];
 
     // Agent loop
@@ -338,6 +338,17 @@ export class AgentExecutor {
   }
 
   /**
+   * Web content is parent-facing only. The legacy executor serves both
+   * child and parent chats from one tool list, so hide the definition from
+   * child turns here; the shared risk policy blocks a direct call anyway.
+   */
+  private visibleToolDefinitions(ageGroup: AgeGroup | 'parent'): any {
+    const definitions = this.toolRegistry.getToolDefinitions() as any[];
+    if (ageGroup === 'parent') return definitions;
+    return definitions.filter((definition: any) => definition?.function?.name !== 'webSearch');
+  }
+
+  /**
    * Streaming version of execute.
    * Tool-call rounds use non-streaming; only the final text response streams.
    */
@@ -378,7 +389,7 @@ export class AgentExecutor {
       { role: 'system', content: systemPrompt },
       ...toLlmMessages(rawHistory),
     ];
-    const tools = this.toolRegistry.getToolDefinitions() as any;
+    const tools = this.visibleToolDefinitions(ageGroup);
     const toolCallLog: ToolCallInfo[] = [];
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {

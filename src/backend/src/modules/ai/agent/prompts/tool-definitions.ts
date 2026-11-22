@@ -77,6 +77,27 @@ export const toolDefinitions: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'webSearch',
+      description:
+        'Search the public web for up-to-date facts, book/song/science/art references, or real-world examples. Parent-facing: use results as background only and never read them verbatim to a child.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search query, one sentence or keywords' },
+          maxResults: {
+            type: 'number',
+            minimum: 1,
+            maximum: 10,
+            description: 'Number of results to return, default 5',
+          },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'getRecommendations',
       description: 'Get personalized learning recommendations for a child.',
       parameters: {
@@ -409,6 +430,12 @@ export const toolDefinitions: ChatCompletionTool[] = [
           parentPrompt: {
             type: 'string',
             description: 'Original parent request sentence',
+          },
+          useWebSearch: {
+            type: 'string',
+            enum: ['auto', 'on', 'off'],
+            description:
+              'Whether to look up supplementary material on the web before generating. auto = decide from the request; on = always; off = never',
           },
         },
         required: ['topic'],

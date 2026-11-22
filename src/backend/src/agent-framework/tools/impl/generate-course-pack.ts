@@ -29,6 +29,7 @@ type GenerateCoursePackInput = {
   includeAudio?: boolean;
   includeVideo?: boolean;
   parentPrompt?: string;
+  useWebSearch?: 'auto' | 'on' | 'off' | boolean;
 };
 
 @Injectable()
@@ -70,6 +71,11 @@ export class GenerateCoursePackTool extends BaseTool<GenerateCoursePackInput> {
           description: '是否包含视频模块(默认true)',
         },
         parentPrompt: { type: 'string', description: '家长额外要求' },
+        useWebSearch: {
+          type: 'string',
+          enum: ['auto', 'on', 'off'],
+          description: '生成前是否联网补充资料：auto 按需判断，on 总是搜索，off 从不搜索',
+        },
       },
       required: ['topic'],
     },

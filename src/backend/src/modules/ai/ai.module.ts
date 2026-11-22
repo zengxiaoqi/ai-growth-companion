@@ -33,6 +33,7 @@ import { QueryBookSkillTool } from './agent/tools/query-book-skill';
 import { GenerateBookLessonTool } from './agent/tools/generate-book-lesson';
 import { RecallMemoryTool } from './agent/tools/recall-memory';
 import { SaveMemoryTool } from './agent/tools/save-memory';
+import { WebSearchTool as LegacyWebSearchTool } from './agent/tools/web-search';
 import { GenerateVideoDataTool } from './agent/tools/generate-video-data';
 import { BookSkillModule } from '../book-skill/book-skill.module';
 import { ReportModule } from '../report/report.module';
@@ -43,6 +44,7 @@ import { RewardModule } from '../reward/reward.module';
 import { SafetyModule } from '../safety/safety.module';
 import { MemoryModule } from '../memory/memory.module';
 import { CareModule } from '../care/care.module';
+import { WebSearchModule } from '../web-search/web-search.module';
 
 // Reward tools
 import { GetPointsSummaryTool } from './agent/tools/get-points-summary';
@@ -99,6 +101,7 @@ import { PlayMusicTool as FwPlayMusic } from '../../agent-framework/tools/impl/p
     SafetyModule,
     MemoryModule,
     CareModule,
+    WebSearchModule,
     ConfigModule,
     // New agent framework
     AgentFrameworkModule,
@@ -141,6 +144,7 @@ import { PlayMusicTool as FwPlayMusic } from '../../agent-framework/tools/impl/p
     // Long-term memory tools (memory module owns the gates)
     RecallMemoryTool,
     SaveMemoryTool,
+    LegacyWebSearchTool,
     GetPointRecordsTool,
     GetTodayRecordsTool,
     GetWeeklyStatsTool,

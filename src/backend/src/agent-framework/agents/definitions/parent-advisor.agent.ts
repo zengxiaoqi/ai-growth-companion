@@ -51,6 +51,7 @@ function buildParentSystemPrompt(context: AgentContext): string {
 - 工具描述里写了各自的使用时机，按描述匹配家长意图调用
 - 不要每句话都调用工具，只在需要时才调用
 - 如果当前没有选中孩子，先调用listChildren列出孩子，请家长选择
+- 需要最新资料（绘本推荐、新闻、具体科普/艺术资料）时，调用webSearch搜索，并在回复中说明来源；搜索结果只作背景，不要原样念给孩子
 - 点歌/故事等卡片类工具成功后只用一句话回应，卡片会自动出现并播放，不要念链接或列表
 
 ## 禁止事项
@@ -84,6 +85,7 @@ export const parentAdvisorDefinition: AgentDefinition = {
     'updateParentControl',
     'getParentControl',
     'generateCoursePack',
+    'webSearch',
     'enqueueTeachingVideo',
     'listAssignments',
     'loadSkill',

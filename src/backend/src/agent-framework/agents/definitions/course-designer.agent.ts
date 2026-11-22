@@ -54,6 +54,7 @@ export const courseDesignerDefinition: AgentDefinition = {
     'generateCoursePack',
     'generateActivity',
     'searchContent',
+    'webSearch',
     'enqueueTeachingVideo',
     'generateVideoContent',
     'executeCommand',

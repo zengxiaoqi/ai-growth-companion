@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { LlmClientService } from '../../../../agent-framework/llm/llm-client.service';
 import { GenerateActivityTool, type ActivityType } from './generate-activity';
 import { ACTIVITY_TYPES as CORE_ACTIVITY_TYPES } from '../../../../agent-framework/core/types/tool-metadata';
@@ -26,6 +26,13 @@ import {
   findKnowledgeCard,
   knowledgeCardFactLines,
 } from '../../../../common/learning/knowledge-card-registry';
+import { WebSearchService } from '../../../web-search/web-search.service';
+import {
+  buildCourseSearchQuery,
+  normalizeWebSearchMode,
+  shouldSearchForCourse,
+} from '../../../web-search/web-search-intent';
+import type { CourseResearch, WebSearchMode } from '../../../web-search/web-search.types';
 
 type AgeGroup = '3-4' | '5-6';
 type CourseDomain = 'language' | 'math' | 'science' | 'art' | 'social';
@@ -40,6 +47,7 @@ type GenerateCoursePackArgs = {
   includeAudio?: boolean;
   includeVideo?: boolean;
   parentPrompt?: string;
+  useWebSearch?: 'auto' | 'on' | 'off' | boolean;
 };
 
 type NormalizedArgs = {
@@ -53,6 +61,7 @@ type NormalizedArgs = {
   parentPrompt: string;
   domain: CourseDomain;
   gameType: ActivityType;
+  useWebSearch: WebSearchMode;
 };
 
 type JsonParseResult = {
@@ -71,19 +80,21 @@ export class GenerateCoursePackTool {
   constructor(
     private readonly llmClient: LlmClientService,
     private readonly generateActivityTool: GenerateActivityTool,
+    @Optional() private readonly webSearchService?: WebSearchService,
   ) {}
 
   async execute(args: GenerateCoursePackArgs): Promise<string> {
     const normalized = this.normalizeArgs(args);
     // Warm the knowledge card before any sync seed lookup; never blocks on failure.
     await ensureKnowledgeCard(normalized.topic, normalized.ageGroup, normalized.domain);
+    const research = await this.collectResearch(normalized);
     const gameBundle = normalized.includeGame ? await this.generateGameBundle(normalized) : null;
     const failures: string[] = [];
     const reflections: string[] = [];
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       try {
-        const prompt = this.buildPrompt(normalized, attempt, failures, reflections);
+        const prompt = this.buildPrompt(normalized, attempt, failures, reflections, research);
         this.logger.log(
           `[generateCoursePack] llm_request ${JSON.stringify({
             attempt,
@@ -136,7 +147,7 @@ export class GenerateCoursePackTool {
           continue;
         }
 
-        const coursePack = this.sanitizeCoursePack(normalized, parsed.value, gameBundle);
+        const coursePack = this.sanitizeCoursePack(normalized, parsed.value, gameBundle, research);
         return JSON.stringify(coursePack);
       } catch (error: any) {
         const reason = error?.message || 'unknown';
@@ -146,7 +157,47 @@ export class GenerateCoursePackTool {
     }
 
     this.logger.warn(`generateCoursePack fell back to template. ${failures.join(' | ')}`);
-    return JSON.stringify(this.fallbackCoursePack(normalized, gameBundle));
+    return JSON.stringify(this.fallbackCoursePack(normalized, gameBundle, research));
+  }
+
+  /**
+   * Optional pre-generation lookup. Any failure (disabled provider, timeout,
+   * bad response) leaves the course pack untouched — research is an
+   * enrichment, never a dependency.
+   */
+  private async collectResearch(args: NormalizedArgs): Promise<CourseResearch | null> {
+    const service = this.webSearchService;
+    if (!service?.isEnabled) return null;
+    if (args.useWebSearch === 'off' || service.courseMode === 'off') return null;
+
+    const forced = args.useWebSearch === 'on' || service.courseMode === 'on';
+    if (
+      !forced &&
+      !shouldSearchForCourse({
+        topic: args.topic,
+        parentPrompt: args.parentPrompt,
+        domain: args.domain,
+      })
+    ) {
+      return null;
+    }
+
+    const query = buildCourseSearchQuery({ topic: args.topic, domain: args.domain });
+    try {
+      const results = await service.search(query, { maxResults: 5 });
+      if (!results.length) return null;
+      this.logger.log(
+        `[generateCoursePack] web_research ${JSON.stringify({
+          topic: args.topic,
+          provider: service.provider,
+          resultCount: results.length,
+        })}`,
+      );
+      return { query, provider: service.provider, results };
+    } catch (error: any) {
+      this.logger.warn(`generateCoursePack web research skipped: ${error?.message || 'unknown'}`);
+      return null;
+    }
   }
 
   private async generateCoursePackJson(prompt: string): Promise<string> {
@@ -282,6 +333,7 @@ export class GenerateCoursePackTool {
     attempt: number,
     failures: string[],
     reflections: string[] = [],
+    research?: CourseResearch | null,
   ): string {
     const retryNote = failures.length
       ? `Previous issues:\n${failures
@@ -408,6 +460,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
       ...this.outputModuleRequirements(args),
       '',
       ...this.knowledgeCardPromptBlock(args),
+      ...this.researchPromptBlock(research),
       'Animation templates:',
       buildTemplatePromptContext(),
       `MANDATORY: Every visualStory scene MUST have an "animationTemplate" field. Domain-specific defaults: ${args.domain}→${this.getDefaultTemplate(args.domain)}. Choose the MOST specific template matching the scene content. Always provide appropriate animationParams.`,
@@ -427,6 +480,26 @@ ${this.outputModuleSchemaBlock(args.domain)}
       ...(card.misconceptions.length > 0
         ? ['Common misconceptions to avoid:', ...card.misconceptions.map((m) => `- ${m}`)]
         : []),
+      '',
+    ];
+  }
+
+  private researchPromptBlock(research?: CourseResearch | null): string[] {
+    if (!research?.results?.length) return [];
+    return [
+      '## Web research notes (supplementary background, NOT shown to the child):',
+      `Search query: ${research.query}`,
+      '- Use these notes only to make facts, examples and details more specific and accurate.',
+      '- Never copy long passages; rewrite everything in your own warm teacher voice.',
+      '- Ignore anything unsafe, off-topic, or unsuitable for ages 3-6.',
+      '- Facts in the knowledge card above override these notes when they conflict.',
+      '- Do NOT mention URLs, search results, or that you searched the web in learner-facing text.',
+      ...research.results
+        .slice(0, 5)
+        .map(
+          (result, index) =>
+            `${index + 1}. ${result.title} — ${result.snippet}${result.site ? ` (${result.site})` : ''}`,
+        ),
       '',
     ];
   }
@@ -622,6 +695,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
       instructions: string;
       activityData: Record<string, any>;
     } | null,
+    research?: CourseResearch | null,
   ): Record<string, any> {
     const curriculumSeed = this.getCurriculumSeed(args);
     const outcomes = this.toStringArray(
@@ -732,6 +806,20 @@ ${this.outputModuleSchemaBlock(args.domain)}
         ]),
       },
       parentPrompt: args.parentPrompt,
+      ...(research?.results?.length
+        ? {
+            research: {
+              query: research.query,
+              provider: research.provider,
+              searchedAt: new Date().toISOString(),
+              sources: research.results.slice(0, 5).map((result) => ({
+                title: result.title,
+                url: result.url,
+                site: result.site,
+              })),
+            },
+          }
+        : {}),
       generatedAt: new Date().toISOString(),
     };
 
@@ -808,8 +896,9 @@ ${this.outputModuleSchemaBlock(args.domain)}
       instructions: string;
       activityData: Record<string, any>;
     } | null,
+    research?: CourseResearch | null,
   ): Record<string, any> {
-    return this.sanitizeCoursePack(args, {}, gameBundle);
+    return this.sanitizeCoursePack(args, {}, gameBundle, research);
   }
 
   private normalizeReadingModule(
@@ -1659,6 +1748,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
       includeVideo: this.toBoolean(args?.includeVideo, true),
       parentPrompt,
       domain,
+      useWebSearch: normalizeWebSearchMode((args as any)?.useWebSearch, 'auto'),
       gameType:
         this.toText((args as any)?.gameType) && ACTIVITY_TYPES.includes((args as any).gameType)
           ? (args as any).gameType

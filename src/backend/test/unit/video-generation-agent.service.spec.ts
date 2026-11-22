@@ -289,6 +289,43 @@ describe('VideoGenerationAgentService', () => {
   });
 
   // 背景分档的判定：以前所有场景都铺同一片森林，因为默认 habitat 就是 forest
+  it('picks the animal named in the visual description instead of the first rabbit keyword', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(
+      {
+        title: '学会分享',
+        topic: '学会分享',
+        domain: 'social',
+        totalDurationSec: 12,
+        sceneCount: 2,
+        scenes: [
+          {
+            id: 'scene-1',
+            sequence: 1,
+            title: '礼貌用语',
+            concept: '借玩具',
+            narration: '兔兔想玩，请你看着小熊的眼睛说可以借我玩吗。',
+            onScreenText: '可以借我玩吗？',
+            visualDescription: '小熊把红色皮球递出去，旁边有饼干',
+            durationSec: 6,
+          },
+        ],
+      } as any,
+      { domain: 'social', ageGroup: '5-6' },
+    );
+
+    const scene: any = (manifest.props as any).scenes[0];
+    expect(scene.assetKey).toBe('bear');
+    expect(scene.generatedVisual).toContain('bear');
+    expect(scene.props).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'ball' }),
+        expect.objectContaining({ id: 'cookie' }),
+      ]),
+    );
+    expect(manifest.files.map((file) => file.content).join('\n')).toContain('PropArt');
+  });
+
   describe('resolveBackgroundStyle', () => {
     const service = createService();
 

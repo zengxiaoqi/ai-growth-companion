@@ -54,15 +54,128 @@ export const ANIMAL_SUBJECTS: AnimalSubjectConfig[] = [
   },
 ];
 
+/**
+ * 中文动物名 → 稳定 id。放在模块级，既供「认识动物X」兜底，
+ * 也供 findAnimalSubject 做通用动物识别——小熊、熊猫、小狗等角色
+ * 虽然不在 ANIMAL_SUBJECTS 里，但矢量库有对应素材，应当能被画出来。
+ */
+const CN_ANIMAL_MAP: Record<string, string> = {
+  虎: 'tiger',
+  老虎: 'tiger',
+  兔: 'rabbit',
+  兔子: 'rabbit',
+  小兔: 'rabbit',
+  兔兔: 'rabbit',
+  猴: 'monkey',
+  猴子: 'monkey',
+  小猴: 'monkey',
+  海豚: 'dolphin',
+  大象: 'elephant',
+  象: 'elephant',
+  狮子: 'lion',
+  狮: 'lion',
+  熊猫: 'panda',
+  大熊猫: 'panda',
+  猫: 'cat',
+  小猫: 'cat',
+  狗: 'dog',
+  小狗: 'dog',
+  鱼: 'fish',
+  小鱼: 'fish',
+  鸟: 'bird',
+  小鸟: 'bird',
+  蛇: 'snake',
+  乌龟: 'turtle',
+  龟: 'turtle',
+  青蛙: 'frog',
+  蛙: 'frog',
+  蝴蝶: 'butterfly',
+  蜜蜂: 'bee',
+  蚂蚁: 'ant',
+  企鹅: 'penguin',
+  长颈鹿: 'giraffe',
+  鹿: 'deer',
+  斑马: 'zebra',
+  河马: 'hippo',
+  鳄鱼: 'crocodile',
+  袋鼠: 'kangaroo',
+  考拉: 'koala',
+  树懒: 'sloth',
+  松鼠: 'squirrel',
+  狐狸: 'fox',
+  狼: 'wolf',
+  北极熊: 'polar-bear',
+  熊: 'bear',
+  小熊: 'bear',
+  鲨鱼: 'shark',
+  鲸鱼: 'whale',
+  鲸: 'whale',
+  章鱼: 'octopus',
+  螃蟹: 'crab',
+  海星: 'starfish',
+  水母: 'jellyfish',
+  孔雀: 'peacock',
+  鹦鹉: 'parrot',
+  猫头鹰: 'owl',
+  老鹰: 'eagle',
+  鹰: 'eagle',
+};
+
+/** 非 ANIMAL_SUBJECTS 角色的通用关键词，用于场景主角识别 */
+const EXTRA_ANIMAL_KEYWORDS: Array<{ id: string; keyword: string }> = [
+  ...Object.entries(CN_ANIMAL_MAP)
+    .filter(([name, id]) => !ANIMAL_SUBJECTS.some((subject) => subject.id === id) && name.length >= 2)
+    .map(([name, id]) => ({ id, keyword: name })),
+  // 英文角色名（矢量库以英文 id 命名）
+  ...Array.from(new Set(Object.values(CN_ANIMAL_MAP)))
+    .filter((id) => !ANIMAL_SUBJECTS.some((subject) => subject.id === id))
+    .map((id) => ({ id, keyword: id })),
+];
+
+interface AnimalHit {
+  config: AnimalSubjectConfig;
+  index: number;
+  length: number;
+}
+
+/**
+ * 选场景主角：按「文本里最先提到的动物」而不是配置数组顺序。
+ *
+ * 旧实现按 tiger → rabbit → monkey 的固定顺序扫描，只要台词里出现「兔」，
+ * 即使整段都在讲小熊递皮球，也会先命中兔子——这就是「学会分享」六场全画
+ * 白兔、台词却讲小熊的原因。视觉描述里第一个出现的角色才是这一幕的主角。
+ */
 export function findAnimalSubject(source: string, assetKey?: string): AnimalSubjectConfig | null {
   const lowered = source.toLowerCase();
+  if (assetKey) {
+    const exact = ANIMAL_SUBJECTS.find((subject) => subject.id === assetKey);
+    if (exact) return exact;
+  }
+
+  const hits: AnimalHit[] = [];
   for (const subject of ANIMAL_SUBJECTS) {
-    if (assetKey === subject.id) return subject;
-    if (subject.keywords.some((kw) => lowered.includes(kw.toLowerCase()))) {
-      return subject;
+    for (const keyword of subject.keywords) {
+      const index = lowered.indexOf(keyword.toLowerCase());
+      if (index >= 0) {
+        hits.push({ config: subject, index, length: keyword.length });
+      }
     }
   }
-  return null;
+  for (const extra of EXTRA_ANIMAL_KEYWORDS) {
+    const index = lowered.indexOf(extra.keyword.toLowerCase());
+    if (index >= 0) {
+      hits.push({
+        config: getOrCreateAnimalConfig(extra.id),
+        index,
+        length: extra.keyword.length,
+      });
+    }
+  }
+  if (hits.length === 0) return null;
+
+  // 同一起点优先更长的名字（「小熊」胜过「熊」），其余按出现先后
+  hits.sort((a, b) => a.index - b.index || b.length - a.length);
+  return hits[0].config;
 }
 
 /**
@@ -102,65 +215,6 @@ export function inferAnimalFromText(
 }
 
 function cnToAnimalId(name: string): string | null {
-  const CN_ANIMAL_MAP: Record<string, string> = {
-    虎: 'tiger',
-    老虎: 'tiger',
-    兔: 'rabbit',
-    兔子: 'rabbit',
-    小兔: 'rabbit',
-    猴: 'monkey',
-    猴子: 'monkey',
-    小猴: 'monkey',
-    海豚: 'dolphin',
-    大象: 'elephant',
-    象: 'elephant',
-    狮子: 'lion',
-    狮: 'lion',
-    熊猫: 'panda',
-    大熊猫: 'panda',
-    猫: 'cat',
-    小猫: 'cat',
-    狗: 'dog',
-    小狗: 'dog',
-    鱼: 'fish',
-    小鱼: 'fish',
-    鸟: 'bird',
-    小鸟: 'bird',
-    蛇: 'snake',
-    乌龟: 'turtle',
-    龟: 'turtle',
-    青蛙: 'frog',
-    蛙: 'frog',
-    蝴蝶: 'butterfly',
-    蜜蜂: 'bee',
-    蚂蚁: 'ant',
-    企鹅: 'penguin',
-    长颈鹿: 'giraffe',
-    鹿: 'deer',
-    斑马: 'zebra',
-    河马: 'hippo',
-    鳄鱼: 'crocodile',
-    袋鼠: 'kangaroo',
-    考拉: 'koala',
-    树懒: 'sloth',
-    松鼠: 'squirrel',
-    狐狸: 'fox',
-    狼: 'wolf',
-    北极熊: 'polar-bear',
-    熊: 'bear',
-    鲨鱼: 'shark',
-    鲸鱼: 'whale',
-    鲸: 'whale',
-    章鱼: 'octopus',
-    螃蟹: 'crab',
-    海星: 'starfish',
-    水母: 'jellyfish',
-    孔雀: 'peacock',
-    鹦鹉: 'parrot',
-    猫头鹰: 'owl',
-    老鹰: 'eagle',
-    鹰: 'eagle',
-  };
   return CN_ANIMAL_MAP[name] || null;
 }
 

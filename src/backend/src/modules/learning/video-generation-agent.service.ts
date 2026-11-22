@@ -53,6 +53,32 @@ import {
   matchKeyword,
 } from './visual-keywords.config';
 
+/** 场景里点名的实物 → 别名。与矢量库 assets/vector 下的素材一一对应。 */
+const SCENE_PROP_KEYWORDS: Record<string, string[]> = {
+  ball: ['皮球', '足球', '球', 'ball'],
+  cookie: ['饼干', 'cookie', '小饼干'],
+  apple: ['苹果', 'apple'],
+  banana: ['香蕉', 'banana'],
+  book: ['书', '绘本', 'book'],
+  block: ['积木', 'block'],
+  table: ['桌子', '桌', 'table'],
+  slide: ['滑梯', 'slide'],
+  star: ['星星', 'star'],
+  heart: ['爱心', 'heart'],
+};
+const SCENE_PROP_LABELS: Record<string, string> = {
+  ball: '皮球',
+  cookie: '饼干',
+  apple: '苹果',
+  banana: '香蕉',
+  book: '书',
+  block: '积木',
+  table: '桌子',
+  slide: '滑梯',
+  star: '星星',
+  heart: '爱心',
+};
+
 export interface AgentVideoRequest {
   topic: string;
   domain?: string;
@@ -570,13 +596,18 @@ export class VideoGenerationAgentService {
         title,
       ).slice(0, 32);
       const durationSec = this.toInt(scene?.durationSec, 6, 4, 18);
-      const source = `${topic} ${title} ${narration} ${visualDescription} ${onScreenText}`;
+      // 画面描述优先：旁白可能先提"兔兔"再讲"小熊把皮球递出去"，
+      // 但这一幕真正要画的是视觉描述里的角色与物品。
+      const source = `${topic} ${title} ${visualDescription} ${narration} ${onScreenText}`;
       const tags = this.inferDynamicAssetTags(source);
       const action = this.inferDynamicAction(source);
       const habitat = this.inferDynamicHabitat(source);
       const animalResult = inferAnimalFromText(source);
       const animalConfig = animalResult?.config ?? null;
       const assetKey = animalResult?.id || 'topic';
+      // 台词/视觉描述里点名的实物（皮球、饼干…）也进画面，
+      // 否则孩子听到"看看小熊手里的皮球"时画面只有一只动物站着。
+      const props = this.inferSceneProps(`${visualDescription} ${narration} ${onScreenText}`);
       const template =
         this.toText(scene?.animationTemplate?.id || scene?.animationTemplate) ||
         (assetKey !== 'topic'
@@ -644,6 +675,7 @@ export class VideoGenerationAgentService {
         visualDescription,
         assetKey,
         assetTags: tags,
+        props,
         action,
         habitat,
         // 画板是画面主体，背景必须退到幕后，否则图形和森林草地互相抢
@@ -880,6 +912,7 @@ import {
 import { Audio } from "@remotion/media";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
+const PROP_LABELS: Record<string, string> = ${JSON.stringify(SCENE_PROP_LABELS)};
 
 /**
  * 编排时间轴（后端 choreography.ts 编译产物）。
@@ -910,6 +943,7 @@ type GeneratedScene = {
   visualDescription: string;
   assetKey: string;
   assetTags: string[];
+  props?: Array<{ id: string; label: string }>;
   action: string;
   habitat: string;
   /**
@@ -1546,6 +1580,97 @@ const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
       </g>
     </svg>
   );
+};
+
+/** 台词里点名的实物：画在角色两侧，让"看小熊手里的皮球"真的有皮球可看 */
+const PropArt: React.FC<{ id: string; x: number; y: number; frame: number }> = ({ id, x, y, frame }) => {
+  const wobble = Math.sin(frame / 9 + x) * 6;
+  const common = { transform: "translate(" + x + " " + (y + wobble) + ")" } as const;
+  if (id === "ball") {
+    return (
+      <g {...common}>
+        <circle cx="0" cy="0" r="58" fill="#ff5252" stroke="#b71c1c" strokeWidth="5" />
+        <path d="M-56 -16 Q0 8 56 -16 M-56 16 Q0 -8 56 16 M-16 -56 Q16 0 -16 56 M16 -56 Q-16 0 16 56" fill="none" stroke="#fff4e6" strokeWidth="5" />
+      </g>
+    );
+  }
+  if (id === "cookie") {
+    return (
+      <g {...common}>
+        <circle cx="0" cy="0" r="52" fill="#e6a23c" stroke="#a86a1e" strokeWidth="5" />
+        {[[-22,-14],[16,-24],[28,12],[-12,25],[2,2]].map(([cx,cy],i) => (
+          <circle key={i} cx={cx} cy={cy} r="6" fill="#6d3f12" />
+        ))}
+      </g>
+    );
+  }
+  if (id === "apple") {
+    return (
+      <g {...common}>
+        <path d="M0 -36 C30 -58 58 -30 48 10 C40 44 12 58 0 50 C-12 58 -40 44 -48 10 C-58 -30 -30 -58 0 -36 Z" fill="#f44336" stroke="#a82017" strokeWidth="5" />
+        <path d="M0 -38 Q6 -64 28 -66" fill="none" stroke="#5d4037" strokeWidth="7" strokeLinecap="round" />
+        <ellipse cx="22" cy="-56" rx="18" ry="9" fill="#4caf50" transform="rotate(-24 22 -56)" />
+      </g>
+    );
+  }
+  if (id === "banana") {
+    return (
+      <g {...common}>
+        <path d="M-46 -34 C-44 30 -6 58 42 40 C56 34 60 18 50 12 C18 34 -18 16 -20 -36 C-22 -52 -46 -50 -46 -34 Z" fill="#ffd54f" stroke="#c79a00" strokeWidth="5" />
+      </g>
+    );
+  }
+  if (id === "book") {
+    return (
+      <g {...common}>
+        <path d="M-58 -36 L-4 -28 L-4 42 L-58 34 Z" fill="#fff8e1" stroke="#8d6e63" strokeWidth="5" />
+        <path d="M58 -36 L4 -28 L4 42 L58 34 Z" fill="#fff8e1" stroke="#8d6e63" strokeWidth="5" />
+        <path d="M0 -28 L0 42" stroke="#8d6e63" strokeWidth="6" />
+      </g>
+    );
+  }
+  if (id === "block") {
+    return (
+      <g {...common}>
+        <rect x="-52" y="-28" width="48" height="48" rx="8" fill="#42a5f5" stroke="#1565c0" strokeWidth="5" />
+        <rect x="4" y="-18" width="48" height="48" rx="8" fill="#66bb6a" stroke="#2e7d32" strokeWidth="5" />
+        <rect x="-28" y="18" width="48" height="48" rx="8" fill="#ffca28" stroke="#ef6c00" strokeWidth="5" />
+      </g>
+    );
+  }
+  if (id === "table") {
+    return (
+      <g {...common}>
+        <rect x="-66" y="-30" width="132" height="22" rx="6" fill="#c98a4b" stroke="#8d5524" strokeWidth="5" />
+        <rect x="-54" y="-8" width="12" height="60" rx="4" fill="#a86a34" stroke="#8d5524" strokeWidth="4" />
+        <rect x="42" y="-8" width="12" height="60" rx="4" fill="#a86a34" stroke="#8d5524" strokeWidth="4" />
+      </g>
+    );
+  }
+  if (id === "slide") {
+    return (
+      <g {...common}>
+        <path d="M-58 -44 L-58 12 L44 56" fill="none" stroke="#ff8a65" strokeWidth="18" strokeLinecap="round" />
+        <path d="M-58 -44 L58 -44 M-58 12 L58 12" stroke="#4dd0e1" strokeWidth="12" strokeLinecap="round" />
+        <path d="M-58 12 L-58 56 M58 12 L58 56" stroke="#26a69a" strokeWidth="10" strokeLinecap="round" />
+      </g>
+    );
+  }
+  if (id === "star") {
+    return (
+      <g {...common}>
+        <path d="M0 -52 L15 -17 L53 -12 L26 15 L34 52 L0 33 L-34 52 L-26 15 L-53 -12 L-15 -17 Z" fill="#ffd54f" stroke="#f9a825" strokeWidth="5" />
+      </g>
+    );
+  }
+  if (id === "heart") {
+    return (
+      <g {...common}>
+        <path d="M0 46 C-56 12 -54 -34 -26 -38 C-10 -40 0 -28 0 -20 C0 -28 10 -40 26 -38 C54 -34 56 12 0 46 Z" fill="#ff6b81" stroke="#c2185b" strokeWidth="5" />
+      </g>
+    );
+  }
+  return null;
 };
 
 const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
@@ -3619,7 +3744,25 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
               transform: "translateY(" + stageY + "px) scale(" + stageScale * breath * 1.4 + ") rotate(" + sway + "deg)",
             }}
           >
-            <TopicVisual scene={scene} />
+            <div style={{ position: "relative", width: 760, height: 470 }}>
+              <div style={{ position: "absolute", left: 0, right: 0, top: 0, display: "flex", justifyContent: "center" }}>
+                <TopicVisual scene={scene} />
+              </div>
+              {(scene.props || []).map((prop, i) => {
+                const side = i % 2 === 0 ? -1 : 1;
+                const slot = Math.floor(i / 2);
+                return (
+                  <div key={prop.id + i} style={{ position: "absolute", left: side < 0 ? 8 + slot * 116 : 596 - slot * 116, top: 168 + slot * 34 }}>
+                    <svg width="150" height="150" viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 12px 14px rgba(0,0,0,0.18))" }}>
+                      <PropArt id={prop.id} x={0} y={0} frame={frame} />
+                    </svg>
+                    <div style={{ marginTop: -4, textAlign: "center", fontSize: 28, fontWeight: 900, color: scene.accentColor }}>
+                      {PROP_LABELS[prop.id] || prop.label}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </>
       )}
@@ -3683,7 +3826,12 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     const source = `${storyboard.topic || ''} ${storyboard.title || ''} ${JSON.stringify(
       storyboard.scenes || [],
     )}`;
-    const expected = this.expectedVisualTerms(source);
+    // 按「实际选中的角色」校验，而不是文本里随便出现过的动物：
+    // 台词同时提到兔兔和小熊时主角是视觉描述里的小熊，不该反过来要求画面出现兔子特征。
+    const expected = this.expectedVisualTerms(
+      source,
+      ((manifest.props as any)?.scenes || []) as Array<Record<string, any>>,
+    );
     const searchable = `${joined} ${JSON.stringify(manifest.props)} ${JSON.stringify(
       manifest.sceneAssetSummary,
     )}`.toLowerCase();
@@ -3711,21 +3859,39 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     }
   }
 
-  private expectedVisualTerms(source: string): string[] {
+  private expectedVisualTerms(
+    source: string,
+    scenes: Array<Record<string, any>> = [],
+  ): string[] {
     // 这里只放"必须真的出现在产物里的视觉词"，不要放 dynamic 这种拼 assetKey 用的前缀：
     // 它以前能命中，纯粹是因为模板里有个叫 dynamicSky 的渐变 id，属于指标造假。
     const terms = new Set<string>(['visual']);
-    const animalResult = inferAnimalFromText(source);
-    if (animalResult?.config) {
-      animalResult.config.visualTerms.forEach((term) => terms.add(term));
-    } else if (animalResult?.id) {
-      terms.add(animalResult.id);
+    for (const scene of scenes) {
+      const assetKey = String(scene?.assetKey || '');
+      if (!assetKey || assetKey === 'topic') continue;
+      const config = ANIMAL_SUBJECTS.find((subject) => subject.id === assetKey);
+      if (config) {
+        config.visualTerms.forEach((term) => terms.add(term));
+      } else {
+        terms.add(assetKey);
+      }
     }
     if (/森林|forest/i.test(source)) terms.add('forest');
     if (/河|溪|游泳|river|swim/i.test(source)) {
       terms.add('river');
     }
     return Array.from(terms);
+  }
+
+  /** 从视觉描述/旁白里识别点名的实物，交给模板画在角色身边 */
+  private inferSceneProps(source: string): Array<{ id: string; label: string }> {
+    const props: Array<{ id: string; label: string }> = [];
+    for (const [id, keywords] of Object.entries(SCENE_PROP_KEYWORDS)) {
+      if (keywords.some((kw) => source.toLowerCase().includes(kw.toLowerCase()))) {
+        props.push({ id, label: SCENE_PROP_LABELS[id] || id });
+      }
+    }
+    return props.slice(0, 3);
   }
 
   private inferDynamicAssetTags(source: string): string[] {

@@ -2,18 +2,20 @@
  * Unified thinking-block parser for LLM outputs.
  *
  * Handles the MiniMax reasoning format: <think\n...reasoning...\n</think->\n\nanswer
- * Also handles standard <think...</think-> blocks from other models.
+ * Also handles standard <think...</think-> blocks from other models, and the
+ * `<thinking>` spelling some gateways emit (Claude-style) — `\b` alone does not
+ * match "thinking", so the tag body is optional below.
  *
  * Eliminates duplication across agent-executor.ts and llm-client.ts.
  */
 
-/** Strip all <think...</think*> blocks from model output, returning visible content only */
+/** Strip all <think[ing]...</think*> blocks from model output, returning visible content only */
 export function stripThinking(text: string): string {
   if (!text) return '';
   // Remove all closed <think...>...</think*> blocks
-  let result = text.replace(/<think\b[\s\S]*?<\/think.*?>/g, '').trim();
+  let result = text.replace(/<think(?:ing)?\b[\s\S]*?<\/think.*?>/g, '').trim();
   // Handle unclosed <think at end of string
-  result = result.replace(/<think\b[\s\S]*$/g, '').trim();
+  result = result.replace(/<think(?:ing)?\b[\s\S]*$/g, '').trim();
   return result;
 }
 

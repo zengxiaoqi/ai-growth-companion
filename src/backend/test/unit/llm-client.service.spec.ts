@@ -292,4 +292,111 @@ describe('LlmClientService — legacy path', () => {
       expect(split.nonSystemMessages).toHaveLength(1);
     });
   });
+
+  /* ── 超时预算 ──────────────────────────────────────────────────────── */
+
+  describe('callTimeoutMs', () => {
+    it('defaults to 300s when LLM_TIMEOUT_MS is absent or nonsensical', () => {
+      expect((createService({}).svc as any).callTimeoutMs).toBe(300_000);
+      // 太小或非数字都回退：10s 以下会把正常慢调用全部误杀
+      expect((createService({ LLM_TIMEOUT_MS: '300' }).svc as any).callTimeoutMs).toBe(300_000);
+      expect((createService({ LLM_TIMEOUT_MS: 'abc' }).svc as any).callTimeoutMs).toBe(300_000);
+    });
+
+    it('honours a configured LLM_TIMEOUT_MS', () => {
+      expect((createService({ LLM_TIMEOUT_MS: '120000' }).svc as any).callTimeoutMs).toBe(120_000);
+    });
+
+    it('passes the per-call timeoutMs down to the SDK instead of the default', async () => {
+      const { svc, mockCreate } = createService({});
+      mockCreate.mockResolvedValue({
+        choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+      });
+
+      await svc.chatCompletion([{ role: 'user', content: 'hi' }], undefined, undefined, false, undefined, {
+        timeoutMs: 45_000,
+      });
+
+      expect(mockCreate).toHaveBeenCalledWith(expect.anything(), { timeout: 45_000 });
+    });
+  });
+
+  /* ── 流式生成 ──────────────────────────────────────────────────────── */
+
+  describe('generateStreaming()', () => {
+    /** 造一个按序吐 delta 的假流；stall=true 时最后永远不结束 */
+    function fakeStream(chunks: string[], opts: { stall?: boolean } = {}) {
+      return {
+        async *[Symbol.asyncIterator]() {
+          for (const c of chunks) {
+            yield { choices: [{ delta: { content: c } }] };
+          }
+          if (opts.stall) {
+            await new Promise(() => {});
+          }
+        },
+      };
+    }
+
+    it('accumulates every delta into one string', async () => {
+      const { svc, mockCreate } = createService({});
+      mockCreate.mockResolvedValue(fakeStream(['{"title"', ':"小熊"', '}']));
+
+      const text = await svc.generateStreaming('写个标题');
+
+      expect(text).toBe('{"title":"小熊"}');
+    });
+
+    it('strips thinking blocks that arrive inside text deltas', async () => {
+      const { svc, mockCreate } = createService({});
+      mockCreate.mockResolvedValue(
+        fakeStream(['<thinking>先想一下', '…想完了</thinking>', '{"ok":true}']),
+      );
+
+      expect(await svc.generateStreaming('x')).toBe('{"ok":true}');
+    });
+
+    it('passes the maxTokens override to the stream request', async () => {
+      const { svc, mockCreate } = createService({});
+      mockCreate.mockResolvedValue(fakeStream(['{}']));
+
+      await svc.generateStreaming('x', undefined, { maxTokens: 32768 });
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ max_tokens: 32768, stream: true }),
+        expect.anything(),
+      );
+    });
+
+    /**
+     * 这条是本次修复的核心语义：流式的超时按"两次增量之间的静默"算。
+     * 旧实现用一个 300s 的总计时器，思考型模型吐一份两万 token 的分镜总要
+     * 5 分钟以上，于是每次都在 300s 被腰斩、三层重试叠成 45 分钟。
+     */
+    it('fails on a stalled stream after the idle timeout, not after total duration', async () => {
+      const { svc, mockCreate } = createService({});
+      mockCreate.mockResolvedValue(fakeStream(['{"a":1}'], { stall: true }));
+
+      await expect(
+        svc.generateStreaming('x', undefined, { idleTimeoutMs: 40 }),
+      ).rejects.toThrow(/stalled/);
+    });
+
+    it('does not fail a slow-but-alive stream that keeps emitting past one idle window', async () => {
+      const { svc, mockCreate } = createService({});
+      // 三个 chunk 之间各等 40ms，总耗时 80ms 已超过 60ms 的 idle 窗口，
+      // 但每次增量间隔都在窗口内 —— 只要还在吐字就不该判死。
+      const slow = {
+        async *[Symbol.asyncIterator]() {
+          for (const c of ['a', 'b', 'c']) {
+            await new Promise((r) => setTimeout(r, 40));
+            yield { choices: [{ delta: { content: c } }] };
+          }
+        },
+      };
+      mockCreate.mockResolvedValue(slow);
+
+      expect(await svc.generateStreaming('x', undefined, { idleTimeoutMs: 60 })).toBe('abc');
+    });
+  });
 });

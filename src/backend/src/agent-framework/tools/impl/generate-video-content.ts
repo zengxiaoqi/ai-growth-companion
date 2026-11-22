@@ -195,7 +195,14 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
           attempt,
           failures,
         );
-        const llmResponse = await this.llmClient.generate(prompt, undefined, {
+        /**
+         * 必须走流式：这一份分镜的完整输出（六幕 × figure/sceneGraph/beats/
+         * performance）在思考型模型上是 1.5~2 万 token，按 65 tok/s 要 4~5 分钟。
+         * 非流式调用把"生成完"和"超时"混在一个计时器里，300s 一到就整份丢弃，
+         * 于是每次都稳定失败、三层重试叠成 45 分钟。流式的超时按"两次增量之间的
+         * 静默"计，只要还在吐字就能完成，真正卡住时才按 LLM_TIMEOUT_MS 失败。
+         */
+        const llmResponse = await this.llmClient.generateStreaming(prompt, undefined, {
           maxTokens: storyboardMaxTokens(),
           temperature: 0.7,
           model: this.llmClient.authorModel,

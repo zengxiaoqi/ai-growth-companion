@@ -23,6 +23,16 @@ export type FigureRepairLlm = {
     systemPrompt?: string,
     options?: { temperature?: number; maxTokens?: number; model?: string },
   ): Promise<string>;
+  /**
+   * 同一个请求的流式版本。有就必须走它：
+   * 非流式把"生成完"和"超时"混在一个计时器里，思考型模型画几张 figure 常常
+   * 一头撞上 300s 而被整份丢弃；流式的超时按增量静默计，慢但活着就能完成。
+   */
+  generateStreaming?(
+    prompt: string,
+    systemPrompt?: string,
+    options?: { temperature?: number; maxTokens?: number; model?: string },
+  ): Promise<string>;
 };
 
 const REASON_HINTS: Record<string, string> = {
@@ -57,11 +67,12 @@ export async function repairFigures(
 
   let parsed: any;
   try {
-    const raw = await llm.generateJson(prompt, undefined, {
-      temperature: 0.2,
-      maxTokens: 6000,
-      model,
-    });
+    const options = { temperature: 0.2, maxTokens: 6000, model };
+    // 有流式就走流式：修复轮只是一次性重画，撞上超时就直接白丢一轮（见类型注释）
+    const raw =
+      typeof llm.generateStreaming === 'function'
+        ? await llm.generateStreaming(prompt, undefined, options)
+        : await llm.generateJson(prompt, undefined, options);
     parsed = extractJsonObject(raw);
   } catch {
     return null;

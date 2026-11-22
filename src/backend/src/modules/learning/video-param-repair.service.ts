@@ -196,7 +196,9 @@ export class VideoParamRepairService {
     ].join('\n');
 
     try {
-      const raw = await this.llmClient.generateJson(prompt, undefined, {
+      // 走流式：这只改 beats/背景/强调色，输出不大，但它是 QA 不通过后的
+      // 唯一补救轮。非流式一旦撞上 300s 就被整份丢弃，等于白白放行一个 52 分的片子。
+      const raw = await this.llmClient.generateStreaming(prompt, undefined, {
         temperature: 0.2,
         maxTokens: 6000,
       });

@@ -324,6 +324,19 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     return this.piAiEnabled || Boolean(this.config.baseUrl && this.config.model);
   }
 
+  /**
+   * 单次调用默认硬超时。
+   *
+   * 300s 是给"正常快"的调用留的余量；慢到需要更久的长输出应当走 generateStreaming
+   * （超时按增量静默计），而不是把这里调成 10 分钟——那会让一次真正卡住的请求
+   * 白白占住队列 worker 十分钟以上，后面排队的课全部干等。
+   */
+  private get callTimeoutMs(): number {
+    const raw = Number(this.configService.get<string>('LLM_TIMEOUT_MS', ''));
+    if (Number.isFinite(raw) && raw >= 10_000) return raw;
+    return 300_000;
+  }
+
   async chatCompletion(
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
@@ -352,15 +365,60 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
     modelOverride?: string,
+    idleTimeoutMs?: number,
+    maxTokensOverride?: number,
   ): AsyncGenerator<string> {
     await this.ready;
-    this.logger.debug(`chatCompletionStream model=${modelOverride ?? this.config.model}`);
+    const idle = idleTimeoutMs ?? this.callTimeoutMs;
+    this.logger.debug(`chatCompletionStream model=${modelOverride ?? this.config.model} idle=${idle}ms`);
     const safeMessages = this.sanitizeToolMessageSequence(messages);
     if (this.piAiEnabled) {
-      yield* this.piAiChatCompletionStream(safeMessages, tools, modelOverride);
+      yield* this.piAiChatCompletionStream(
+        safeMessages,
+        tools,
+        modelOverride,
+        idle,
+        maxTokensOverride,
+      );
       return;
     }
-    yield* this.legacyChatCompletionStream(safeMessages, tools, modelOverride);
+    yield* this.legacyChatCompletionStream(
+      safeMessages,
+      tools,
+      modelOverride,
+      idle,
+      maxTokensOverride,
+    );
+  }
+
+  /**
+   * 流式生成并累积成交付给调用方的完整文本。
+   *
+   * 只保留正文：思考型模型的 reasoning 走的是另一个增量通道，`chatCompletionStream`
+   * 本来就不 yield 它，所以累积出来的就是可解析的 JSON（仍需 stripThinking 兜底，
+   * 有些网关会把 <thinking> 混在 text_delta 里）。
+   */
+  async generateStreaming(
+    prompt: string,
+    systemPrompt?: string,
+    options?: LlmCallOptions,
+  ): Promise<string> {
+    const messages: LlmMessage[] = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+    messages.push({ role: 'user', content: prompt });
+
+    const idle = options?.idleTimeoutMs ?? options?.timeoutMs ?? this.callTimeoutMs;
+    const chunks: string[] = [];
+    for await (const delta of this.chatCompletionStream(
+      messages,
+      undefined,
+      options?.model,
+      idle,
+      options?.maxTokens,
+    )) {
+      chunks.push(delta);
+    }
+    return stripThinking(chunks.join(''));
   }
 
   /**
@@ -658,7 +716,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       tools: tools?.map((t) => this.toPiAiTool(t)),
     };
 
-    const TIMEOUT_MS = 300_000;
+    const TIMEOUT_MS = options?.timeoutMs ?? this.callTimeoutMs;
     const result = await Promise.race([
       this.models.complete(entry.model, context, {
         maxTokens: maxTokensOverride ?? entry.config.maxTokens,
@@ -688,6 +746,8 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
     modelOverride?: string,
+    idleTimeoutMs?: number,
+    maxTokensOverride?: number,
   ): AsyncGenerator<string> {
     if (!this.models || this.entries.length === 0) {
       throw new Error('pi-ai not initialized');
@@ -703,33 +763,66 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       tools: tools?.map((t) => this.toPiAiTool(t)),
     };
 
-    const TIMEOUT_MS = 300_000;
+    // 这里的超时是"两次增量之间"的静默上限，不是整条流的总时长。
+    // 慢模型吐 2 万 token 要十几分钟，只要还在吐就不该判死。
+    const TIMEOUT_MS = idleTimeoutMs ?? this.callTimeoutMs;
     const stream = this.models.stream(entry.model, context, {
-      maxTokens: entry.config.maxTokens,
+      maxTokens: maxTokensOverride ?? entry.config.maxTokens,
       temperature: entry.config.temperature,
       timeoutMs: TIMEOUT_MS,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
 
     const iterator = stream[Symbol.asyncIterator]();
-    while (true) {
-      const { value, done } = await Promise.race([
-        iterator.next(),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(`LLM stream timed out (${TIMEOUT_MS}ms) for provider ${entry.config.id}`),
-              ),
-            TIMEOUT_MS,
-          ),
-        ),
-      ]);
-      if (done) break;
-      if (value.type === 'text_delta') {
-        yield value.delta;
+    try {
+      while (true) {
+        const { value, done } = await this.nextWithIdleTimeout(
+          iterator,
+          TIMEOUT_MS,
+          `LLM stream stalled for ${TIMEOUT_MS}ms (provider ${entry.config.id})`,
+        );
+        if (done) break;
+        if (value.type === 'text_delta') {
+          yield value.delta;
+        }
       }
+    } finally {
+      // 超时/调用方提前 return 时把上游流关掉，别让连接挂在服务端。
+      // 注意不能 await：流卡死时上游 generator 自己也卡在 await 上，
+      // 它的 return() 一样不会 settle，await 就把清理变成了新的挂死点
+      // （单测里复现过：idle 超时抛出后进程再也回不来）。
+      this.closeQuietly(iterator);
     }
+  }
+
+  /** 尽力关闭上游流：不等待、不抛错，只为释放连接。 */
+  private closeQuietly(iterator: AsyncIterator<any>): void {
+    try {
+      void Promise.resolve(iterator.return?.(undefined as any)).catch(() => {});
+    } catch {
+      /* 上游不支持 return —— 忽略 */
+    }
+  }
+
+  /**
+   * 取下一个增量，并在"静默过久"时失败。
+   *
+   * 三个细节都不能省：
+   * - clearTimeout：每个 chunk 一个 timer 且不清理，长流会攒出几百个 pending
+   *   timer（实测 20k token ≈ 3000 chunks），进程退出被拖住、句柄也一直涨。
+   * - 超时后由调用方 iterator.return() 收尾，否则挂着的 next() 永远不 settle。
+   * - 报错文案带 "stalled"，与"整次调用超时"区分开：前者是流断了，后者是
+   *   请求根本没在被处理，排查方向完全不同。
+   */
+  private nextWithIdleTimeout<T>(
+    iterator: AsyncIterator<T>,
+    idleTimeoutMs: number,
+    message: string,
+  ): Promise<IteratorResult<T>> {
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), idleTimeoutMs);
+    });
+    return Promise.race([iterator.next(), timeout]).finally(() => clearTimeout(timer));
   }
 
   // ─── Type conversion: LlmMessage ↔ pi-ai Message ─────────────────
@@ -1004,7 +1097,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         .join(' -> ')}`,
     );
     return this.retryStrategy.execute(async () => {
-      const TIMEOUT_MS = 300_000;
+      const TIMEOUT_MS = options?.timeoutMs ?? this.callTimeoutMs;
       const effectiveMaxTokens = maxTokensOverride ?? this.config.maxTokens;
       const response = (await Promise.race([
         this.client.chat.completions.create(
@@ -1062,33 +1155,32 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
     modelOverride?: string,
+    idleTimeoutMs?: number,
+    maxTokensOverride?: number,
   ): AsyncGenerator<string> {
-    const TIMEOUT_MS = 300_000;
-    try {
-      const stream = await this.client.chat.completions.create({
+    // 与 pi-ai 分支同语义：这是"两次增量之间的静默上限"，不是整条流的总时长。
+    const TIMEOUT_MS = idleTimeoutMs ?? this.callTimeoutMs;
+    const stream = await this.client.chat.completions.create(
+      {
         model: modelOverride ?? this.config.model,
         messages: this.toOpenAIMessages(messages),
         tools: this.toOpenAITools(tools),
         tool_choice: tools ? 'auto' : undefined,
-        max_tokens: this.config.maxTokens,
+        max_tokens: maxTokensOverride ?? this.config.maxTokens,
         temperature: this.config.temperature,
         stream: true,
-      });
+      },
+      { timeout: TIMEOUT_MS },
+    );
 
-      const iterator = stream[Symbol.asyncIterator]();
+    const iterator = stream[Symbol.asyncIterator]();
+    try {
       while (true) {
-        const { value, done } = await Promise.race([
-          iterator.next(),
-          new Promise<IteratorResult<any>>((_, reject) =>
-            setTimeout(
-              () =>
-                reject(
-                  new Error(`LLM stream timed out (${TIMEOUT_MS}ms) for ${this.config.model}`),
-                ),
-              TIMEOUT_MS,
-            ),
-          ),
-        ]);
+        const { value, done } = await this.nextWithIdleTimeout(
+          iterator,
+          TIMEOUT_MS,
+          `LLM stream stalled for ${TIMEOUT_MS}ms (model ${modelOverride ?? this.config.model})`,
+        );
         if (done) break;
         const content = value.choices[0]?.delta?.content;
         if (content) {
@@ -1098,6 +1190,8 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     } catch (error: any) {
       this.logger.error(`LLM stream failed: ${error.message}`);
       throw error;
+    } finally {
+      this.closeQuietly(iterator);
     }
   }
 
@@ -1111,7 +1205,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       if (this.piAiEnabled) {
         return this.piAiChatCompletion(messages, undefined, maxTokens, options?.model, options);
       }
-      const TIMEOUT_MS = 300_000;
+      const TIMEOUT_MS = options?.timeoutMs ?? this.callTimeoutMs;
       const response = (await Promise.race([
         this.client.chat.completions.create(
           {

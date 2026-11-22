@@ -52,9 +52,13 @@ const MANY_MISS: SceneSpec[] = [
 
 function makeTool(responses: string[]) {
   let calls = 0;
+  // 工具现在走 generateStreaming（流式累积），两条路共用一个 mock：
+  // 断言看的是"发了几次请求、每次的 prompt"，与底层是流式还是整包无关。
+  const generate = jest.fn(async () => responses[Math.min(calls++, responses.length - 1)]);
   const llm = {
     authorModel: 'fake',
-    generate: jest.fn(async () => responses[Math.min(calls++, responses.length - 1)]),
+    generate,
+    generateStreaming: generate,
   };
   const tool = new GenerateVideoContentTool(llm as any);
   return { tool, llm };
@@ -65,17 +69,17 @@ describe('generateVideoContent · 画面节点必须被旁白念到', () => {
     const { tool, llm } = makeTool([storyboardJson('A', CLEAN), storyboardJson('B', MANY_MISS)]);
     const result = await tool.execute({ topic: '测试' } as any, {} as any);
     expect(result.success).toBe(true);
-    expect(llm.generate).toHaveBeenCalledTimes(1);
+    expect(llm.generateStreaming).toHaveBeenCalledTimes(1);
     expect((result.data as VideoStoryboard).scenes[0].title).toBe('A1');
   });
 
   it('首轮有缺口会带话术重试，第二轮干净的胜出', async () => {
     const { tool, llm } = makeTool([storyboardJson('A', ONE_MISS), storyboardJson('B', CLEAN)]);
     const result = await tool.execute({ topic: '测试' } as any, {} as any);
-    expect(llm.generate).toHaveBeenCalledTimes(2);
+    expect(llm.generateStreaming).toHaveBeenCalledTimes(2);
     expect((result.data as VideoStoryboard).scenes[0].title).toBe('B1');
     // 第二轮提示词里必须带上第一轮的具体缺失，否则模型只会原样再交一遍
-    const secondPrompt = String((llm.generate as jest.Mock).mock.calls[1][0]);
+    const secondPrompt = String((llm.generateStreaming as jest.Mock).mock.calls[1][0]);
     expect(secondPrompt).toContain('Previous issues');
     expect(secondPrompt).toContain('白云');
   });
@@ -83,7 +87,7 @@ describe('generateVideoContent · 画面节点必须被旁白念到', () => {
   it('重试掷得更差时保留首轮，不让更差的覆盖更好的', async () => {
     const { tool, llm } = makeTool([storyboardJson('A', ONE_MISS), storyboardJson('B', MANY_MISS)]);
     const result = await tool.execute({ topic: '测试' } as any, {} as any);
-    expect(llm.generate).toHaveBeenCalledTimes(3); // 用尽重试次数
+    expect(llm.generateStreaming).toHaveBeenCalledTimes(3); // 用尽重试次数
     expect((result.data as VideoStoryboard).scenes[0].title).toBe('A1');
   });
 
@@ -136,7 +140,7 @@ describe('generateVideoContent · 一屏不要塞太多概念', () => {
       storyboardJson('B', CLEAN),
     ]);
     const result = await tool.execute({ topic: '测试' } as any, {} as any);
-    expect(llm.generate).toHaveBeenCalledTimes(2);
+    expect(llm.generateStreaming).toHaveBeenCalledTimes(2);
     expect((result.data as VideoStoryboard).scenes[0].title).toBe('B1');
   });
 
@@ -146,7 +150,7 @@ describe('generateVideoContent · 一屏不要塞太多概念', () => {
       storyboardJson('B', CLEAN),
     ]);
     await tool.execute({ topic: '测试' } as any, {} as any);
-    const secondPrompt = String((llm.generate as jest.Mock).mock.calls[1][0]);
+    const secondPrompt = String((llm.generateStreaming as jest.Mock).mock.calls[1][0]);
     expect(secondPrompt).toContain('拆成两屏');
     expect(secondPrompt).toContain('不要靠删节点');
   });
@@ -162,6 +166,6 @@ describe('generateVideoContent · 一屏不要塞太多概念', () => {
     ];
     const { tool, llm } = makeTool([storyboardJson('A', ok, 'group')]);
     await tool.execute({ topic: '测试' } as any, {} as any);
-    expect(llm.generate).toHaveBeenCalledTimes(1);
+    expect(llm.generateStreaming).toHaveBeenCalledTimes(1);
   });
 });

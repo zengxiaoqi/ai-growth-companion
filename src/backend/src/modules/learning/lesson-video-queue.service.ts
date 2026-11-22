@@ -81,6 +81,23 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   );
   private readonly cacheTtlHours = this.toInt(process.env.VIDEO_CACHE_TTL_HOURS, 72, 1, 24 * 30);
   private readonly maxRetries = this.toInt(process.env.VIDEO_TASK_MAX_RETRIES, 2, 0, 5);
+  /**
+   * 单个出片任务的总预算。
+   *
+   * 单 worker 串行，一个任务占住 worker，后面排队的课全部干等。实测过最坏的一次：
+   * 分镜 LLM 请求超时后三层各自重试（300s × 3 层 × 3 轮），任务卡在 8% 四十多分钟，
+   * 期间队列完全不动、前端只看到"生成中"。
+   *
+   * 这一层不解决"为什么慢"，只保证"再慢也有上限"：超时的任务直接标 failed 交给
+   * 用户手动重试，而不是标回 pending —— 底层的请求此刻仍在跑，立刻重新认领会变成
+   * 同一任务两个并发渲染，互相覆盖输出文件。
+   */
+  private readonly taskDeadlineMs = this.toInt(
+    process.env.VIDEO_TASK_DEADLINE_MS,
+    30 * 60 * 1000,
+    60 * 1000,
+    90 * 60 * 1000,
+  );
   private readonly providerRequestTimeoutMs = this.toInt(
     process.env.VIDEO_PROVIDER_REQUEST_TIMEOUT_MS,
     20000,
@@ -528,9 +545,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       this.logger.debug(
         `[processQueue] taskId=${task.id} payload: topic="${payload.topic || ''}", visualStory.scenes=${Array.isArray(payload?.visualStory?.scenes) ? payload.visualStory.scenes.length : 0}, videoLesson.shots=${Array.isArray(payload?.videoLesson?.shots) ? payload.videoLesson.shots.length : 0}`,
       );
-      const { buffer, providerTaskId, sourceVideoUrl } = await this.generateVideoBuffer(
+      const { buffer, providerTaskId, sourceVideoUrl } = await this.withTaskDeadline(
+        this.generateVideoBuffer(task, payload),
         task,
-        payload,
       );
       const localPath = await this.writeVideoToCache(task.cacheKey, buffer);
       const now = new Date();
@@ -555,20 +572,50 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         `Video task completed: taskId=${task.id}, size=${buffer.length} bytes, path=${localPath}, provider=${task.provider}`,
       );
     } catch (error: any) {
-      const canRetry = (task.attemptCount || 0) <= this.maxRetries;
+      // 超时任务不自动重排队：底层请求还在跑，立刻重领会造成同一任务两个并发
+      // 渲染写同一个输出文件。交回给用户判定（retryTask 会重置 attemptCount）。
+      const isDeadline = error?.name === 'VideoTaskDeadlineError';
+      const canRetry = !isDeadline && (task.attemptCount || 0) <= this.maxRetries;
       await this.taskRepo.update(task.id, {
         status: canRetry ? 'pending' : 'failed',
         progress: 0,
         errorMessage: String(error?.message || 'video generation failed').slice(0, 500),
       } as any);
       this.logger.warn(
-        `Video task ${canRetry ? 're-queued' : 'failed'}: taskId=${task.id}, attempt=${task.attemptCount}, maxRetries=${this.maxRetries}, message=${task.errorMessage}`,
+        `Video task ${canRetry ? 're-queued' : 'failed'}: taskId=${task.id}, attempt=${task.attemptCount}, maxRetries=${this.maxRetries}, message=${error?.message}`,
       );
       if (error?.stack) {
         this.logger.debug(
           `[processQueue] taskId=${task.id} error stack: ${String(error.stack).slice(0, 800)}`,
         );
       }
+    }
+  }
+
+  /**
+   * 给单个出片任务套总预算，超时抛出可识别的错误。
+   *
+   * 注意：这里不真中断底层工作（Remotion/ffmpeg 子进程不响应 AbortSignal），
+   * 只是让队列不再等它。底层晚些时候可能仍会更新 progress/completed —— 那属于
+   * "其实渲出来了"的正常结果，比让 worker 永久占住好。
+   */
+  private async withTaskDeadline<T>(work: Promise<T>, task: VideoGenerationTask): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      return await Promise.race([
+        work,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            const err = new Error(
+              `video task ${task.id} exceeded ${Math.round(this.taskDeadlineMs / 60000)}min deadline`,
+            );
+            err.name = 'VideoTaskDeadlineError';
+            reject(err);
+          }, this.taskDeadlineMs);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
     }
   }
 

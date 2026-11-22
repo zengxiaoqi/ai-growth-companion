@@ -19,10 +19,30 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   backoffMultiplier: 2,
 };
 
+/** 超时类错误不做指数退避重试，详见 RetryStrategy.isRetryable */
+
 export class RetryStrategy {
   private readonly logger = new Logger(RetryStrategy.name);
 
   constructor(private readonly options: RetryOptions = DEFAULT_RETRY_OPTIONS) {}
+
+  /**
+   * 超时类错误不重试。
+   *
+   * 重试的前提是"这次失败是偶发的"（429、5xx、连接被重置）。超时不是：它是
+   * "这个请求的规模在给定预算内做不完"，再发一次只会把等待时间乘以重试次数。
+   * 实测分镜生成 max_tokens=32768 时稳定 300s 超时，三层重试叠起来单任务能拖
+   * 45 分钟以上，队列后面的课全部干等——比失败本身更糟。
+   *
+   * 需要重试的责任交给上层（工具层的多轮 attempt 有独立的留优逻辑），语义也更清晰。
+   */
+  private isRetryable(error: any): boolean {
+    if (error?.name === 'AbortError' || error?.name === 'TimeoutError') return false;
+    if (error?.code === 'ETIMEDOUT' || error?.code === 'ECONNABORTED') return false;
+    const message = String(error?.message ?? '');
+    // "stalled" 是流式等待增量超时（连接可能还在，但已经不出字了）
+    return !/timed? ?out|timeout|stalled/i.test(message);
+  }
 
   /**
    * Execute a function with retry and exponential backoff.
@@ -37,6 +57,10 @@ export class RetryStrategy {
         return await fn();
       } catch (error: any) {
         lastError = error;
+        if (!this.isRetryable(error)) {
+          this.logger.warn(`${label} failed (non-retryable): ${error.message}`);
+          break;
+        }
         if (attempt === this.options.maxAttempts) {
           this.logger.error(`${label} failed after ${attempt} attempts: ${error.message}`);
           break;

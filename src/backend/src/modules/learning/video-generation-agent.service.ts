@@ -35,7 +35,9 @@ import { normalizeSceneGraph } from './video/scene-graph';
 import { normalizeFigureSpec } from './video/figure-spec';
 import {
   deriveInteractionFromText,
+  hasAnyMotionCue,
   normalizeSceneInteraction,
+  type InteractionVerb,
   type PuppetMotion,
   type SceneInteraction,
 } from './video/scene-interaction';
@@ -71,6 +73,24 @@ import {
 function is3dStageEnabled(): boolean {
   return String(process.env.VIDEO_3D_STAGE ?? 'on').trim().toLowerCase() !== 'off';
 }
+
+/**
+ * 动词 → 二维原语。这是"能力表"的另一半：prompt 里教 LLM 能写哪些 verb，
+ * 这里必须把同一个 verb 接到渲染器上。
+ *
+ * 两处一旦脱节，LLM 明明写了 climb，画面仍然退回静态构图，而且**降级是静默的**
+ * ——只有抽帧才能发现。上一版正是这么漏掉了整整两幕。
+ *
+ * 只列"一个身体就能演完"的动词。handover / lift-together 故意不在这里：
+ * 它们需要两个身体之间的接触关系，单角色骨架演不了，留在 ActionStage。
+ * 增加原语时先改这张表，而不是改渲染器的 if 链。
+ */
+const VERB_AS_MOTION: Partial<Record<InteractionVerb, PuppetMotion>> = {
+  point: 'point',
+  speak: 'speak',
+  climb: 'climb',
+  walk: 'walk',
+};
 
 /** 场景里点名的实物 → 别名。与矢量库 assets/vector 下的素材一一对应。 */
 const SCENE_PROP_KEYWORDS: Record<string, string[]> = {
@@ -649,6 +669,19 @@ export class VideoGenerationAgentService {
           mentions,
           propIds: props.map((p) => p.id),
         });
+      // 降级可观测。文案里明明在演一个动作，却没有 interaction 承载它——
+      // 绝大多数是回顾/列举幕被主动拦掉（合理），剩下的是路由漏了（bug）。
+      // 以前这类降级完全无声，只能靠人眼抽帧；整整两幕就是这样静默丢掉的。
+      // 现在留一条 warn，跑完一遍日志就能看出"哪一幕该动却没动"。
+      if (!interaction) {
+        const cue = hasAnyMotionCue(`${visualDescription} ${narration}`);
+        if (cue) {
+          this.logger.warn(
+            `[buildDynamicSceneProps] 场景${index + 1}「${title}」含动作线索 "${cue}" 但未产出 interaction，` +
+              `该幕退回静态构图（回顾/列举幕可忽略，否则说明路由漏了）`,
+          );
+        }
+      }
       const template =
         this.toText(scene?.animationTemplate?.id || scene?.animationTemplate) ||
         (assetKey !== 'topic'
@@ -740,11 +773,8 @@ export class VideoGenerationAgentService {
        * 之间的接触关系，单角色骨架演不了——这才是真正的渲染器能力边界。
        */
       const singleActorGesture =
-        interaction &&
-        !action3d &&
-        interaction.actors.length === 1 &&
-        (interaction.verb === 'point' || interaction.verb === 'speak')
-          ? (interaction.verb as PuppetMotion)
+        interaction && !action3d && interaction.actors.length === 1
+          ? (VERB_AS_MOTION[interaction.verb] ?? null)
           : null;
       const puppetMotion: PuppetMotion | null = interaction?.puppet?.motion ?? singleActorGesture;
       const puppet =
@@ -1010,7 +1040,9 @@ import {
 } from "remotion";
 import { Audio } from "@remotion/media";
 import { ThreeActionStage } from "./three/ThreeActionStage";
+import type { ThreeStageScene } from "./three/ThreeActionStage";
 import { Puppet2D } from "./character/Puppet2D";
+import type { MotionOp } from "./character/pose";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
 const VECTOR_ANIMAL_IDS: string[] = ${JSON.stringify(VECTOR_ANIMAL_IDS)};
@@ -1050,7 +1082,8 @@ type InteractionActorView = { id: string; label: string; role: string };
  */
 type Action3DView = {
   renderer: "3d-procedural" | "3d-glb";
-  motion: "slide" | "dribble";
+  // 同理，从渲染层类型取，避免再出现"这里加了动作、那份联合没跟上"
+  motion: ThreeStageScene["motion"];
   actorId: string;
   propId?: string;
   start: [number, number, number];
@@ -1072,7 +1105,19 @@ type Action3DView = {
  * 与 Action3DView 一样，坐标与帧数已在后端定死，渲染层只按帧取姿态。
  */
 type PuppetView = {
-  motion: "idle" | "speak" | "walk" | "enter" | "climb" | "cheer" | "sit";
+  /**
+   * 不要在这里手抄一份原语清单。
+   *
+   * 这里原本写着 "idle" | "speak" | "walk" | "enter" | "climb" | "cheer" | "sit"，
+   * 后来 pose.ts 加了 point，这份手抄的联合忘了跟，于是生成出来的
+   * GeneratedLesson.tsx 里 motion === "point" 直接是 TS2367（两个类型无交集），
+   * 静态检查失败 → 整个 dynamic-remotion 引擎放弃 → 回退到 agent 引擎重建 →
+   * 卡在 LLM 上 300 秒超时。一个漏抄的联合类型，最后表现为"出片卡死"。
+   * 直接引用姿态中枢的类型，让编译器去保证一致。
+   *
+   * 注意：这段代码在模板字符串里，注释中不能出现反引号。
+   */
+  motion: MotionOp;
   actorId: string;
   start?: [number, number, number];
   end?: [number, number, number];

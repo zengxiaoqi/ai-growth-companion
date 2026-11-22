@@ -753,6 +753,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         ...(raw?.beats ? { beats: raw.beats } : {}),
         ...(raw?.figure ? { figure: raw.figure } : {}),
         ...(raw?.sceneGraph ? { sceneGraph: raw.sceneGraph } : {}),
+        // 动作意图必须原样带过去。这里曾经只透传 figure/sceneGraph，
+        // 于是 LLM 在 visualStory 里写的 interaction 被静默丢弃，
+        // 整片只能靠 deriveInteractionFromText 的正则从旁白里猜动作——
+        // 猜得出是运气，猜不出就退回静态构图。prompt 教了、装配层也接了，
+        // 中间这一环断了等于全都没接上。
+        ...(raw?.interaction ? { interaction: raw.interaction } : {}),
       };
     });
 

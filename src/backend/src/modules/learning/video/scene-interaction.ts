@@ -334,6 +334,18 @@ export function hasThreeMotionCue(text: string): Action3DMotion | null {
 }
 
 /**
+ * 文案里有没有任何动作线索（三维优先，其次二维）。
+ *
+ * 存在的意义只有一个：让装配层能判断"这次降级是静默的还是有据可查的"。
+ * 有线索却没产出 interaction，说明要么被回顾/列举判据主动拦掉了（合理），
+ * 要么是路由漏了（bug）——两者都会记一条 warn，区别只在文案里能不能看到原因。
+ * 没有这条，降级就是无声的，只能靠人工抽帧发现。
+ */
+export function hasAnyMotionCue(text: string): PuppetMotion | Action3DMotion | null {
+  return hasThreeMotionCue(text) ?? hasPuppetMotionCue(text);
+}
+
+/**
  * 一幕文案里提到了几种**不同**的动作。
  *
  * 用途只有一个：识别"列举/回顾幕"。hasThreeMotionCue 只会返回优先级最高的那一个，

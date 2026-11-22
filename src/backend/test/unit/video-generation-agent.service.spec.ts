@@ -563,4 +563,82 @@ describe('VideoGenerationAgentService', () => {
     expect(built.interaction.action3d.rig.fur).toBeTruthy();
     expect(built.interaction.action3d.durationFrames).toBeGreaterThan(0);
   });
+
+  /**
+   * P3 反向闭环：prompt 教了 LLM 能写 climb/walk，装配层就必须把这两个
+   * verb 接到二维渲染器上。
+   *
+   * 这一环最容易断：verb 白名单加了、prompt 也改了，但装配层只认
+   * point/speak 的话，LLM 写得再对，画面照样退回静态构图，而且没有任何报错。
+   */
+  it('LLM 直接声明 verb=climb 时下发 puppet，不再掉回静态构图', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition({
+      title: '小熊爬滑梯',
+      topic: '小熊爬滑梯',
+      domain: 'social',
+      totalDurationSec: 6,
+      sceneCount: 1,
+      scenes: [
+        {
+          id: 'scene-1',
+          sequence: 1,
+          title: '一步一步爬上去',
+          concept: '排队轮流',
+          narration: '小熊抓住梯子，一步一步往上爬。',
+          onScreenText: '爬上去',
+          visualDescription: '小熊在梯子前，手脚交替向上爬',
+          durationSec: 6,
+          transitionToNext: 'fade',
+          emphasis: 'core-concept',
+          // 新 prompt 之后 LLM 的写法：只给 verb，不给 puppet
+          interaction: {
+            verb: 'climb',
+            actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+            propId: 'slide',
+          },
+        },
+      ],
+    } as any);
+
+    const built = manifest.props.scenes[0] as any;
+    expect(built.interaction?.verb).toBe('climb');
+    expect(built.interaction?.puppet?.motion).toBe('climb');
+    expect(built.interaction?.puppet?.rig?.fur).toBeTruthy();
+    // climb 是 2D 独占原语，不该同时挂 3D 动作
+    expect(built.interaction?.action3d).toBeUndefined();
+  });
+
+  it('LLM 直接声明 verb=walk 时下发 puppet walk', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition({
+      title: '小兔走过来',
+      topic: '小兔走过来',
+      domain: 'social',
+      totalDurationSec: 6,
+      sceneCount: 1,
+      scenes: [
+        {
+          id: 'scene-1',
+          sequence: 1,
+          title: '小兔走过来',
+          concept: '见面问好',
+          narration: '小兔从远处走过来，向小熊打招呼。',
+          onScreenText: '走过来',
+          visualDescription: '小兔从画面左侧走向小熊',
+          durationSec: 6,
+          transitionToNext: 'fade',
+          emphasis: 'core-concept',
+          interaction: {
+            verb: 'walk',
+            actors: [{ id: 'rabbit', label: '小兔', role: 'helper' }],
+          },
+        },
+      ],
+    } as any);
+
+    const built = manifest.props.scenes[0] as any;
+    expect(built.interaction?.verb).toBe('walk');
+    expect(built.interaction?.puppet?.motion).toBe('walk');
+  });
 });

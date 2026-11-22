@@ -9,6 +9,7 @@
 
 import {
   deriveInteractionFromText,
+  hasAnyMotionCue,
   hasThreeMotionCue,
   normalizeSceneInteraction,
 } from '../../src/modules/learning/video/scene-interaction';
@@ -304,6 +305,56 @@ describe('真实分镜（小熊玩滑梯）的路由决策', () => {
     // 曾经这里只断言"没有 puppet"——太弱：它实际被"拍皮球"推成了 3D 拍球，
     // 回顾画面演成了单拍球动作。必须断言整份 interaction 为空。
     expect(route(4)).toBeNull();
+  });
+});
+
+/**
+ * 生成端能力表（P3 反向闭环）。
+ *
+ * 这一组钉的是"prompt 教了 LLM 什么，后端就必须接得住什么"。
+ * 之前 prompt 的 verb 白名单只有七个旧动词，climb/walk 只能靠正则从旁白里捞，
+ * 于是 LLM 永远学不会主动声明"这一幕在爬"。
+ */
+describe('LLM 直接声明单人动作（不再只靠正则兜底）', () => {
+  const climbScene = {
+    verb: 'climb',
+    actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+    propId: 'slide',
+  };
+
+  it('verb=climb 能通过白名单校验（不再被当成未知动词整份丢弃）', () => {
+    const r = normalizeSceneInteraction(climbScene);
+    expect(r).not.toBeNull();
+    expect(r?.verb).toBe('climb');
+    expect(r?.propId).toBe('slide');
+  });
+
+  it('verb=walk 同样通过校验', () => {
+    const r = normalizeSceneInteraction({
+      verb: 'walk',
+      actors: [{ id: 'rabbit', label: '小兔', role: 'helper' }],
+    });
+    expect(r?.verb).toBe('walk');
+  });
+
+  it('LLM 声明了 climb 就不该再带 puppet：verb 本身就是动作', () => {
+    // 若模型自作主张塞了 puppet，也要被白名单校验拦住（motion 合法才留）。
+    const clean = normalizeSceneInteraction(climbScene);
+    expect(clean?.puppet).toBeUndefined();
+    // 带合法 puppet 的仍保留（兼容老模型输出）
+    const withPuppet = normalizeSceneInteraction({
+      ...climbScene,
+      puppet: { motion: 'climb', actorId: 'bear', steps: 4 },
+    });
+    expect(withPuppet?.puppet?.motion).toBe('climb');
+    expect(withPuppet?.puppet?.steps).toBe(4);
+  });
+
+  it('hasAnyMotionCue 同时覆盖 3D 与 2D 线索，供降级告警判断', () => {
+    expect(hasAnyMotionCue('小熊从滑梯上滑下来')).toBe('slide');
+    expect(hasAnyMotionCue('小熊一步一步爬上去')).toBe('climb');
+    expect(hasAnyMotionCue('小熊走过来看皮球')).toBe('walk');
+    expect(hasAnyMotionCue('小熊安静地坐着')).toBeNull();
   });
 });
 

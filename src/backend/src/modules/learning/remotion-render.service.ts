@@ -263,6 +263,7 @@ export class RemotionRenderService implements OnModuleInit {
   ): void {
     let timedOut = false;
     let sigkillTimer: NodeJS.Timeout | null = null;
+    let settled = false;
 
     const hardTimer = setTimeout(() => {
       timedOut = true;
@@ -286,7 +287,9 @@ export class RemotionRenderService implements OnModuleInit {
       }, 2000);
     }, this.RENDER_HARD_TIMEOUT_MS);
 
-    proc.on('close', (code, signal) => {
+    const finish = (code: number | null, signal: NodeJS.Signals | null, viaExit = false) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(hardTimer);
       if (sigkillTimer) clearTimeout(sigkillTimer);
 
@@ -303,6 +306,15 @@ export class RemotionRenderService implements OnModuleInit {
         return;
       }
 
+      if (viaExit) {
+        // 走到这里说明主进程已经退出、但 stdout/stderr 管道仍被孙进程（Chrome）
+        // 占着，'close' 永远不会来。以前就这样白等满 15 分钟才报超时，
+        // 任务一直挂在 processing——用户看到的是"出片卡住"。
+        this.logger.warn(
+          `[${label}] render process exited but stdio stayed open (orphan child?), settling on exit event`,
+        );
+      }
+
       if (code === 0) {
         resolve();
       } else {
@@ -313,6 +325,17 @@ export class RemotionRenderService implements OnModuleInit {
           ),
         );
       }
+    };
+
+    proc.on('close', (code, signal) => finish(code, signal));
+
+    /**
+     * Windows 兜底：Remotion 会再拉起 Chrome，孙进程继承了 stdio 管道。
+     * 主进程退出后管道不关，'close' 不触发，整个任务就挂死在 processing。
+     * 'exit' 一定会来，给它 300ms 读完尾部输出后按退出码收尾。
+     */
+    proc.on('exit', (code, signal) => {
+      setTimeout(() => finish(code, signal, true), 300);
     });
   }
 

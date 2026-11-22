@@ -48,6 +48,7 @@ import {
 import {
   ANIMAL_SUBJECTS,
   ANIMAL_EMOJI_MAP,
+  VECTOR_ANIMAL_IDS,
   getInlineSvgAssetKeys,
   inferAnimalFromText,
   findAnimalMentions,
@@ -932,6 +933,7 @@ import {
 import { Audio } from "@remotion/media";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
+const VECTOR_ANIMAL_IDS: string[] = ${JSON.stringify(VECTOR_ANIMAL_IDS)};
 const PROP_LABELS: Record<string, string> = ${JSON.stringify(SCENE_PROP_LABELS)};
 
 /**
@@ -1710,66 +1712,88 @@ const PropArt: React.FC<{ id: string; x: number; y: number; frame: number }> = (
 };
 
 /**
- * 角色头像：emoji 大头像 + 名字标签，支持朝向与递出/接过动作。
- * 用 emoji 而非矢量素材，是因为交互场景要同时出现两个不同角色
- * （小熊递给小兔），而每个场景的 characterAssetSrc 只有一个主角。
+ * 矢量角色：优先用素材库的动物 SVG（32x32 viewBox 的精细 path，放大不失真），
+ * 用纯代码驱动动画——入场弹性、呼吸起伏、身体前倾、手臂递出/接过/挥手。
+ * 交互幕要同时出现两个不同角色，characterAssetSrc 每幕只解析一个主角，
+ * 所以这里按 actor.id 直接拼矢量素材路径，两个角色各自加载各自的 SVG。
+ * 没有矢量素材的角色（如北极熊）回退到 emoji，保证任何 id 都能出画面。
  */
-const ActorAvatar: React.FC<{
+const ActorFigure: React.FC<{
   actor: InteractionActorView;
   frame: number;
   facing: 1 | -1;
   gesture: "offer" | "receive" | "wave" | "idle";
   accent: string;
 }> = ({ actor, frame, facing, gesture, accent }) => {
-  const emoji = ANIMAL_EMOJI_MAP[actor.id] || "🐾";
-  const bob = Math.sin(frame / 15 + facing) * 6;
-  // 递出：手臂/道具侧轻微前倾并上下送；接过：向内侧收；挥手：大幅摆动
-  const armSwing =
+  const hasVector = VECTOR_ANIMAL_IDS.indexOf(actor.id) >= 0;
+  const emoji = ANIMAL_EMOJI_MAP[actor.id] || "\u{1F43A}";
+  // 入场弹性：每幕开头角色从小到大弹入
+  const enter = spring({ frame, fps: 30, config: { damping: 13, stiffness: 140 } });
+  const scale = 0.55 + enter * 0.45;
+  // 呼吸起伏
+  const bob = Math.sin(frame / 14) * 7;
+  // 身体前倾：递出时向前探身，挥手时轻微摇摆
+  const lean =
     gesture === "offer"
-      ? interpolate(Math.sin(frame / 9), [-1, 1], [-14, 10])
+      ? interpolate(Math.sin(frame / 9), [-1, 1], [-9, 7])
+      : gesture === "wave"
+        ? interpolate(Math.sin(frame / 8), [-1, 1], [-6, 6])
+        : 0;
+  // 手臂摆动：代码绘制的手臂随手势摆动
+  const armAngle =
+    gesture === "offer"
+      ? interpolate(Math.sin(frame / 9 + 0.7), [-1, 1], [-24, 18])
       : gesture === "receive"
-        ? interpolate(Math.sin(frame / 11 + 1), [-1, 1], [-8, 12])
+        ? interpolate(Math.sin(frame / 11 + 1), [-1, 1], [-14, 20])
         : gesture === "wave"
-          ? interpolate(Math.sin(frame / 5), [-1, 1], [-26, 20])
+          ? interpolate(Math.sin(frame / 5), [-1, 1], [-40, 32])
           : 0;
   return (
-    <div
-      style={{
-        position: "absolute",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        transform: "translateY(" + bob + "px)",
-      }}
-    >
-      <div
-        style={{
-          width: 300,
-          height: 300,
-          borderRadius: "50%",
-          background: "rgba(255,255,255,0.92)",
-          border: "8px solid " + accent,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 22px 40px rgba(0,0,0,0.16)",
-          position: "relative",
-        }}
-      >
-        <span style={{ fontSize: 190, lineHeight: 1, transform: "scaleX(" + facing + ")" }}>{emoji}</span>
-        <span
+    <div style={{ position: "absolute", display: "flex", flexDirection: "column", alignItems: "center", transform: "scale(" + scale + ")" }}>
+      <div style={{ position: "relative", transform: "translateY(" + bob + "px) rotate(" + lean * facing + "deg)" }}>
+        <div
           style={{
-            position: "absolute",
-            right: facing > 0 ? -34 : "auto",
-            left: facing < 0 ? -34 : "auto",
-            bottom: 26,
-            fontSize: 96,
-            transform: "rotate(" + armSwing + "deg)",
-            transformOrigin: "bottom center",
+            width: 320,
+            height: 320,
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.95)",
+            border: "8px solid " + accent,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 22px 40px rgba(0,0,0,0.16)",
+            position: "relative",
+            overflow: "hidden",
           }}
         >
-          {"🤚"}
-        </span>
+          {hasVector ? (
+            <Img
+              src={staticFile("assets/vector/animals/" + actor.id + ".svg")}
+              style={{ width: 288, height: 288, objectFit: "contain", transform: "scaleX(" + facing + ")" }}
+            />
+          ) : (
+            <span style={{ fontSize: 194, lineHeight: 1, transform: "scaleX(" + facing + ")" }}>{emoji}</span>
+          )}
+        </div>
+        {gesture !== "idle" ? (
+          <div
+            style={{
+              position: "absolute",
+              right: facing > 0 ? -40 : "auto",
+              left: facing < 0 ? -40 : "auto",
+              bottom: 26,
+              width: 96,
+              height: 96,
+              transform: "rotate(" + armAngle * facing + "deg)",
+              transformOrigin: "bottom center",
+            }}
+          >
+            <svg width="96" height="96" viewBox="0 0 96 96" style={{ overflow: "visible" }}>
+              <path d="M48 94 L48 42" stroke={accent} strokeWidth="24" strokeLinecap="round" />
+              <circle cx="48" cy="34" r="22" fill="#F6C9A0" stroke={accent} strokeWidth="5" />
+            </svg>
+          </div>
+        ) : null}
       </div>
       <div
         style={{
@@ -1863,8 +1887,8 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
     const propY = 590 - Math.sin(ease * Math.PI) * 96;
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: 300, top: 430 }}><ActorAvatar actor={giver} frame={frame} facing={1} gesture="offer" accent={accent} /></div>
-        <div style={{ position: "absolute", left: 1300, top: 430 }}><ActorAvatar actor={receiver} frame={frame} facing={-1} gesture="receive" accent={accent} /></div>
+        <div style={{ position: "absolute", left: 300, top: 430 }}><ActorFigure actor={giver} frame={frame} facing={1} gesture="offer" accent={accent} /></div>
+        <div style={{ position: "absolute", left: 1300, top: 430 }}><ActorFigure actor={receiver} frame={frame} facing={-1} gesture="receive" accent={accent} /></div>
         {it.propId ? (
           <>
             <svg width={1920} height={1080} viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
@@ -1886,9 +1910,6 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
           </>
         ) : null}
         {it.speech ? <SpeechBubble text={it.speech} side="right" accent={accent} frame={frame} /> : null}
-        <div style={{ position: "absolute", left: 0, right: 0, top: 880, textAlign: "center", fontSize: 46, fontWeight: 900, color: "#12303a" }}>
-          {it.caption || (giver.label + " 把" + (PROP_LABELS[it.propId || ""] || "") + "递给 " + receiver.label)}
-        </div>
       </AbsoluteFill>
     );
   }
@@ -1898,8 +1919,8 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
     const lift = Math.sin(frame / 12) * 18;
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: 260, top: 470 }}><ActorAvatar actor={helperA} frame={frame} facing={1} gesture="wave" accent={accent} /></div>
-        <div style={{ position: "absolute", left: 1360, top: 470 }}><ActorAvatar actor={helperB} frame={frame} facing={-1} gesture="wave" accent={accent} /></div>
+        <div style={{ position: "absolute", left: 260, top: 470 }}><ActorFigure actor={helperA} frame={frame} facing={1} gesture="wave" accent={accent} /></div>
+        <div style={{ position: "absolute", left: 1360, top: 470 }}><ActorFigure actor={helperB} frame={frame} facing={-1} gesture="wave" accent={accent} /></div>
         {it.propId ? (
           <div style={{ position: "absolute", left: 810, top: 540 + lift }}>
             <svg width={300} height={300} viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 18px 20px rgba(0,0,0,0.2))" }}>
@@ -1907,9 +1928,6 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
             </svg>
           </div>
         ) : null}
-        <div style={{ position: "absolute", left: 0, right: 0, top: 880, textAlign: "center", fontSize: 46, fontWeight: 900, color: "#12303a" }}>
-          {it.caption || (helperA.label + "和" + helperB.label + "一起抬")}
-        </div>
       </AbsoluteFill>
     );
   }
@@ -1918,9 +1936,9 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
   if (it.verb === "speak" && speaker) {
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: 1180, top: 430 }}><ActorAvatar actor={speaker} frame={frame} facing={-1} gesture="wave" accent={accent} /></div>
+        <div style={{ position: "absolute", left: 1180, top: 430 }}><ActorFigure actor={speaker} frame={frame} facing={-1} gesture="wave" accent={accent} /></div>
         {actors[1] ? (
-          <div style={{ position: "absolute", left: 300, top: 470 }}><ActorAvatar actor={actors[1]} frame={frame} facing={1} gesture="idle" accent={accent} /></div>
+          <div style={{ position: "absolute", left: 300, top: 470 }}><ActorFigure actor={actors[1]} frame={frame} facing={1} gesture="idle" accent={accent} /></div>
         ) : null}
         {/* 说话者站在右侧，气泡必须挂在同一侧，否则看起来像左边角色在说 */}
         {it.speech ? <SpeechBubble text={it.speech} side="right" accent={accent} frame={frame} /> : null}
@@ -1932,7 +1950,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
   if ((it.verb === "point" || it.verb === "hold") && helperA) {
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: 360, top: 430 }}><ActorAvatar actor={helperA} frame={frame} facing={1} gesture={it.verb === "point" ? "wave" : "receive"} accent={accent} /></div>
+        <div style={{ position: "absolute", left: 360, top: 430 }}><ActorFigure actor={helperA} frame={frame} facing={1} gesture={it.verb === "point" ? "wave" : "receive"} accent={accent} /></div>
         {it.propId ? (
           <div style={{ position: "absolute", left: 1300, top: 480 }}>
             <svg width={260} height={260} viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 14px 16px rgba(0,0,0,0.2))" }}>

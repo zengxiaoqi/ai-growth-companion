@@ -351,6 +351,21 @@ export const ANIMAL_EMOJI_MAP: Record<string, string> = {
   eagle: '\u{1F985}',
 };
 
+/**
+ * 矢量素材库里真实存在的动物 id（对应 public/assets/vector/animals/<id>.svg）。
+ * 渲染层用它判断能否用矢量角色：命中则 staticFile 加载 SVG + 代码动画，
+ * 否则回退 emoji 头像。清单来自 vector/manifest.json 的 staticPath，
+ * 新增素材时同步这里即可（不读文件，保持渲染模板为纯字符串）。
+ */
+export const VECTOR_ANIMAL_IDS: string[] = [
+  'tiger', 'rabbit', 'monkey', 'elephant', 'lion', 'panda', 'cat', 'dog', 'fish', 'bird',
+  'snake', 'turtle', 'frog', 'butterfly', 'bee', 'ant', 'penguin', 'giraffe', 'deer', 'zebra',
+  'hippo', 'crocodile', 'kangaroo', 'bear', 'fox', 'owl', 'cow', 'duck', 'pig', 'horse',
+  'sheep', 'chicken', 'rooster', 'chick', 'mouse', 'goat', 'camel', 'wolf', 'dolphin', 'whale',
+  'octopus', 'crab', 'shrimp', 'snail', 'squirrel', 'ladybug', 'peacock', 'parrot', 'bat',
+  'dragon', 'unicorn',
+];
+
 /** Accent colors for animals not in ANIMAL_SUBJECTS */
 const ANIMAL_ACCENT_COLORS: Record<string, string> = {
   dolphin: '#4da6ff',

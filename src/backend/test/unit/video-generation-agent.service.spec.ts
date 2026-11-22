@@ -217,6 +217,54 @@ describe('VideoGenerationAgentService', () => {
     });
   });
 
+  it('renders interaction actors as vector SVG figures with code-driven motion, not emoji', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(
+      {
+        title: '学会分享',
+        topic: '学会分享',
+        domain: 'social',
+        totalDurationSec: 12,
+        sceneCount: 1,
+        scenes: [
+          {
+            id: 'scene-1',
+            sequence: 1,
+            title: '递皮球',
+            concept: '分享',
+            narration: '小熊把红色皮球轻轻递给小兔。',
+            onScreenText: '一起分享',
+            visualDescription: '小熊把红色皮球递给小兔，小兔双手接过',
+            durationSec: 12,
+            transitionToNext: 'fade',
+            emphasis: 'core-concept',
+          },
+        ],
+        visualTheme: {
+          primaryPalette: '#E8F8FF',
+          accentColor: '#ff6b81',
+          mood: 'playful',
+        },
+        narrativeArc: 'intro',
+      } as any,
+      { domain: 'social', ageGroup: '5-6' },
+    );
+
+    const generatedCode = manifest.files.map((file) => file.content).join('\n');
+    expect(manifest.props.scenes[0].interaction?.verb).toBe('handover');
+    // 矢量角色：从素材库按 actor.id 拼路径，不走每幕单主角的 characterAssetSrc
+    expect(generatedCode).toContain('const ActorFigure');
+    expect(generatedCode).toContain('assets/vector/animals/');
+    expect(generatedCode).toContain('VECTOR_ANIMAL_IDS.indexOf(actor.id)');
+    expect(generatedCode).toContain('"bear"');
+    // 代码驱动的动画：入场弹性 + 呼吸 + 手臂摆动
+    expect(generatedCode).toContain('0.55 + enter * 0.45');
+    expect(generatedCode).toContain('armAngle');
+    expect(generatedCode).toContain('spring(');
+    // 交互幕不再画自己的底部 caption（与旁白字幕轨重叠）
+    expect(generatedCode).not.toContain('giver.label + " 把"');
+  });
+
   it('generates a dynamic Remotion manifest with rabbit image assets instead of the generic circle fallback', async () => {
     const service = createService(new VisualAssetService());
     const manifest = await service.generateRemotionComposition(

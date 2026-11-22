@@ -1,5 +1,10 @@
 import { promises as fs } from 'fs';
 import { LessonVideoQueueService } from '../../src/modules/learning/lesson-video-queue.service';
+import {
+  announcePortOwner,
+  isWorkerActive,
+  markWorkerInactive,
+} from '../../src/common/instance-guard';
 
 describe('LessonVideoQueueService', () => {
   let service: LessonVideoQueueService;
@@ -820,6 +825,49 @@ describe('LessonVideoQueueService', () => {
           }),
         }),
       );
+    });
+  });
+
+  /**
+   * 单实例闸门。这两个用例对应真实事故：`nest start --watch` 留下了旧进程，
+   * 新进程拿不到 3001 却已经跑完 OnModuleInit —— 定时器在跑、僵尸任务被复位、
+   * 任务被标成 processing，然后进程带着任务消失，页面永远停在 0%。
+   */
+  describe('单实例闸门', () => {
+    afterEach(() => {
+      // 恢复"单测默认视为唯一实例"，避免影响同文件里的其他用例
+      announcePortOwner(3001);
+    });
+
+    it('没有端口归属时一个任务都不认领', async () => {
+      markWorkerInactive();
+      taskRepo.findOne.mockClear();
+
+      await (service as any).processNextTask();
+
+      expect(taskRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('OnModuleInit 不立刻复位僵尸任务，要等端口归属信号', () => {
+      markWorkerInactive();
+      const reset = jest
+        .spyOn(service as any, 'resetOrphanedProcessingTasks')
+        .mockResolvedValue(undefined);
+      const diagnostics = jest
+        .spyOn(service as any, 'logEnvironmentDiagnostics')
+        .mockResolvedValue(undefined);
+
+      service.onModuleInit();
+      // 端口还没到手：此时复位会把别的进程正在渲染的任务打回 pending
+      expect(reset).not.toHaveBeenCalled();
+      expect(diagnostics).not.toHaveBeenCalled();
+
+      announcePortOwner(3001);
+      expect(reset).toHaveBeenCalledTimes(1);
+      expect(diagnostics).toHaveBeenCalledTimes(1);
+
+      service.onModuleDestroy();
+      expect(isWorkerActive()).toBe(false);
     });
   });
 });

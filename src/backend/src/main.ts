@@ -7,8 +7,64 @@ const compression = require('compression');
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { loggerConfig } from './common/logger.module';
+import {
+  InstanceBusyError,
+  announcePortOwner,
+  installProcessGuards,
+  releaseInstanceLock,
+  waitForExclusiveAccess,
+  workerSnapshot,
+} from './common/instance-guard';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+  const port = Number(process.env.PORT || 3000);
+  const host = process.env.HOST || '0.0.0.0';
+
+  installProcessGuards({
+    onFatal: (error) => logger.error(`致命错误: ${(error as any)?.message || error}`),
+  });
+
+  /**
+   * 顺序要紧：**先确定自己是唯一实例，再把 Nest 造出来**。
+   *
+   * `NestFactory.create` 会同步跑完所有 OnModuleInit，其中出片队列会启动定时器
+   * 并复位"僵尸 processing 任务"。如果先 create 再 listen，抢不到端口的进程
+   * 已经把在渲染的任务打回 pending 了 —— 一次失败的重启就能让 attemptCount
+   * 白涨一格，且没人察觉。把这两步挪到 create 之前，失败者连副作用都没有。
+   *
+   * 等待窗口（默认 8s）是为 `nest start --watch` 的换班留的：杀旧进程和起新进程
+   * 是两条独立动作，新进程常常在旧进程还没释放端口时启动。只等待，不杀任何进程。
+   */
+  try {
+    await waitForExclusiveAccess({
+      port,
+      host,
+      // 留空走默认值；写错（非数字）由 guard 内部回落到默认，不会变成 NaN 死等
+      timeoutMs: process.env.INSTANCE_WAIT_MS
+        ? Number(process.env.INSTANCE_WAIT_MS)
+        : undefined,
+    });
+  } catch (error: any) {
+    if (error instanceof InstanceBusyError && error.reason === 'port') {
+      logger.error(
+        `端口 ${port} 已被占用：本进程立即退出。` +
+          `另一个后端实例正在运行（netstat -ano | findstr :${port} 查看 PID）。` +
+          `若不退出，它的队列定时器会与本进程互抢任务，表现为"任务一直 pending、进度不动"。`,
+      );
+    } else if (error instanceof InstanceBusyError) {
+      const owner = error.owner;
+      logger.error(
+        `已有后端实例持有单实例锁（pid=${owner?.pid ?? '?'}, port=${owner?.port ?? '?'}, ` +
+          `startedAt=${owner?.startedAt || '?'}, file=${error.file}）。本进程立即退出。` +
+          `确认该进程确实需要停止后再结束它（kill ${owner?.pid ?? '<pid>'}），锁会随进程退出释放。`,
+      );
+    } else {
+      logger.error(`取得单实例访问权失败: ${error?.message || error}`);
+    }
+    process.exit(1);
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: loggerConfig,
   });
@@ -101,11 +157,26 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  const port = Number(process.env.PORT || 3000);
-  const host = process.env.HOST || '0.0.0.0';
-  await app.listen(port, host);
-  const logger = new Logger('Bootstrap');
+  try {
+    await app.listen(port, host);
+  } catch (error: any) {
+    // 走到这里说明"先探测再绑定"之间被别的进程插队了（TOCTOU）。
+    // 必须立刻退出：此时队列定时器已经在跑，留着就是一个只抢任务不出片的僵尸。
+    logger.error(`端口 ${port} 绑定失败（${error?.code || error?.message}），本进程退出`);
+    releaseInstanceLock();
+    process.exit(1);
+  }
+
+  // 端口到手，才算真正"上岗"：队列从这里开始允许认领任务
+  announcePortOwner(port);
+  // SIGINT/SIGTERM 触发 OnModuleDestroy，让队列定时器和渲染子进程有机会收尾
+  app.enableShutdownHooks();
+
   logger.log(`灵犀伴学 API 已启动: http://localhost:${port}`);
+  const worker = workerSnapshot();
+  logger.log(
+    `出片队列归属: pid=${worker.pid}, port=${worker.port}, lock=${worker.lockFile || '(none)'}`,
+  );
   if (swaggerEnabled) {
     logger.log(`Swagger 文档: http://localhost:${port}/api/docs`);
   }
@@ -115,4 +186,12 @@ async function bootstrap() {
     );
   }
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  // 没有这个 catch，启动期异常会变成未处理的 Promise 拒绝：锁不释放、
+  // 退出原因不明，下一次启动还会被自己的陈旧锁挡住。
+  // eslint-disable-next-line no-console
+  console.error('[bootstrap] 启动失败:', error);
+  releaseInstanceLock();
+  process.exit(1);
+});

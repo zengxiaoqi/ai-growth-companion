@@ -724,6 +724,38 @@ docker system df
 docker system prune -af
 ```
 
+### 10.6 单实例与出片队列归属
+
+出片队列是**单写者**的：同一个库里只允许一个进程认领任务，而"谁有资格"由端口决定——只有成功绑定 HTTP 端口的进程才会认领。多开一个进程不会加速渲染，只会让两个队列互相抢同一批任务（表现为任务被标成 processing 后消失、进度永远不动）。
+
+**看当前是谁在跑队列**：
+
+```bash
+curl -s http://localhost:3001/api/health | jq .videoWorker
+```
+
+```json
+{
+  "pid": 15008,
+  "port": 3001,
+  "active": true,
+  "activatedAt": "2026-11-22T14:33:49.061Z",
+  "lockFile": ".../src/backend/storage/.instance.json",
+  "lockHolderPid": 15008
+}
+```
+
+- `active: false` → 这个进程没拿到端口，不该存在；它会自行退出
+- `lockHolderPid` ≠ `pid` → 锁被别的进程持有，说明有重复启动
+
+**单实例锁**：`src/backend/storage/.instance.json`（随进程退出自动删除，已 gitignore）。启动时若发现锁被**活进程**持有，新进程会等 `INSTANCE_WAIT_MS`（默认 8000ms，给 `nest start --watch` 换班留时间）后退出，并打印持有者 pid 与端口。被 `kill -9` / `taskkill /F` 打断留下的锁会被识别为陈旧并自动接管，**不需要手工删除**；只有确认进程仍在运行却要强行接管时，才手工删锁文件。
+
+| 现象 | 先查什么 |
+| --- | --- |
+| 任务一直 pending，进度不动 | `/api/health` 的 `videoWorker.pid` 与 `netstat -ano \| findstr :3001` 的 PID 是否一致 |
+| 启动日志出现"端口已被占用" | 另一个实例在跑，先结束它；不要改端口绕过（会变成双 worker） |
+| 启动日志出现"持有单实例锁" | 按日志里的 pid 确认进程；确实是僵尸再删锁文件 |
+
 ---
 
 ## 11. 常见问题排查

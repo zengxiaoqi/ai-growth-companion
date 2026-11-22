@@ -29,6 +29,7 @@ import { VisualQaService, type SceneQaInput, type SceneTimelineEntry, type Visua
 import { VideoParamRepairService } from './video-param-repair.service';
 import { AgentRemotionService } from './agent-remotion.service';
 import { hasThreeMotionCue } from './video/scene-interaction';
+import { isWorkerActive, markWorkerInactive, onWorkerActivated } from '../../common/instance-guard';
 
 type ProviderStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'unknown';
 
@@ -58,6 +59,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   private queueTimer: NodeJS.Timeout | null = null;
   private workerBusy = false;
   private cleanupTick = 0;
+  private lastInactiveWarnAt = 0;
 
   private readonly pollIntervalMs = this.toInt(
     process.env.VIDEO_TASK_POLL_INTERVAL_MS,
@@ -177,11 +179,21 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       `Lesson video agent pipeline ${this.videoGenerationAgent ? 'enabled' : 'disabled'}`,
     );
 
-    // Reset orphaned 'processing' tasks left from a previous server crash/restart
-    void this.resetOrphanedProcessingTasks();
-
-    // Log environment diagnostics for video rendering
-    void this.logEnvironmentDiagnostics();
+    /**
+     * 这两件事都**必须在拿到端口归属之后**才能做，不能直接在 OnModuleInit 里跑。
+     *
+     * OnModuleInit 发生在 `app.listen()` 之前。若本进程最终没抢到端口，那个
+     * "复位僵尸 processing 任务"的 UPDATE 已经把另一个进程正在渲染的任务打回
+     * pending 了 —— 一次失败的重启就让 attemptCount 白涨一格，渲染结果还可能
+     * 被两边互相覆盖。而且定时器已经在跑，看着一切正常，只是永远不出片。
+     */
+    onWorkerActivated(() => {
+      this.logger.log('本进程已持有端口，出片队列开始认领任务');
+      // Reset orphaned 'processing' tasks left from a previous server crash/restart
+      void this.resetOrphanedProcessingTasks();
+      // Log environment diagnostics for video rendering
+      void this.logEnvironmentDiagnostics();
+    });
   }
 
   private async resetOrphanedProcessingTasks(): Promise<void> {
@@ -283,6 +295,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
+    // 先放弃认领资格再停表：即便某个 tick 已经在跑，也不会在停机过程中再领新任务
+    markWorkerInactive();
     if (this.queueTimer) {
       clearInterval(this.queueTimer);
       this.queueTimer = null;
@@ -428,6 +442,19 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     return fs.readFile(resolvedPath);
   }
 
+  /**
+   * 非归属进程的定时器会一直空转。限流后每 30 秒提示一次，让它"看得出来"，
+   * 而不是静默到有人发现任务不动为止。
+   */
+  private warnWorkerInactive(): void {
+    const now = Date.now();
+    if (now - this.lastInactiveWarnAt < 30_000) return;
+    this.lastInactiveWarnAt = now;
+    this.logger.warn(
+      '本进程尚未取得端口归属，暂不认领出片任务（多实例启动的失败方应立即退出）',
+    );
+  }
+
   private async processQueue(): Promise<void> {
     if (this.workerBusy) return;
     this.workerBusy = true;
@@ -446,6 +473,18 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processNextTask(): Promise<void> {
+    /**
+     * 身份闸门：只有绑定到 HTTP 端口的进程才有资格认领。
+     *
+     * 这一层是"定时器已经起来但本进程不该干活"的保险。定时器在 OnModuleInit
+     * 里启动，而端口归属要等 listen 成功——中间这段窗口如果直接认领，抢端口
+     * 失败的进程会先一步把任务标成 processing，然后带着任务一起消失。
+     */
+    if (!isWorkerActive()) {
+      this.warnWorkerInactive();
+      return;
+    }
+
     //  newest-first：单 worker 串行渲染，家长/孩子正在预览的永远是最新生成的课。
     //  FIFO 会让新课排在十几分钟的旧积压后面（实测排队 5 分钟~1.5 小时），
     //  看起来像"点了预览才开始生成"。旧任务仍会在空闲时按新→旧补完。

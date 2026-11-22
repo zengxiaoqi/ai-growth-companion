@@ -64,6 +64,10 @@ bento-output/
 .workbuddy/skills/.installed
 # Local scratch / screenshots / credentials — must never be committed
 .workbuddy/tmp/
+# 出片样片（体积大，仅本机验收用）
+.workbuddy/samples/
+# 分镜推导产物（由 scripts/derive-storyboard-plan.ts 生成，源头是 slide-storyboard.json）
+src/backend/test/fixtures/*.plan.json
 .zcode/
 
 # Flutter android build output

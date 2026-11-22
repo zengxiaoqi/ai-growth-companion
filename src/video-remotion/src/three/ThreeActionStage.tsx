@@ -23,6 +23,17 @@
 import React from "react";
 import { ThreeCanvas } from "@remotion/three";
 import { useVideoConfig } from "remotion";
+// 姿态解算在 character/pose.ts（与渲染器无关）。这个文件只负责"把关节目标点
+// 画成圆柱和四元数"，不负责"角色该怎么动"——那是 pose 层的事。
+import {
+  BALL_RADIUS,
+  SPEC,
+  clamp,
+  dribblePose,
+  slidePose,
+  type Pose,
+  type Tri,
+} from "../character/pose";
 
 export type ThreeRig = {
   fur: string;
@@ -46,11 +57,6 @@ export type ThreeStageScene = {
   label?: string;
 };
 
-type Tri = [number, number, number];
-
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const smooth = (t: number) => t * t * (3 - 2 * t);
 
 /* ------------------------------------------------------------------ *
  * 场景常量：相机与角色尺寸
@@ -72,20 +78,6 @@ const VIEW = {
   dribble: { z: 6.2, lookY: 1.15 },
 };
 
-/** 角色尺寸（局部坐标，原点在髋部中心，脚底约 -0.64） */
-const SPEC = {
-  hipY: 0,
-  torsoR: 0.3,
-  shoulder: [0.28, 0.42, 0.02] as Tri,
-  hipJoint: [0.14, -0.12, 0] as Tri,
-  /** 手臂/腿的最大伸展（站姿距离约 0.45 / 0.50，留一点余量，否则会被钳制） */
-  armLen: 0.54,
-  legLen: 0.52,
-  headY: 0.72,
-  headR: 0.29,
-  /** 站立时髋部离地高度：脚底 -0.64 + 0.02 间隙 */
-  standHipY: 0.66,
-};
 
 /**
  * 把一根肢体从 from 指向 to：返回中点位置、四元数（+Y 轴指向目标方向）、
@@ -242,31 +234,6 @@ const Tail: React.FC<{ rig: ThreeRig; swing: number }> = ({ rig, swing }) => {
   );
 };
 
-type Pose = {
-  root: Tri;
-  rotZ: number;
-  rotY: number;
-  handL: Tri;
-  handR: Tri;
-  footL: Tri;
-  footR: Tri;
-  tailSwing: number;
-  headTilt: number;
-  squash: number;
-};
-
-/** 静止站姿的四肢位置，所有动作都以它为基准混合 */
-const STAND_POSE: Omit<Pose, "root"> = {
-  rotZ: 0,
-  rotY: 0,
-  handL: [-0.36, -0.02, 0.06],
-  handR: [0.36, -0.02, 0.06],
-  footL: [-0.16, -0.62, 0.02],
-  footR: [0.16, -0.62, 0.02],
-  tailSwing: 0,
-  headTilt: 0,
-  squash: 1,
-};
 
 const ProceduralChar: React.FC<{ rig: ThreeRig; pose: Pose }> = ({ rig, pose }) => {
   const s = rig.scale;
@@ -463,141 +430,6 @@ const Ball: React.FC<{ position: Tri; radius: number; squash: number; spin: numb
   </group>
 );
 
-/* ------------------------------------------------------------------ *
- * 动作：滑滑梯
- * ------------------------------------------------------------------ */
-function slidePose(scene: ThreeStageScene, localFrame: number): Pose {
-  const dur = Math.max(24, scene.durationFrames || 90);
-  const u = clamp(localFrame / dur, 0, 1);
-  // 加速度曲线：起滑慢、中段快、到底前不再加速（u^1.5 而不是线性）
-  const travel = Math.pow(u, 1.5);
-
-  const [sx, sy] = scene.start;
-  const [ex, ey] = scene.end;
-  const dx = ex - sx;
-  const dy = ey - sy;
-  const len = Math.sqrt(dx * dx + dy * dy) || 1;
-  const nx = -dy / len;
-  const ny = dx / len;
-  const angle = Math.atan2(dy, dx);
-
-  // 沿滑面 4% → 96%：起点落在平台上，终点停在滑面底端
-  const p = lerp(0.04, 0.96, travel);
-  const px = sx + dx * p;
-  const py = sy + dy * p;
-
-  // 坐姿：髋部沿法线抬起 0.26（躯干底 -0.28 刚好压在滑面上），双腿沿滑面
-  // 向前伸出而不是垂到板下面——垂下去会被滑板挡住，看起来像"浮在板上"。
-  const slideRoot: Tri = [px + nx * 0.27, py + ny * 0.27, 0];
-  const swing = Math.sin(localFrame / 5) * 0.06;
-  const sitting: Omit<Pose, "root"> = {
-    rotZ: angle + 0.1,
-    rotY: 0,
-    handL: [-0.4, 0.74 + swing, 0.2],
-    handR: [0.4, 0.74 - swing, 0.2],
-    footL: [0.5, 0.12 + swing * 0.5, -0.14],
-    footR: [0.5, 0.12 - swing * 0.5, 0.14],
-    tailSwing: Math.sin(localFrame / 8) * 0.5,
-    headTilt: -0.12,
-    squash: 1,
-  };
-
-  // 最后一程站起来：坐姿 → 站姿，位置从滑面底端落到地面
-  const standT = smooth(clamp((u - 0.9) / 0.1, 0, 1));
-  // 落地点要离开滑道末端：贴着末端站会和斜板叠在一起，像被插穿
-  const standRoot: Tri = [ex + 0.8, SPEC.standHipY, 0];
-  const root: Tri = [
-    lerp(slideRoot[0], standRoot[0], standT),
-    lerp(slideRoot[1], standRoot[1], standT),
-    lerp(slideRoot[2], standRoot[2], standT),
-  ];
-  const mixTri = (a: Tri, b: Tri): Tri => [
-    lerp(a[0], b[0], standT),
-    lerp(a[1], b[1], standT),
-    lerp(a[2], b[2], standT),
-  ];
-
-  return {
-    root,
-    rotZ: lerp(sitting.rotZ, STAND_POSE.rotZ, standT),
-      rotY: 0,
-    handL: mixTri(sitting.handL, STAND_POSE.handL),
-    handR: mixTri(sitting.handR, STAND_POSE.handR),
-    footL: mixTri(sitting.footL, STAND_POSE.footL),
-    footR: mixTri(sitting.footR, STAND_POSE.footR),
-    tailSwing: lerp(sitting.tailSwing, 0, standT),
-    headTilt: lerp(sitting.headTilt, 0, standT),
-    squash: 1,
-  };
-}
-
-/* ------------------------------------------------------------------ *
- * 动作：拍球
- *
- * 接触关系是这一段的核心：球的 Y 由周期函数给出，接触帧固定在周期边界；
- * 熊掌目标点 = 球心 + 0.9R（搭在球顶），手臂用"肩→目标"定向自动跟手。
- * 因此"掌球同帧接触"不是靠调参对齐两条时间线，而是同一个变量算出来的。
- * ------------------------------------------------------------------ */
-/** 球半径与静置高度（球心离地）——渲染与注册表各存一份，注册表是权威值 */
-const BALL_RADIUS = 0.26;
-
-function dribblePose(
-  scene: ThreeStageScene,
-  localFrame: number,
-): { pose: Pose; ball: Tri; squash: number; spin: number } {
-  const period = Math.max(6, scene.bounce?.periodFrames ?? 18);
-  const height = Math.max(0.2, scene.bounce?.height ?? 0.62);
-  const rest = scene.ballRestY ?? 0.27;
-  const radius = BALL_RADIUS;
-
-  const cyclePhase = (((localFrame % period) + period) % period) / period;
-  const lift = Math.abs(Math.sin(Math.PI * cyclePhase));
-  const ballY = rest + height * lift;
-
-  // 球在小熊右侧、同一景深平面内：再往前放会让手臂藏在球后面，
-  // 孩子看到的是"一颗球悬在耳边"，不是"熊掌在拍球"。
-  const ballX = 0.72;
-  const ballZ = 0.15;
-  const ball: Tri = [ballX, ballY, ballZ];
-
-  // 落地附近压扁，最高点恢复
-  const contact = clamp(1 - (ballY - rest) / 0.14, 0, 1);
-  const squash = 1 - 0.12 * contact;
-  const spin = localFrame * 0.1;
-
-  // 身体随球起伏：球到手边时微微下蹲，球飞起时站直
-  const hipY = SPEC.standHipY - 0.07 * (1 - lift);
-  const root: Tri = [0, hipY, 0];
-
-  // 右掌搭在球顶靠前的一侧（z 比球心大 0.11）：既真实接触又不被球挡住。
-  // 目标点 = 球心 + 0.9R，臂长 0.46 覆盖得了这个范围，所以不会被拉伸。
-  const handR: Tri = [ballX, ballY + radius * 0.9 - hipY, ballZ + 0.11];
-  // 左臂自然摆动配平
-  const handL: Tri = [-0.38, -0.02 + Math.sin(localFrame / 7) * 0.05, 0.08];
-  // 脚随下蹲略微屈膝
-  const kneeDrop = 0.07 * (1 - lift);
-  const footL: Tri = [-0.16, -0.62 + kneeDrop, 0.02];
-  const footR: Tri = [0.16, -0.62 + kneeDrop, 0.02];
-
-  return {
-    pose: {
-      root,
-      rotZ: 0,
-      // 身体正对镜头：转身体会把手臂目标点一起转走，掌心就贴不到球了
-      rotY: 0,
-      handL,
-      handR,
-      footL,
-      footR,
-      tailSwing: Math.sin(localFrame / 9) * 0.35,
-      headTilt: 0.18 + lift * 0.05,
-      squash: 1,
-    },
-    ball,
-    squash,
-    spin,
-  };
-}
 
 /* ------------------------------------------------------------------ *
  * 舞台

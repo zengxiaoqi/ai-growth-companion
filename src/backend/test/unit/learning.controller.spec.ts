@@ -75,6 +75,8 @@ describe('LearningController', () => {
       contentRepo as any,
       videoTaskRepo as any,
       quickVideoService as any,
+      // assetGenService：控制器新增的第 10 个依赖，本文件不触发它的逻辑
+      { generate: jest.fn() } as any,
     );
   });
 
@@ -534,7 +536,8 @@ describe('LearningController', () => {
       const result = await controller.getDraftLessons(createParentReq(1), '2');
 
       expect(result).toEqual(drafts);
-      expect(lessonContent.listDraftLessonsForChild).toHaveBeenCalledWith(2);
+      // 第二个参数是 includeFailed（本次请求未带 query，默认 false）
+      expect(lessonContent.listDraftLessonsForChild).toHaveBeenCalledWith(2, false);
     });
 
     it('rejects draft lessons without valid childId', async () => {

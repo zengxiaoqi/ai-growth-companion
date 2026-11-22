@@ -27,6 +27,11 @@ export const INTERACTION_VERBS = [
   'hold',
   'slide',
   'dribble',
+  // 单人连续动作。原先 interaction 只描述"角色之间"的动作，导致"小熊一步一步
+  // 爬上滑梯"这种句子没有字段承载，整幕静默降级成一张 emoji 卡片。这两个动词
+  // 把单人动作纳入语法，语义仍是"这一幕在演什么动作"，不再是"谁对谁做"。
+  'climb',
+  'walk',
 ] as const;
 export type InteractionVerb = (typeof INTERACTION_VERBS)[number];
 
@@ -42,6 +47,26 @@ export type Action3DRenderer = (typeof ACTION3D_RENDERERS)[number];
 
 export const ACTION3D_MOTIONS = ['slide', 'dribble'] as const;
 export type Action3DMotion = (typeof ACTION3D_MOTIONS)[number];
+
+/**
+ * 二维全身角色能演的动作原语。
+ *
+ * 这份清单是"能力表"的一半：渲染器声明自己能演什么，选择器按"这一幕需要的
+ * 原语 ⊆ 渲染器能力"来挑。加原语不该改选择逻辑，也不该改渲染器——
+ * 姿态在 video-remotion/src/character/pose.ts 里写一次，2D 与 3D 同时获得。
+ *
+ * 这里只列"2D 独占"的部分：walk/enter/climb 没有 3D 实现（也不需要，
+ * 2D 骨架足够且更便宜），slide/dribble 走 3D 舞台。
+ */
+export const PUPPET_MOTIONS = ['idle', 'speak', 'point', 'walk', 'enter', 'climb', 'cheer', 'sit'] as const;
+export type PuppetMotion = (typeof PUPPET_MOTIONS)[number];
+
+export interface PuppetAction {
+  motion: PuppetMotion;
+  actorId: string;
+  /** climb 的阶梯数；其余动作忽略 */
+  steps?: number;
+}
 
 export type Vec3 = [number, number, number];
 
@@ -91,6 +116,12 @@ export interface SceneInteraction {
   speech?: string;
   /** 三维动作描述；缺失时渲染层按 verb 推导或退回 2D 演出 */
   action3d?: Action3D;
+  /**
+   * 二维全身角色的动作（与 action3d 互斥，先判 action3d）。
+   * 它承载"单人连续动作"：爬、走、入场——这些原先没有归属字段，
+   * 只能落到"白卡片 + emoji"的兜底分支。
+   */
+  puppet?: PuppetAction;
 }
 
 const VERB_SET = new Set<string>(INTERACTION_VERBS);
@@ -150,6 +181,26 @@ function normalizeRole(input: unknown): ActorRole {
  * 3D 资产由 action3d-registry 决定，这里保证"带进渲染器的每个值都是干净的"。
  * 任一必需项不合法就整份丢弃，让渲染层退回 2D 演出，而不是带着 NaN 坐标去建几何体。
  */
+/**
+ * 校验从 LLM 结构化输出里读到的二维动作。
+ * actorId 必须给（决定画哪种动物），motion 必须在白名单内——
+ * 未知动作一律丢弃并让上层退回"入场 + idle"，绝不把渲染器不认识的 op 传下去。
+ */
+export function normalizePuppet(raw: unknown): PuppetAction | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const source = raw as Record<string, unknown>;
+  const motion = clean(source.motion).toLowerCase();
+  if (!(PUPPET_MOTIONS as readonly string[]).includes(motion)) return null;
+  const actorId = clean(source.actorId).toLowerCase();
+  if (!actorId) return null;
+  const steps = Math.round(Number(source.steps));
+  return {
+    motion: motion as PuppetMotion,
+    actorId,
+    ...(Number.isFinite(steps) && steps >= 2 && steps <= 8 ? { steps } : {}),
+  };
+}
+
 export function normalizeAction3D(raw: unknown): Action3D | null {
   if (!raw || typeof raw !== 'object') return null;
   const source = raw as Record<string, unknown>;
@@ -222,6 +273,7 @@ export function normalizeSceneInteraction(raw: unknown): SceneInteraction | null
   }
   if (actors.length === 0 || actors.length > 3) return null;
 
+  const puppet = normalizePuppet(source.puppet);
   const propId = clean(source.propId).toLowerCase() || undefined;
   const speech = clean(source.speech).slice(0, 32) || undefined;
   const caption = clean(source.caption).slice(0, 20) || undefined;
@@ -230,6 +282,7 @@ export function normalizeSceneInteraction(raw: unknown): SceneInteraction | null
     verb,
     actors,
     ...(propId ? { propId } : {}),
+    ...(puppet ? { puppet } : {}),
     ...(speech ? { speech } : {}),
     ...(caption ? { caption } : {}),
     ...(action3d ? { action3d } : {}),
@@ -256,12 +309,45 @@ const SLIDE_DESCEND =
 const DRIBBLE_CUE =
   /(拍|运)[一]?(拍)?[^，。；]{0,2}(皮)?球|\bdribbl\w*|\bpat(?:s|ting)?\b[^.]{0,30}\b(?:ball|bounc\w*)|\bbounc\w*\b[^.]{0,30}\bball\b|\bball\b[^.]{0,30}\bbounc\w*/i;
 
+/** 爬：必须同时有"爬"和向上的方向感，避免"爬行动物"这类名词误判 */
+const CLIMB_CUE = /爬(上|到|升|梯|台阶|滑梯)|一级一级|一步一步[^。]{0,3}(上|高)|往上爬|向上爬|\bclimb(?:s|ed|ing)?\b/i;
+/** 走/跑：位移类。排除"走神""走廊"这类名词误伤 */
+const WALK_CUE = /(走|跑|迈步|溜达)[过来去进出到]|走进|跑进|\bwalk(?:s|ed|ing)?\b|\brun(?:s|ning)?\b/i;
+
+/**
+ * 单人动作判定。与 hasThreeMotionCue 分开是因为两者服务的渲染器不同：
+ * 3D 幕要改变引擎排序（只有内置模板能演），2D 幕不需要。
+ */
+export function hasPuppetMotionCue(text: string): PuppetMotion | null {
+  const t = String(text || '');
+  if (CLIMB_CUE.test(t)) return 'climb';
+  if (WALK_CUE.test(t)) return 'walk';
+  return null;
+}
+
 export function hasThreeMotionCue(text: string): Action3DMotion | null {
   const t = String(text || '');
   // 滑梯存在 + 明确的向下位移动词，缺一不可："爬上滑梯"是站着不动
   if (SLIDE_NOUN.test(t) && SLIDE_DESCEND.test(t)) return 'slide';
   if (DRIBBLE_CUE.test(t)) return 'dribble';
   return null;
+}
+
+/**
+ * 一幕文案里提到了几种**不同**的动作。
+ *
+ * 用途只有一个：识别"列举/回顾幕"。hasThreeMotionCue 只会返回优先级最高的那一个，
+ * 用来判断"这一幕在演什么"没问题，但判断"这一幕是不是在背流程表"就不够——
+ * 三个动作都提到时它只会默默挑一个，画面看着合理、内容却是错的。
+ */
+function countDistinctMotionCues(text: string): number {
+  const t = String(text || '');
+  let count = 0;
+  if (SLIDE_NOUN.test(t) && SLIDE_DESCEND.test(t)) count += 1;
+  if (DRIBBLE_CUE.test(t)) count += 1;
+  if (CLIMB_CUE.test(t)) count += 1;
+  if (WALK_CUE.test(t)) count += 1;
+  return count;
 }
 
 export interface DeriveInput {
@@ -297,6 +383,14 @@ export function deriveInteractionFromText(input: DeriveInput): SceneInteraction 
   // 它没有单一的"谁对谁做什么"，文案里列举"一起抬桌子"只是在回顾四个画面，
   // 硬套一个 lift-together 只会画错。必须在动作匹配之前拦掉。
   if (/今天我们学习|今天我们|回顾|你记住了什么/.test(text)) return null;
+  // 显式的"复述/排序"提示语同样是回顾幕。只认"今天/回顾"会漏掉
+  // "它把顺序说清楚啦"这种写法——实测这一幕因此被"拍皮球"抓走，
+  // 回顾画面演成了单拍球动作，主次全错。
+  if (/说清楚|复述|讲一遍|按顺序|顺序说|总结一下/.test(text)) return null;
+  // 一幕里同时出现三种及以上不同动作，说明是在列举而不是正在做某一件事。
+  // 两个动作仍允许（"爬到顶上再滑下来"是真实的一幕流程，取更具戏剧性的滑），
+  // 三个就一定是在背流程表。
+  if (countDistinctMotionCues(text) >= 3) return null;
 
   // 三维动作优先判定：这两句的动词最具体（"滑"和"拍"），后面 handover/point
   // 的正则都不该抢走它们。判据本身抽到 hasThreeMotionCue，队列排引擎时复用同一份。
@@ -346,6 +440,22 @@ export function deriveInteractionFromText(input: DeriveInput): SceneInteraction 
       verb: 'lift-together',
       actors: [actor(0, 'helper'), actor(1, 'helper')],
       ...(prop ? { propId: prop } : {}),
+    };
+  }
+
+  /**
+   * 单人位移（爬 / 走）排在"协作动作"之后、"说话/指"之前，位置是刻意的：
+   *  - 放在 handover/lift-together 之前，会把"兔兔走过来一起抬桌子"抢成 walk；
+   *  - 放在 point/hold 之后，"小熊爬上滑梯，小手扶好"又会被"扶"抢成 hold。
+   * 判据本身要求"爬 + 向上"或"走/跑 + 趋向补语"，名词性的"爬行动物""走廊"不命中。
+   */
+  const puppetMotion = hasPuppetMotionCue(text);
+  if (puppetMotion) {
+    return {
+      verb: puppetMotion === 'climb' ? 'climb' : 'walk',
+      actors: [actor(0, 'helper')],
+      ...(puppetMotion === 'climb' ? { propId: 'slide' } : {}),
+      puppet: { motion: puppetMotion, actorId: mentions[0].id },
     };
   }
 

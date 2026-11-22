@@ -36,10 +36,11 @@ import { normalizeFigureSpec } from './video/figure-spec';
 import {
   deriveInteractionFromText,
   normalizeSceneInteraction,
+  type PuppetMotion,
   type SceneInteraction,
 } from './video/scene-interaction';
-import { resolveAction3D, resolveActorRig } from './video/action3d-registry';
-import { THREE_ACTION_STAGE_TSX } from './video/three-stage-template';
+import { resolveAction3D, resolveActorRig, resolvePuppet } from './video/action3d-registry';
+import { STAGE_TEMPLATE_FILES } from './video/stage-template';
 import {
   ageMotionProfile,
   beatWindows,
@@ -273,14 +274,12 @@ export class VideoGenerationAgentService {
         path: 'GeneratedLesson.tsx',
         content: this.buildGeneratedLessonTsx(),
       },
-      {
-        // 3D 舞台（方案 A）。单独成文件而不是塞进 GeneratedLesson 模板里：
-        // 组件本身有两百多行几何与动作代码，混进模板串会让分镜层的改动极难定位。
-        // 任务目录在 src/video-remotion/.generated/ 下，因此能正常解析
-        // three / @react-three/fiber / @remotion/three。
-        path: 'three/ThreeActionStage.tsx',
-        content: THREE_ACTION_STAGE_TSX,
-      },
+      // 渲染层源码：姿态中枢 + 2D 角色 + 3D 舞台。
+      // 单独成文件而不是塞进 GeneratedLesson 模板里：这几份是组件与运动学代码，
+      // 混进模板串会让分镜层的改动极难定位。写入路径与源目录一致（character/、three/），
+      // 相对 import 才能成立；任务目录在 src/video-remotion/.generated/ 下，
+      // 因此能正常解析 remotion / three / @react-three/fiber / @remotion/three。
+      ...STAGE_TEMPLATE_FILES,
     ];
 
     const sceneAssetSummary = scenes.map((scene) => ({
@@ -722,12 +721,47 @@ export class VideoGenerationAgentService {
             })
           : null;
       const { action3d: _declaredAction3d, ...interactionBase } = interaction ?? ({} as SceneInteraction);
+      /**
+       * 二维全身角色的动作。只在这一幕没有三维动作时才生成——3D 舞台能演连续接触，
+       * 2D 演不了，两者同时存在时必须让 3D 赢，否则滑梯会被降级成"沿斜线平移"。
+       *
+       * 这是"能力匹配"的最小形态：不是按"哪个字段非空"级联，而是按
+       * "这一幕的动作需求能不能被这个渲染器满足"来选。
+       */
+      /**
+       * 二维全身角色的动作。两类来源：
+       *  1) 文案里明确要求单人去哪（爬、走、入场）→ interaction.puppet
+       *  2) 单人陈述幕：指着道具介绍、对着镜头讲。这类幕以前落进 ActionStage 的
+       *     "大头像 + 一个小图标"分支——孩子看到的是一张会点头的贴图，不是
+       *     一个正在做动作的角色。它们的动作需求只是"站着 + 一个手势"，2D 全身
+       *     骨架完全能演，所以按"能力匹配"下沉到 Puppet2D。
+       *
+       * 多人交互（handover / lift-together）仍留在 ActionStage：那需要两个身体
+       * 之间的接触关系，单角色骨架演不了——这才是真正的渲染器能力边界。
+       */
+      const singleActorGesture =
+        interaction &&
+        !action3d &&
+        interaction.actors.length === 1 &&
+        (interaction.verb === 'point' || interaction.verb === 'speak')
+          ? (interaction.verb as PuppetMotion)
+          : null;
+      const puppetMotion: PuppetMotion | null = interaction?.puppet?.motion ?? singleActorGesture;
+      const puppet =
+        !action3d && puppetMotion
+          ? resolvePuppet(puppetMotion, {
+              actorId: interaction?.puppet?.actorId || interaction?.actors[0]?.id,
+              steps: interaction?.puppet?.steps,
+              sceneDurationFrames: Math.round(durationSec * 30),
+            })
+          : null;
       const interactionForRender = interaction
         ? {
             ...interactionBase,
             ...(action3d
               ? { action3d: { ...action3d, rig: resolveActorRig(action3d.actorId) } }
               : {}),
+            ...(puppet ? { puppet: { ...puppet, rig: resolveActorRig(puppet.actorId) } } : {}),
           }
         : undefined;
 
@@ -976,6 +1010,7 @@ import {
 } from "remotion";
 import { Audio } from "@remotion/media";
 import { ThreeActionStage } from "./three/ThreeActionStage";
+import { Puppet2D } from "./character/Puppet2D";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
 const VECTOR_ANIMAL_IDS: string[] = ${JSON.stringify(VECTOR_ANIMAL_IDS)};
@@ -1032,6 +1067,19 @@ type Action3DView = {
     scale: number;
   };
 };
+/**
+ * 二维全身角色的动作视图（后端 action3d-registry.ts 的 resolvePuppet 产物）。
+ * 与 Action3DView 一样，坐标与帧数已在后端定死，渲染层只按帧取姿态。
+ */
+type PuppetView = {
+  motion: "idle" | "speak" | "walk" | "enter" | "climb" | "cheer" | "sit";
+  actorId: string;
+  start?: [number, number, number];
+  end?: [number, number, number];
+  steps?: number;
+  durationFrames: number;
+  rig: Action3DView["rig"];
+};
 type SceneInteractionView = {
   verb: string;
   actors: InteractionActorView[];
@@ -1040,6 +1088,8 @@ type SceneInteractionView = {
   caption?: string;
   /** 有它就按三维动作演出（三个条件同时满足：动作受支持、资源已登记、开关开启） */
   action3d?: Action3DView;
+  /** 二维全身角色动作（爬/走/入场）。与 action3d 互斥，action3d 优先 */
+  puppet?: PuppetView;
 };
 
 type GeneratedScene = {
@@ -4099,6 +4149,15 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
   // 仍走 ActionStage 的降级分支，内容不变、只是没有接触关系。
   const action3d = hasInteraction ? scene.interaction!.action3d : undefined;
   const use3d = !!action3d && (action3d.motion === "slide" || action3d.motion === "dribble");
+  /**
+   * 二维全身角色的准入。判断依据是"这一幕的动作需求有没有渲染器能演"，
+   * 不是"哪个字段非空"：
+   *  - 有 action3d 且受支持 → 3D（能演接触，优先）
+   *  - 有 puppet → 2D 全身骨架（爬/走/入场，3D 没有实现也不需要）
+   *  - 都没有但有人物交互 → 旧的徽章分支（handover/point，逐步淘汰）
+   * 这条顺序改错就会出现"滑梯被降级成沿斜线平移"或"爬楼变成 emoji 卡片"。
+   */
+  const puppet = hasInteraction && !use3d ? scene.interaction!.puppet : undefined;
   const accent = scene.accentColor || "#4d96ff";
   // 3D 用冻结后的局部帧：收尾窗口里画面要钉住，不能自己继续动
   const stageFrame = useLocalFrame();
@@ -4161,6 +4220,44 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
             durationFrames: action3d.durationFrames,
             accent,
             label: scene.interaction!.actors[0] ? scene.interaction!.actors[0].label : undefined,
+          }}
+        />
+      ) : puppet ? (
+        <Puppet2D
+          frame={stageFrame}
+          scene={{
+            motion: puppet.motion,
+            rig: puppet.rig,
+            start: puppet.start,
+            end: puppet.end,
+            steps: puppet.steps,
+            durationFrames: puppet.durationFrames,
+            accent,
+            label: scene.interaction!.actors[0] ? scene.interaction!.actors[0].label : undefined,
+            // 指认幕必须把被指的东西画出来，否则"指着空气"比原来的小图标更差。
+            // 道具由这里渲染（PropArt 只在这个文件里），Puppet2D 只负责摆位置。
+            props:
+              puppet.motion === "point" && scene.interaction!.propId
+                ? [
+                    {
+                      x: 1430,
+                      y: 690,
+                      size: 280,
+                      label: PROP_LABELS[scene.interaction!.propId] || "",
+                      node: (
+                        <PropArt id={scene.interaction!.propId} x={0} y={0} frame={stageFrame} />
+                      ),
+                    },
+                  ]
+                : undefined,
+            overlay: scene.interaction!.speech ? (
+              <SpeechBubble
+                text={scene.interaction!.speech}
+                side={puppet.motion === "point" ? "left" : "right"}
+                accent={accent}
+                frame={stageFrame}
+              />
+            ) : undefined,
           }}
         />
       ) : hasInteraction ? (

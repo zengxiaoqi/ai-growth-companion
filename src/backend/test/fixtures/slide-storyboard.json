@@ -1,0 +1,368 @@
+{
+  "title": "小熊玩滑梯",
+  "topic": "小熊玩滑梯",
+  "domain": "language",
+  "totalDurationSec": 30,
+  "sceneCount": 5,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "sequence": 1,
+      "title": "幼儿园里",
+      "concept": "认识幼儿园户外场景中的小熊、滑梯和皮球。",
+      "narration": "幼儿园草地上有小熊，它指着彩色滑梯和圆圆皮球。小熊准备玩滑梯啦，今天真开心呀，大家一起拍手笑！",
+      "onScreenText": "幼儿园里有什么",
+      "visualDescription": "明亮幼儿园草地，小熊站在左侧指着彩色滑梯，右侧圆圆皮球，背景有树木。",
+      "durationSec": 6,
+      "transitionToNext": "fade",
+      "emphasis": "intro",
+      "animationTemplate": {
+        "id": "language.story-scene",
+        "params": {}
+      },
+      "sceneGraph": {
+        "relation": "group",
+        "caption": "幼儿园里有什么",
+        "nodes": [
+          {
+            "id": "n1",
+            "label": "幼儿园",
+            "subject": "幼儿园",
+            "role": "place"
+          },
+          {
+            "id": "n2",
+            "label": "小熊",
+            "subject": "小熊",
+            "role": "subject"
+          },
+          {
+            "id": "n3",
+            "label": "草地",
+            "subject": "草地",
+            "role": "place"
+          },
+          {
+            "id": "n4",
+            "label": "滑梯",
+            "subject": "滑梯",
+            "role": "object"
+          },
+          {
+            "id": "n5",
+            "label": "皮球",
+            "subject": "皮球",
+            "role": "object"
+          }
+        ]
+      },
+      "interaction": {
+        "verb": "point",
+        "actors": [
+          {
+            "id": "bear",
+            "label": "小熊",
+            "role": "helper"
+          }
+        ],
+        "propId": "slide",
+        "caption": "小熊指着滑梯"
+      },
+      "beats": [
+        {
+          "sentenceIndex": 0,
+          "span": 1,
+          "focus": "n1",
+          "reveal": [
+            "n1",
+            "n2",
+            "n3",
+            "n4",
+            "n5"
+          ],
+          "motion": "stagger"
+        },
+        {
+          "sentenceIndex": 1,
+          "span": 1,
+          "focus": "n2",
+          "motion": "spring-pop"
+        }
+      ]
+    },
+    {
+      "id": "scene-2",
+      "sequence": 2,
+      "title": "先爬楼梯",
+      "concept": "理解“先”表示玩滑梯的第一步：爬楼梯。",
+      "narration": "小熊玩滑梯，先爬楼梯，小手扶栏杆。它一步一步往上走，爬到最高处，稳稳当当真勇敢呀，小能手真棒！",
+      "onScreenText": "先爬楼梯",
+      "visualDescription": "小熊在滑梯旁扶栏杆，一步一步爬楼梯，楼梯在画面右侧，背景草地。",
+      "durationSec": 6,
+      "transitionToNext": "slide",
+      "emphasis": "core-concept",
+      "animationTemplate": {
+        "id": "language.word-reveal",
+        "params": {
+          "words": [
+            "先",
+            "爬楼梯"
+          ]
+        }
+      },
+      "sceneGraph": {
+        "relation": "chain",
+        "caption": "先爬楼梯",
+        "nodes": [
+          {
+            "id": "n1",
+            "label": "小熊",
+            "subject": "小熊",
+            "role": "subject"
+          },
+          {
+            "id": "n2",
+            "label": "楼梯",
+            "subject": "楼梯",
+            "role": "object"
+          }
+        ]
+      },
+      "beats": [
+        {
+          "sentenceIndex": 0,
+          "span": 1,
+          "focus": "n2",
+          "reveal": [
+            "n1",
+            "n2"
+          ],
+          "motion": "stagger"
+        },
+        {
+          "sentenceIndex": 1,
+          "span": 1,
+          "focus": "n2",
+          "motion": "focus-ring"
+        }
+      ]
+    },
+    {
+      "id": "scene-3",
+      "sequence": 3,
+      "title": "再滑滑梯",
+      "concept": "理解“再”表示玩滑梯的第二步：从滑梯上滑下来。",
+      "narration": "小熊从滑梯上滑下来，再滑滑梯真好玩。它坐稳扶好，嗖的一下，轻轻落到草地上，真开心呀，它好勇敢！",
+      "onScreenText": "再滑滑梯",
+      "visualDescription": "小熊从彩色滑梯顶端滑下，滑梯向右下延伸，草地上有阳光和树木。",
+      "durationSec": 6,
+      "transitionToNext": "wipe",
+      "emphasis": "example",
+      "animationTemplate": {
+        "id": "language.word-reveal",
+        "params": {
+          "words": [
+            "再",
+            "滑滑梯"
+          ]
+        }
+      },
+      "sceneGraph": {
+        "relation": "chain",
+        "caption": "再滑滑梯",
+        "nodes": [
+          {
+            "id": "n1",
+            "label": "小熊",
+            "subject": "小熊",
+            "role": "subject"
+          },
+          {
+            "id": "n2",
+            "label": "滑梯",
+            "subject": "滑梯",
+            "role": "object"
+          }
+        ]
+      },
+      "interaction": {
+        "verb": "slide",
+        "actors": [
+          {
+            "id": "bear",
+            "label": "小熊",
+            "role": "helper"
+          }
+        ],
+        "propId": "slide",
+        "action3d": {
+          "motion": "slide",
+          "actorId": "bear"
+        },
+        "caption": "从滑梯滑下"
+      },
+      "beats": [
+        {
+          "sentenceIndex": 0,
+          "span": 1,
+          "focus": "n2",
+          "reveal": [
+            "n1",
+            "n2"
+          ],
+          "motion": "camera-push"
+        },
+        {
+          "sentenceIndex": 1,
+          "span": 1,
+          "focus": "n2",
+          "motion": "focus-ring"
+        }
+      ]
+    },
+    {
+      "id": "scene-4",
+      "sequence": 4,
+      "title": "然后拍皮球",
+      "concept": "理解“然后”表示玩滑梯后的第三步：拍皮球。",
+      "narration": "小熊拍拍皮球，然后把它轻轻抛起来。皮球在草地上跳，它笑得眼睛弯弯真开心呀，好可爱呀，真棒呀！",
+      "onScreenText": "然后拍皮球",
+      "visualDescription": "小熊在草地上拍皮球，皮球弹起，背景有滑梯、楼梯和绿色大树，真绿。",
+      "durationSec": 6,
+      "transitionToNext": "zoom",
+      "emphasis": "practice",
+      "animationTemplate": {
+        "id": "language.word-reveal",
+        "params": {
+          "words": [
+            "然后",
+            "拍皮球"
+          ]
+        }
+      },
+      "sceneGraph": {
+        "relation": "chain",
+        "caption": "然后拍皮球",
+        "nodes": [
+          {
+            "id": "n1",
+            "label": "小熊",
+            "subject": "小熊",
+            "role": "subject"
+          },
+          {
+            "id": "n2",
+            "label": "皮球",
+            "subject": "皮球",
+            "role": "object"
+          }
+        ]
+      },
+      "interaction": {
+        "verb": "dribble",
+        "actors": [
+          {
+            "id": "bear",
+            "label": "小熊",
+            "role": "helper"
+          }
+        ],
+        "propId": "ball",
+        "action3d": {
+          "motion": "dribble",
+          "actorId": "bear"
+        },
+        "caption": "拍一拍皮球"
+      },
+      "beats": [
+        {
+          "sentenceIndex": 0,
+          "span": 1,
+          "focus": "n2",
+          "reveal": [
+            "n1",
+            "n2"
+          ],
+          "motion": "spring-pop"
+        },
+        {
+          "sentenceIndex": 1,
+          "span": 1,
+          "focus": "n2",
+          "motion": "focus-ring"
+        }
+      ]
+    },
+    {
+      "id": "scene-5",
+      "sequence": 5,
+      "title": "说清楚顺序",
+      "concept": "用先、再、然后完整复述小熊玩滑梯的顺序。",
+      "narration": "小熊玩滑梯，先爬楼梯，再滑滑梯，然后拍皮球。幼儿园草地上，它把顺序说清楚啦，真棒呀，大家一起拍手！",
+      "onScreenText": "先再然后",
+      "visualDescription": "小熊站在草地中央，面前排列楼梯、滑梯和皮球，背景幼儿园明亮。",
+      "durationSec": 6,
+      "transitionToNext": "fade",
+      "emphasis": "summary",
+      "animationTemplate": {
+        "id": "language.word-reveal",
+        "params": {
+          "words": [
+            "先",
+            "再",
+            "然后"
+          ]
+        }
+      },
+      "sceneGraph": {
+        "relation": "chain",
+        "caption": "先再然后",
+        "nodes": [
+          {
+            "id": "n1",
+            "label": "楼梯",
+            "subject": "楼梯",
+            "role": "object"
+          },
+          {
+            "id": "n2",
+            "label": "滑梯",
+            "subject": "滑梯",
+            "role": "object"
+          },
+          {
+            "id": "n3",
+            "label": "皮球",
+            "subject": "皮球",
+            "role": "object"
+          }
+        ]
+      },
+      "beats": [
+        {
+          "sentenceIndex": 0,
+          "span": 1,
+          "focus": "n3",
+          "reveal": [
+            "n1",
+            "n2",
+            "n3"
+          ],
+          "motion": "stagger"
+        },
+        {
+          "sentenceIndex": 1,
+          "span": 1,
+          "focus": "n1",
+          "motion": "camera-push"
+        }
+      ]
+    }
+  ],
+  "visualTheme": {
+    "primaryPalette": "#E8F8FF",
+    "accentColor": "#00B4D8",
+    "mood": "playful"
+  },
+  "narrativeArc": "introduction → exploration → practice → summary"
+}

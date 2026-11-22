@@ -28,14 +28,32 @@ const servicePath = path.join(
   'learning',
   'video-generation-agent.service.ts',
 );
-const stageSourcePath = path.join(remotionDir, 'src', 'three', 'ThreeActionStage.tsx');
 
 const motion = (process.argv[2] || 'slide').toLowerCase();
 const frames = process.argv.slice(3).map(Number).filter((n) => Number.isFinite(n));
 
-if (!['slide', 'dribble'].includes(motion)) {
-  console.error('motion must be slide or dribble');
+const ALL_MOTIONS = ['slide', 'dribble', 'climb', 'walk', 'speak', 'point'];
+if (!ALL_MOTIONS.includes(motion)) {
+  console.error(`motion must be one of ${ALL_MOTIONS.join(' / ')}`);
   process.exit(1);
+}
+
+/** 后端同步产物：一张"任务目录里该有哪些文件"的清单 */
+const templateListPath = path.join(
+  repoRoot,
+  'src', 'backend', 'src', 'modules', 'learning', 'video', 'stage-template.ts',
+);
+
+function readStageFiles() {
+  const source = fs.readFileSync(templateListPath, 'utf8');
+  const marker = source.indexOf('export const STAGE_TEMPLATE_FILES');
+  // 注意不能找 marker 之后的第一个 '['：类型注解 `StageTemplateFile[]` 里就有一个，
+  // 会解析成空数组。必须对准赋值号后面的那个数组字面量。
+  const assign = source.indexOf('= [', marker);
+  const start = assign + 2;
+  const end = source.lastIndexOf('];');
+  if (marker < 0 || assign < 0 || end < 0) throw new Error('STAGE_TEMPLATE_FILES not found');
+  return JSON.parse(source.slice(start, end + 1));
 }
 
 /** 从服务源码里取出 buildGeneratedLessonTsx 的 String.raw 模板（与 check 脚本同一套锚点） */
@@ -90,6 +108,54 @@ const stageScene = {
     narration: '小熊用手拍皮球，皮球落下去又弹起来。',
     onScreenText: '拍一拍',
   },
+  climb: {
+    verb: 'climb',
+    propId: 'slide',
+    puppet: {
+      motion: 'climb',
+      actorId: 'bear',
+      start: [-0.55, 0.66, 0],
+      end: [-0.55, 1.5, 0],
+      steps: 4,
+      durationFrames: 120,
+    },
+    title: '爬上滑梯',
+    narration: '小熊一步一步爬上滑梯，小手扶好，站稳再爬。',
+    onScreenText: '往上爬',
+  },
+  walk: {
+    verb: 'walk',
+    propId: null,
+    puppet: {
+      motion: 'walk',
+      actorId: 'bear',
+      start: [-1.6, 0.66, 0],
+      end: [0.2, 0.66, 0],
+      durationFrames: 120,
+    },
+    title: '小熊来公园',
+    narration: '小熊走进公园，看见前面有一座滑梯。',
+    onScreenText: '走进公园',
+  },
+  speak: {
+    verb: 'speak',
+    propId: null,
+    puppet: { motion: 'speak', actorId: 'bear', durationFrames: 120 },
+    title: '小熊说',
+    narration: '今天我要玩滑梯啦。',
+    onScreenText: '今天我要玩滑梯啦',
+    speech: '今天我要玩滑梯啦',
+  },
+  point: {
+    verb: 'point',
+    propId: 'slide',
+    // 指认幕不再给 puppet 字段：线上第 1 幕（LLM 只写 verb=point）走的正是
+    // "单人手势 → 全身角色"这条推导，脚本必须复现同一条路径才能验到真东西
+    puppet: { motion: 'point', actorId: 'bear', durationFrames: 120 },
+    title: '幼儿园里',
+    narration: '幼儿园草地上有小熊，它指着彩色滑梯和圆圆皮球。',
+    onScreenText: '幼儿园里有什么',
+  },
 }[motion];
 
 const RIG = { fur: '#a9744f', belly: '#f0d3b2', ears: 'round', tail: 'stub', scale: 1 };
@@ -102,12 +168,17 @@ const scene = {
   visualDescription: stageScene.narration,
   assetKey: 'bear',
   assetTags: ['slide', 'ball'],
-  props: [{ id: stageScene.propId, label: stageScene.propId === 'slide' ? '滑梯' : '皮球' }],
+  props: stageScene.propId
+    ? [{ id: stageScene.propId, label: stageScene.propId === 'slide' ? '滑梯' : '皮球' }]
+    : [],
   interaction: {
     verb: stageScene.verb,
     actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
-    propId: stageScene.propId,
-    action3d: { ...stageScene.action3d, rig: RIG },
+    ...(stageScene.propId ? { propId: stageScene.propId } : {}),
+    ...(stageScene.speech ? { speech: stageScene.speech } : {}),
+    ...(stageScene.action3d
+      ? { action3d: { ...stageScene.action3d, rig: RIG } }
+      : { puppet: { ...stageScene.puppet, rig: RIG } }),
   },
   action: 'run',
   habitat: 'grassland',
@@ -164,7 +235,13 @@ fs.writeFileSync(
   'utf-8',
 );
 fs.writeFileSync(path.join(taskDir, 'GeneratedLesson.tsx'), extractLessonTemplate(), 'utf-8');
-fs.copyFileSync(stageSourcePath, path.join(taskDir, 'three', 'ThreeActionStage.tsx'));
+// 渲染层源码按后端下发的清单逐个写盘（pose.ts / Puppet2D.tsx / ThreeActionStage.tsx），
+// 与线上任务目录结构一致，相对 import 才能成立
+for (const file of readStageFiles()) {
+  const target = path.join(taskDir, file.path);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, file.content, 'utf-8');
+}
 fs.writeFileSync(path.join(taskDir, 'props.json'), JSON.stringify(props), 'utf-8');
 
 const entry = path.join(taskDir, 'index.ts');

@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/three", "src/__preview3d"]
+  "include": ["src/three", "src/character", "src/__preview3d", "src/__preview2d"]
 }

@@ -90,8 +90,26 @@ describe('deriveInteractionFromText', () => {
     expect(r?.actors).toHaveLength(1);
   });
 
-  it('只爬上滑梯、没有下滑动作时不判成 slide', () => {
-    expect(derive('小熊爬上滑梯，扶着扶手站稳', { propIds: ['slide'] })).toBeNull();
+  it('只爬上滑梯、没有下滑动作时不判成 slide，而是判成单人动作 climb', () => {
+    // 这条曾经断言 null——那时 interaction 只描述"角色之间"的关系，
+    // 单人位移没有归属字段，整幕只能落到 emoji 卡片。现在它归 climb。
+    const r = derive('小熊爬上滑梯，扶着扶手站稳', { propIds: ['slide'] });
+    expect(r).not.toBeNull();
+    expect(r?.verb).toBe('climb');
+    expect(r?.action3d).toBeUndefined();
+    expect(r?.puppet).toMatchObject({ motion: 'climb', actorId: 'bear' });
+  });
+
+  it('"小熊走进公园"识别成 walk，且不会挂上三维动作', () => {
+    const r = derive('小熊走进公园，看见前面有一座滑梯', { propIds: ['slide'] });
+    expect(r?.verb).toBe('walk');
+    expect(r?.action3d).toBeUndefined();
+    expect(r?.puppet?.motion).toBe('walk');
+  });
+
+  it('"爬"没有向上语义时不算 climb（避免"爬行动物"这类名词误伤）', () => {
+    const r = derive('乌龟是爬行动物，背上背着硬硬的壳', { propIds: [] });
+    expect(r?.puppet).toBeUndefined();
   });
 
   it('"小熊拍皮球"识别成 dribble，道具固定为 ball', () => {
@@ -107,6 +125,24 @@ describe('deriveInteractionFromText', () => {
 });
 
 describe('normalizeSceneInteraction', () => {
+  it('puppet 动作走白名单，未知 op 整份丢弃', () => {
+    const ok = normalizeSceneInteraction({
+      verb: 'climb',
+      actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+      puppet: { motion: 'climb', actorId: 'bear', steps: 4 },
+    });
+    expect(ok?.puppet).toMatchObject({ motion: 'climb', steps: 4 });
+
+    const bad = normalizeSceneInteraction({
+      verb: 'climb',
+      actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+      puppet: { motion: 'teleport', actorId: 'bear' },
+    });
+    // 未知动作被丢掉，但交互本身保留（退回 idle 入场，不是整幕空掉）
+    expect(bad?.puppet).toBeUndefined();
+    expect(bad?.verb).toBe('climb');
+  });
+
   it('保留合法关系，丢弃多余与脏演员', () => {
     const r = normalizeSceneInteraction({
       verb: 'handover',
@@ -209,3 +245,65 @@ describe('三维动作判据（中英双语）', () => {
     expect(r?.action3d?.motion).toBe('slide');
   });
 });
+
+/**
+ * 真实分镜回归：《小熊玩滑梯》课是线上第一份暴露"大头像 + 小图标"的样本，
+ * 分镜原样存在 fixtures/slide-storyboard.json（从 agent 工具调用日志原样抠出，
+ * 没有手工修饰）。它的关键在于第 2 幕完全没写 interaction——LLM 只写了
+ * "扶栏杆、一步一步爬楼梯"的文字。若判定只能吃结构化字段，这一幕就必然掉回
+ * 关系图卡片，而这正是用户看到的"小图标"。
+ *
+ * 所以这组用例锁的是路由决策本身，不是像素：
+ *   第 2 幕的文字 → 必须自己长出 puppet.motion = 'climb'
+ *   第 3、4 幕的显式字段 → 保持原来的 3D 动作，不被新加的 2D 判据抢走
+ */
+describe('真实分镜（小熊玩滑梯）的路由决策', () => {
+  const storyboard = require('../fixtures/slide-storyboard.json') as {
+    scenes: Array<{
+      title: string;
+      visualDescription: string;
+      narration: string;
+      onScreenText: string;
+      interaction?: unknown;
+    }>;
+  };
+
+  const route = (index: number) => {
+    const scene = storyboard.scenes[index];
+    // 与服务端 enrichPayloadWithStoryboard 里的推导顺序保持一致
+    return (
+      normalizeSceneInteraction(scene.interaction) ||
+      deriveInteractionFromText({
+        visualDescription: scene.visualDescription,
+        narration: scene.narration,
+        onScreenText: scene.onScreenText,
+        mentions: findAnimalMentions(
+          `${scene.visualDescription} ${scene.narration} ${scene.title}`,
+        ),
+        propIds: ['slide', 'ball'],
+      })
+    );
+  };
+
+  it('第 2 幕没写 interaction，但文字是"一步一步爬楼梯"→ 推出 puppet climb', () => {
+    expect(storyboard.scenes[1].interaction).toBeUndefined();
+    const r = route(1);
+    expect(r?.puppet?.motion).toBe('climb');
+    expect(r?.verb).toBe('climb');
+    expect(r?.actors[0]?.label).toBe('小熊');
+  });
+
+  it('第 3、4 幕显式写的 slide / dribble 不被 2D 判据抢走', () => {
+    expect(route(2)?.action3d?.motion).toBe('slide');
+    expect(route(2)?.puppet).toBeUndefined();
+    expect(route(3)?.action3d?.motion).toBe('dribble');
+    expect(route(3)?.puppet).toBeUndefined();
+  });
+
+  it('第 5 幕是回顾（列举三个动作），不得被推成任何一个单人动作', () => {
+    // 曾经这里只断言"没有 puppet"——太弱：它实际被"拍皮球"推成了 3D 拍球，
+    // 回顾画面演成了单拍球动作。必须断言整份 interaction 为空。
+    expect(route(4)).toBeNull();
+  });
+});
+

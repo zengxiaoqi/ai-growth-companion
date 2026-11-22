@@ -171,13 +171,18 @@ describe('VideoGenerationAgentService', () => {
 
     const generatedCode = manifest.files.map((file) => file.content).join('\n');
     expect(manifest.compositionId).toMatch(/^GeneratedLesson-/);
-    expect(manifest.files.map((file) => file.path)).toEqual([
-      'index.ts',
-      'Root.tsx',
-      'GeneratedLesson.tsx',
-      // 3D 舞台作为独立文件随任务目录下发，GeneratedLesson 用相对路径 import
-      'three/ThreeActionStage.tsx',
-    ]);
+    const paths = manifest.files.map((file) => file.path);
+    // 三个模板文件必须在场
+    expect(paths.slice(0, 3)).toEqual(['index.ts', 'Root.tsx', 'GeneratedLesson.tsx']);
+    // 渲染层源码随任务目录下发，写入路径与源目录一致（相对 import 才成立）。
+    // 这里不写死完整列表：2D 角色落地后会多出 character/Puppet2D.tsx。
+    expect(paths).toEqual(
+      expect.arrayContaining(['character/pose.ts', 'three/ThreeActionStage.tsx']),
+    );
+    for (const path of paths.slice(3)) {
+      // 每个下发文件都必须带内容，空内容会让渲染期报"模块找不到"
+      expect(manifest.files.find((file) => file.path === path)!.content.length).toBeGreaterThan(200);
+    }
     expect(generatedCode).toContain('Img');
     expect(generatedCode).toContain('TigerSvg');
     expect(generatedCode).toContain('SceneBackground');

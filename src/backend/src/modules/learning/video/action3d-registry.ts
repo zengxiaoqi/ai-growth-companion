@@ -13,7 +13,15 @@
  *  2. 确定性。所有默认值都是常量，不含随机与时间，同一份输入永远解析出同一组数字。
  */
 
-import type { Action3D, Action3DBounce, Action3DMotion, Action3DRenderer, Vec3 } from './scene-interaction';
+import {
+  PUPPET_MOTIONS,
+  type Action3D,
+  type Action3DBounce,
+  type Action3DMotion,
+  type Action3DRenderer,
+  type PuppetMotion,
+  type Vec3,
+} from './scene-interaction';
 
 /** 程序化角色的外形参数：几何体拼装用，不含任何美术资产 */
 export interface ProceduralActorRig {
@@ -108,6 +116,63 @@ export const MOTION_DEFAULTS: Record<Action3DMotion, MotionDefaults> = {
     ballRestY: 0.27,
   },
 };
+
+/* ------------------------------------------------------------------ *
+ * 二维原语（Puppet2D）的默认轨迹
+ *
+ * 与 MOTION_DEFAULTS 同样的职责：坐标由注册表定，LLM 只写意图。
+ * 但这里的单位是"角色局部世界单位"（髋部为原点、身高约 1.65），
+ * 地面 y=0、站立髋部 0.66——与 video-remotion/src/character/pose.ts 同一套。
+ *
+ * climb 的终点只能到 1.5：再高角色头就顶到标题胶囊了，这是画面约束不是动作约束。
+ * ------------------------------------------------------------------ */
+export interface PuppetDefaults {
+  start?: Vec3;
+  end?: Vec3;
+  steps?: number;
+}
+
+export const PUPPET_DEFAULTS: Record<PuppetMotion, PuppetDefaults> = {
+  idle: {},
+  speak: {},
+  point: {},
+  cheer: {},
+  sit: {},
+  walk: { start: [-1.6, 0.66, 0], end: [0, 0.66, 0] },
+  enter: { start: [-1.9, 0.66, 0], end: [0.15, 0.66, 0] },
+  climb: { start: [-0.55, 0.66, 0], end: [-0.55, 1.5, 0], steps: 4 },
+};
+
+/** 解析后的二维动作：坐标就位，渲染层直接按帧取值 */
+export interface ResolvedPuppet {
+  motion: PuppetMotion;
+  actorId: string;
+  start?: Vec3;
+  end?: Vec3;
+  steps?: number;
+  durationFrames: number;
+}
+
+export function resolvePuppet(
+  motion: unknown,
+  context: { actorId?: string; sceneDurationFrames?: number; steps?: number } = {},
+): ResolvedPuppet | null {
+  const op = String(motion ?? '').toLowerCase();
+  if (!(PUPPET_MOTIONS as readonly string[]).includes(op)) return null;
+  const key = op as PuppetMotion;
+  const defaults = PUPPET_DEFAULTS[key];
+  const sceneFrames = context.sceneDurationFrames && context.sceneDurationFrames > 0
+    ? context.sceneDurationFrames
+    : 120;
+  return {
+    motion: key,
+    actorId: (context.actorId || 'bear').toLowerCase(),
+    ...(defaults.start ? { start: clampVec3(defaults.start, [0, 0, 0]) } : {}),
+    ...(defaults.end ? { end: clampVec3(defaults.end, [0, 0, 0]) } : {}),
+    steps: context.steps ?? defaults.steps,
+    durationFrames: sceneFrames,
+  };
+}
 
 /** 动词到动作的默认映射：LLM 只给 verb 时也能演出 */
 const VERB_TO_MOTION: Record<string, Action3DMotion> = {

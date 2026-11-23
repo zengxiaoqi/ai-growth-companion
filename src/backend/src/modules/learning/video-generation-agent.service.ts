@@ -32,6 +32,7 @@ import {
   type SceneVisualAssetPlan,
 } from './visual-asset.service';
 import { normalizeSceneGraph } from './video/scene-graph';
+import { resolveSceneVenues, type SceneWorld, type SlideGeometry } from './video/scene-venue';
 import { normalizeFigureSpec } from './video/figure-spec';
 import {
   VERB_AS_MOTION,
@@ -620,15 +621,36 @@ export class VideoGenerationAgentService {
           ];
 
     /**
-     * 整节课的场地：先算一次，再把同一份写进每一幕。
+     * 场地：**逐幕定**，但整课共用一把尺度。
      *
-     * 为什么在 lesson 层算：场地是"一个地方"，不是"每一幕的布景"。
-     * 逐幕各推一次会出现"第 2 幕公园、第 3 幕森林"——孩子看到的不是转场而是
-     * 瞬移；而滑梯这种大件只在需要它的两幕出现，也读不出"他爬的就是那座滑梯"。
-     * 同一份 world 还意味着后续取景用同一个基准缩放，熊的大小不会逐幕变。
+     * 上一版是"整课一处场地"，理由是"换场地等于瞬移"。现在改成幕级，是因为
+     * 有真实需求（从森林回到家）。原来那条理由并没有消失，它变成了两条更强的
+     * 不变量（见 video/scene-venue.ts）：
+     *
+     *   1. 没有场地线索的幕**继承上一幕**——不会出现森林 → 草地 → 森林的瞬移；
+     *   2. 基准缩放仍是整课一把：本课有滑梯时，每幕都带 scaleSlide，于是室内幕
+     *      不会把熊放大（比例一致性优先于"室内显得饱满"）。
+     *
+     * 先截断再解析：`slice(0, 8)` 之后才算场地，否则第 10 幕的滑梯会把整课的
+     * 基准缩放压小，而那一幕根本不会渲染。
      */
-    const lessonWorld = this.resolveLessonWorld(sourceScenes, topic);
-    const builtScenes = sourceScenes.slice(0, 8).map((scene: any, index: number) => {
+    const renderScenes = sourceScenes.slice(0, 8);
+    if (sourceScenes.length > renderScenes.length) {
+      this.logger.warn(
+        `[buildDynamicSceneProps] 分镜 ${sourceScenes.length} 幕，只渲染前 ${renderScenes.length} 幕`,
+      );
+    }
+    const lessonHint = this.resolveLessonWorld(renderScenes, topic);
+    const sceneWorlds: SceneWorld[] = resolveSceneVenues(
+      renderScenes.map((scene: any) => ({
+        text: this.sceneVenueText(scene),
+        usesSlide: this.sceneUsesSlide(scene),
+      })),
+      lessonHint,
+    );
+
+    const builtScenes = renderScenes.map((scene: any, index: number) => {
+      const sceneWorld = sceneWorlds[index];
       const title = this.toText(
         scene?.title || scene?.scene || scene?.shot,
         `${topic} ${index + 1}`,
@@ -954,11 +976,26 @@ export class VideoGenerationAgentService {
         action,
         habitat,
         /**
-         * 场地：整节课同一份。渲染层用它算"基准缩放 + 镜头"，因此同一只熊
-         * 在任何一幕里都是同一个大小，滑梯与熊的比例也只有一个。
+         * 场地：**这一幕的**。渲染层用它选配方与取景。
+         *
+         * 同一只熊在任何一幕里都是同一个大小——靠的不是"整课同一份 world"，
+         * 而是 `scaleSlide`：本课有滑梯时每幕都带着它，基准缩放因此只有一档。
          * 旧任务没有这个字段，渲染层会退回"按这一幕自己拟合"的老路径。
+         *
+         * `venueFrom`（场地是怎么定下来的）放在 scene 顶层而不是 world 里：
+         * world 是渲染输入，必须"同场地的幕完全一致"；诊断字段混进去会让
+         * 第 1 幕（lesson）与第 2 幕（inherit）的 world 不再相等。
          */
-        world: lessonWorld,
+        ...(sceneWorld
+          ? {
+              world: {
+                venue: sceneWorld.venue,
+                ...(sceneWorld.slide ? { slide: sceneWorld.slide } : {}),
+                ...(sceneWorld.scaleSlide ? { scaleSlide: sceneWorld.scaleSlide } : {}),
+              },
+              venueFrom: sceneWorld.venueFrom,
+            }
+          : { world: lessonHint }),
         ...(usesSetpiece ? { setpiece: 'slide' } : {}),
         // 画板是画面主体，背景必须退到幕后，否则图形和森林草地互相抢
         backgroundStyle: figure
@@ -4791,7 +4828,7 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   private resolveLessonWorld(
     sourceScenes: any[],
     topic: string,
-  ): { venue: string; slide?: { start: number[]; end: number[] } } {
+  ): { venue: string; slide?: SlideGeometry } {
     const text = [
       topic,
       ...sourceScenes.map(
@@ -4805,10 +4842,26 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     return {
       venue: 'playground',
       slide: {
-        start: [...MOTION_DEFAULTS.slide.start],
-        end: [...MOTION_DEFAULTS.slide.end],
+        start: [...MOTION_DEFAULTS.slide.start] as [number, number, number],
+        end: [...MOTION_DEFAULTS.slide.end] as [number, number, number],
       },
     };
+  }
+
+  /**
+   * 这一幕自己的文本，用于判定场地。
+   *
+   * **刻意不含 topic**：主题词会把每一幕都染成同一个场地。主题叫《小马过河》
+   * 时，每一幕的文本里都带"河"，于是"他回到家"那一幕也会被判成河边，幕级就白做了。
+   * topic 只参与全篇兜底（`resolveLessonWorld`）。
+   */
+  private sceneVenueText(scene: any): string {
+    return [
+      scene?.title ?? '',
+      scene?.visualDescription ?? scene?.imagePrompt ?? scene?.visualPrompt ?? '',
+      scene?.narration ?? '',
+      scene?.onScreenText ?? '',
+    ].join(' ');
   }
 
   /** 这一幕是否用到了滑梯（滑下去 / 爬上去 / 指着滑梯） */

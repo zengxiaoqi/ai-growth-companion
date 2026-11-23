@@ -1,0 +1,77 @@
+{
+  "title": "小熊把苹果带回家",
+  "topic": "小熊把苹果带回家",
+  "domain": "language",
+  "totalDurationSec": 20,
+  "sceneCount": 4,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "sequence": 1,
+      "title": "森林里的苹果",
+      "concept": "发现",
+      "narration": "小熊在森林里捡到一颗红苹果。",
+      "onScreenText": "森林里",
+      "visualDescription": "小熊蹲在森林的草地上，手里捧着一颗红苹果",
+      "durationSec": 5,
+      "transitionToNext": "cut",
+      "emphasis": "apple",
+      "interaction": {
+        "verb": "point",
+        "actors": [{ "id": "bear", "label": "小熊", "role": "main" }],
+        "propId": "apple"
+      }
+    },
+    {
+      "id": "scene-2",
+      "sequence": 2,
+      "title": "把苹果擦干净",
+      "concept": "动作",
+      "narration": "他把苹果擦得亮亮的。",
+      "onScreenText": "擦干净",
+      "visualDescription": "小熊低着头，用爪子把苹果擦干净",
+      "durationSec": 5,
+      "transitionToNext": "cut",
+      "emphasis": "apple",
+      "interaction": {
+        "verb": "speak",
+        "actors": [{ "id": "bear", "label": "小熊", "role": "speaker" }],
+        "speech": "擦干净啦！"
+      }
+    },
+    {
+      "id": "scene-3",
+      "sequence": 3,
+      "title": "走回家",
+      "concept": "位移",
+      "narration": "他走回家，把苹果放在桌子上。",
+      "onScreenText": "回家",
+      "visualDescription": "小熊推开家门，把红苹果放在桌子上",
+      "durationSec": 5,
+      "transitionToNext": "cut",
+      "emphasis": "home",
+      "interaction": {
+        "verb": "speak",
+        "actors": [{ "id": "bear", "label": "小熊", "role": "speaker" }],
+        "speech": "我回来啦！"
+      }
+    },
+    {
+      "id": "scene-4",
+      "sequence": 4,
+      "title": "坐在桌边笑",
+      "concept": "情绪",
+      "narration": "小熊坐在桌边，开心地笑了。",
+      "onScreenText": "好开心",
+      "visualDescription": "小熊坐在桌边，看着苹果笑",
+      "durationSec": 5,
+      "transitionToNext": "end",
+      "emphasis": "smile",
+      "interaction": {
+        "verb": "speak",
+        "actors": [{ "id": "bear", "label": "小熊", "role": "speaker" }],
+        "speech": "真开心！"
+      }
+    }
+  ]
+}

@@ -307,14 +307,24 @@ const HABITAT_TO_VENUE: Record<string, string> = {
 
 单幕判定优先级（从高到低，命中即停）：
 
-1. 这一幕出现滑梯（滑 / 爬 / 指着滑梯）→ `playground`，并给这一幕的 `slide` 坐标；
-2. 室内关键词（教室 / 房间 / 家 / 厨房 / 卧室 / 书包 / 刷牙 / 吃饭）→ `classroom`；
-3. habitat 关键词 → 上表；
-4. **以上都没命中 → 继承上一幕的 venue**（连续性规则，见 §6.2）；
-5. 首幕就什么都没命中 → 用全篇聚合的旧逻辑兜底，再不行 `meadow`。
+1. 这一幕出现滑梯（滑 / 爬 / 指着滑梯）→ `playground`，这一幕带 `slide`；
+2. 室内关键词（教室 / 课桌 / 书包 / 房间 / 回家 / 刷牙 / 餐桌……）→ `classroom`；
+3. **本课有滑梯，而 habitat 只命中草地/河边** → `playground`；
+4. habitat 关键词（多命中时按 夜 > 河 > 森林 > 草地 取一个）→ 上表；
+5. **以上都没命中 → 继承上一幕的 venue**（连续性规则，见 §6.2）；
+6. 首幕就什么都没命中 → 用全篇聚合的旧逻辑兜底，再不行 `meadow`。
 
-第 2 条**必须高于第 3 条**：`"小熊在房间里刷牙"` 里可能同时出现"树""草"之类的词，
-落到森林就错了。第 4 条是幕级方案的关键——没有它，场地会在幕与幕之间乱跳（§6.2）。
+第 2 条**必须高于第 4 条**：`"小熊在房间里刷牙"` 里可能同时出现"树""草"之类的词，
+落到森林就错了。
+
+第 3 条是落地时才发现的：滑梯只存在于游乐园，所以"本课有滑梯"比单幕的"草地"更
+强——公园里本来就有草地和沙坑。不这么排，一节滑梯课会被判成"第 1 幕草地、第 2 幕
+公园"，孩子看到的是两次瞬移。"森林/夜晚"是另一个地方，仍然尊重文本。
+
+第 4 条的排序也是落地时补的：`HABITAT_KEYWORDS` 里 grassland 排在 forest 前面，
+而分镜常写"森林的草地上"，先命中就掉到草地。改成按具体程度挑，不按表顺序。
+
+第 5 条是幕级方案的关键——没有它，场地会在幕与幕之间乱跳（§6.2）。
 
 本次只做 `classroom` 一套室内配方，`home` / `kitchen` 等先用同一套换配色
 （见 §12.2）——等真有第三类室内需求，再拆成独立配方，那时仍然不需要改渲染器。
@@ -373,24 +383,29 @@ ppu 的只有滑梯，不是场地。
 ### 6.3 跨场地时尺度取哪一档
 
 滑梯存在与否会改变 ppu（`worldBounds` 并入滑梯盒）。一旦一节课里既有滑梯幕又有
-非滑梯幕，就出现一个新问题：取哪一幕的 ppu 当整课基准？
+非滑梯幕，就出现一个问题：取哪一幕的 ppu 当整课基准？
+
+**落地时改了做法，理由是"后端不该算 ppu"。** 原方案让后端 `resolveLessonScale()`
+算出一个数值下发（`scaleRef`），但那要求后端 import 渲染层的 `worldScale`——把
+STAGE / ACTOR 这些渲染常量拖进 Nest 的运行时依赖里。改成一个几何字段：
 
 ```ts
-// 课级：取整课所有幕里"最需要退远"的那一档，全课共用
-export function resolveLessonScale(worlds: WorldView[]): number {
-  return Math.min(...worlds.map((w) => worldScale(w)));
-}
+// 后端：整课有滑梯时，每一幕都带同一份滑梯几何
+world.scaleSlide = lessonHint.slide;
+
+// 渲染层：算基准缩放时「这一幕的滑梯，或整课的滑梯」
+const slide = world.slide ?? world.scaleSlide;
 ```
 
-主张取 **min**。理由：ppu 小 = 角色小、画面留白多，只是"不那么满"；而 ppu 大了，
-滑梯就会顶出画面被裁掉，是硬伤。一致性优先于饱满度。
+后端只表达"本课有没有滑梯"（它本来就知道），ppu 怎么算仍然只有渲染层一份实现。
+整课取 min 的语义因此变成结构性的：**所有幕都按滑梯档算**，等价于 min。
 
-代价要说清楚：若第 1 幕有滑梯、第 2 幕在家，家的那一幕会沿用"滑梯档"的较小 ppu，
-室内显得空旷。这个代价我接受，因为反面（熊在两幕里高矮不同）更明显、更像 bug。
+代价没变：第 1 幕有滑梯、第 2 幕在家时，家的那一幕沿用较小的 ppu，室内显得空旷。
+这个代价接受，因为反面（熊在两幕里高矮不同）更明显、更像 bug。
 
-**实现次序不能省**：先跑一遍把所有幕的 venue 解析成数组，再算 `scaleRef`，最后才
-装配 props。不能边装配边算——装配第 1 幕时还不知道后面有没有滑梯幕，算出来的基准
-会是错的（第 1 幕用大 ppu、后面幕用小 ppu，正是要避免的分裂）。
+**`worldBounds` 不许跟着用 `scaleSlide`**。它给镜头夹取范围，只能用"这一幕真实有的
+东西"；否则室内幕的镜头能平移到一座并不存在的滑梯旁，画面变成空地。两个函数的
+分工写进了注释，也是本次唯一容易混淆的地方。
 
 ### 6.4 数据形状
 
@@ -401,19 +416,20 @@ export type WorldView = {
   venue: string;
   /** 该场地的装置。同一 venue 的所有幕共享同一份；换场地时缺席（§6.2） */
   slide?: WorldSlide;
-  /**
-   * 整课基准缩放。后端填，渲染层只读；缺省时退回 worldScale(world)
-   * 以兼容旧任务缓存（旧 props 没有这个字段）。
-   */
+  /** 整课的滑梯几何，**只用于算基准缩放**，不用于绘制（§6.3） */
+  scaleSlide?: WorldSlide;
+  /** 直接指定 ppu。缺省时由 worldScale(world) 算；旧任务没有它也能渲染 */
   scaleRef?: number;
 };
-
-// cameraForWorld 里只改一行
-const base = world.scaleRef ?? worldScale(world);
 ```
 
-`scaleRef` 缺省兜底很重要：队列里已生成的 props 没有这个字段，不能因为加字段
-就让旧任务渲染失败或画面突变。
+`venueFrom`（场地是怎么定下来的：`slide / indoor / habitat / inherit / lesson`）
+**放在 scene 顶层，不放进 world**。world 是渲染输入，必须满足"同场地的幕完全一致"；
+诊断字段混进去，第 1 幕（lesson）与第 2 幕（inherit）的 world 就不再相等，
+那条不变量在测试里会立刻破。
+
+三个字段都可缺省，旧任务缓存因此不需要迁移：没有 `scaleSlide` 就按这一幕自己算，
+没有 `scaleRef` 同理。
 
 ### 6.5 转场
 
@@ -429,15 +445,19 @@ const base = world.scaleRef ?? worldScale(world);
 
 | 文件 | 改动 |
 |---|---|
-| `video-generation-agent.service.ts` | `resolveLessonWorld` 拆成 `resolveSceneVenue`（逐幕）+ `resolveLessonScale`（整课）；`world: lessonWorld` 改为 `world: sceneWorld` |
-| `world.ts` | `Venue` 改 `string`；`WorldView` 加 `scaleRef`；`cameraForWorld` 取 `scaleRef ??` |
-| `WorldLayer.tsx` | 无改动（配方落地后即按 `world.venue` 取配方，幕级不改变它的输入形状） |
-| `ThreeActionStage.tsx` | 无改动（同上） |
-| `scene-interaction.ts` | 类型不涉及 |
-| 测试 | 新增"森林→家→森林"用例，断言逐幕 venue、继承、ppu 恒定 |
+| `video/scene-venue.ts`（新） | 纯函数：`detectSceneVenue` / `resolveSceneVenues` + 两张词表（别名表、室内线索）。场地乱跳这类问题在这一层用测试钉死 |
+| `video-generation-agent.service.ts` | 保留 `resolveLessonWorld`（全篇兜底 + 有没有滑梯），新增 `sceneVenueText`（这一幕的文本，**不含 topic**），逐幕调 `resolveSceneVenues`；world 组装时把 `venueFrom` 剥到 scene 顶层 |
+| `world.ts` | `Venue` 改 `string`；`WorldView` 加 `scaleSlide` / `scaleRef`；`worldScale` 走 `boundsForScale`（`slide ?? scaleSlide`），`worldBounds` 不动 |
+| `WorldLayer.tsx` | 无改动 |
+| `ThreeActionStage.tsx` | 无改动 |
+| 测试 | `scene-venue.spec.ts`（13 项）+ `cross-venue-storyboard.json` 四幕用例 |
 
 "`WorldLayer` / `ThreeActionStage` 不用动"是这套设计成立的证据：场地已经是幕级输入，
 渲染层本来就只认输入。
+
+`sceneVenueText` 刻意**不含 topic**：主题词会把每一幕都染成同一个场地。主题叫
+《小马过河》时每幕文本都带"河"，"他回到家"那一幕也会被判成河边，幕级就白做了。
+topic 只参与全篇兜底。
 
 ## 7. 校验与守卫
 
@@ -574,6 +594,28 @@ python scripts/pixel-diff.py out/golden-before out/golden-after
 第 3 条是这套设计的命门：只要它成立，"幕级场地"就没有牺牲上两轮修好的
 比例一致性。
 
+### 9.3 实测记录（2026-11-23）
+
+用 `cross-venue-storyboard.json` 走真实装配（`build-lesson-props.ts`）再抽帧：
+
+| 幕 | 装配结果 | 画面 |
+|---|---|---|
+| 1 | `forest` / `habitat` | 森林（草地、远山、灌木） |
+| 2 | `forest` / `inherit` | 与第 1 幕完全一致 |
+| 3 | `classroom` / `indoor` | 窗、课桌、落地灯、木墙 |
+| 4 | `classroom` / `inherit` | 与第 3 幕完全一致 |
+
+四幕熊的像素高度目视一致，第 3 幕确实换了地方。`world` 里只有 `venue`（没有
+`venueFrom`），满足"同场地幕完全一致"。
+
+**同时暴露一处既有缺陷（P1，不在本次范围）**：wide 镜头下可见的世界 x 只有约 ±3，
+而 forest/night 配方的树在 ±3.2 以外、最远到 ±10，于是"森林"只看到草地和灌木，
+读不出树。这不是幕级引入的（单场地时代就如此，只是被巨图特写挡住了）。要修只需
+把配方里的树往回收，但会改变现有成片像素，属于美术决定，单独评估。
+
+同一原因也解释了 classroom 为什么只摆三件家具（§4.1 的配方注释里写了），
+以及为什么最初那版"窗 + 书架 + 两张桌 + 灯"看着像空房间。
+
 ## 10. 风险与回滚
 
 | 风险 | 影响 | 应对 |
@@ -649,3 +691,29 @@ python scripts/pixel-diff.py out/golden-before out/golden-after
 严格按 §8 的 1→6。第 6 步（幕级）必须放在最后，理由是 golden frame 需要一条
 稳定的基线：先把"怎么画"钉死（1~5 步可逐像素验证），再动"画哪儿"（第 6 步用
 角色像素高度验证）。顺序反了，diff 不为 0 时你分不清是回归还是本来就该变。
+
+### 12.5 落地时与原方案的四点差异
+
+方案到代码之间隔着一层现实，这四处是实施时改的，都已回写进上文：
+
+1. **`scaleRef`（数值）→ `scaleSlide`（几何）**：后端算 ppu 就要 import 渲染层的
+   `worldScale`，把 STAGE / ACTOR 拖进 Nest 的运行时依赖。改成下发几何，ppu 仍然
+   只有渲染层一份实现（§6.3）。
+2. **新增一条场地优先级**："本课有滑梯而单幕只命中草地/河边 → 仍按 playground"。
+   不加这条，一节滑梯课会被判成"第 1 幕草地、第 2 幕公园"（§5）。
+3. **habitat 多命中按具体程度取**（夜 > 河 > 森林 > 草地），不按词表顺序。
+   词表里 grassland 排在 forest 前面，而分镜常写"森林的草地上"（§5）。
+4. **`venueFrom` 移出 world、放 scene 顶层**：它是诊断字段，混进 world 会让
+   "同场地幕世界完全一致"这条不变量在测试里直接破（§6.4）。
+
+### 12.6 实施状态
+
+| 步骤 | 状态 | 验证 |
+|---|---|---|
+| 1~4 配方迁移 | 已完成 | 4 帧（森林 2 + 滑梯 2）与迁移前**字节级一致** |
+| 5 教室 + 水面 | 已完成 | 本批 diff 不含 `WorldLayer.tsx`；教室/河边抽帧人工确认 |
+| 6 幕级 | 已完成 | 四幕序列与 `venueFrom` 正确、熊等高（§9.3） |
+
+回归：`lesson-world` 24 项、`venue-recipe` 13 项、`scene-venue` 13 项、
+`puppet-duo` 14 项、`action3d-registry` 15 项、`video-generation-agent.service` 20 项，
+全部通过；两侧 `tsc --noEmit` 干净；`check:lesson-template` 无缺失 token。

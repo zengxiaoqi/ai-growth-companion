@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-24",
+  "source": "Daily evolution report #184 + autonomous evaluation pipeline v2",
+  "suggestions": [
+    {
+      "title": "Fix 8 failing video-generation-agent tests after venue refactor",
+      "description": "Upstream venue/puppet refactoring (commits 602da87 through abc4e96) changed the video generation agent API. 8 tests fail with DYNAMIC_REMOTION_MISSING_CHARACTER_ASSET error because character asset validation was tightened. Need to update test expectations to match new venue-v1 behavior.",
+      "category": "test",
+      "estimated_complexity": "low",
+      "affected_area": "backend",
+      "tier": 1
+    },
+    {
+      "title": "Rebuild Flutter Web (122 stale lib files)",
+      "description": "Flutter source has 122 files newer than main.dart.js build artifact. Current build version v1787475203 is stale. Users see outdated UI despite code commits.",
+      "category": "infra",
+      "estimated_complexity": "medium",
+      "affected_area": "frontend-flutter",
+      "tier": 2
+    },
+    {
+      "title": "Clean stale git stashes",
+      "description": "6 git stashes accumulated, including old formatting fixes and WIP items. Clean up obsolete entries to reduce clutter.",
+      "category": "infra",
+      "estimated_complexity": "low",
+      "affected_area": "devops",
+      "tier": 1
+    }
+  ]
+}

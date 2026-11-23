@@ -21,6 +21,7 @@ import {
   WHEEL,
   slideLadderTop,
   venueDecor,
+  venueHasFence,
   worldLadderX,
   type VenueTheme,
   type WorldCamera,
@@ -183,34 +184,43 @@ export const WorldLayer: React.FC<{
             </g>
           ))}
 
-        {/* 围栏：一直在那儿，任何镜头都能看到"这是公园的边界" */}
-        <g opacity={0.9}>
-          {Array.from({ length: 34 }).map((_, i) => {
-            const x = -9 + i * 0.62;
-            return (
+        {/* 围栏：**按场地给**。它是游乐园/牧场的语汇，森林里画一条横贯全画面的
+            木栅栏就变成了"一个有围栏的空地"。没有围栏的场地由树和灌木填两侧。 */}
+        {venueHasFence(world.venue) ? (
+          <g opacity={0.9}>
+            {Array.from({ length: 34 }).map((_, i) => {
+              const x = -9 + i * 0.62;
+              return (
+                <rect
+                  key={`fence-post-${i}`}
+                  x={px(x) - u(0.045)}
+                  y={py(0.58)}
+                  width={u(0.09)}
+                  height={u(0.58)}
+                  rx={u(0.03)}
+                  fill={theme.wood}
+                />
+              );
+            })}
+            {[0.24, 0.46].map((y) => (
               <rect
-                key={`fence-post-${i}`}
-                x={px(x) - u(0.045)}
-                y={py(0.58)}
-                width={u(0.09)}
-                height={u(0.58)}
-                rx={u(0.03)}
-                fill={theme.wood}
+                key={`fence-rail-${y}`}
+                x={px(-9)}
+                y={py(y)}
+                width={u(20)}
+                height={u(0.07)}
+                fill={theme.woodDark}
+                opacity={0.85}
               />
-            );
-          })}
-          {[0.24, 0.46].map((y) => (
-            <rect
-              key={`fence-rail-${y}`}
-              x={px(-9)}
-              y={py(y)}
-              width={u(20)}
-              height={u(0.07)}
-              fill={theme.woodDark}
-              opacity={0.85}
-            />
+            ))}
+          </g>
+        ) : null}
+
+        {decor
+          .filter((d) => d.kind === 'bush')
+          .map((d) => (
+            <Bush key={`bush-${d.x}`} x={d.x} px={px} py={py} u={u} theme={theme} sway={sway} />
           ))}
-        </g>
 
         {decor
           .filter((d) => d.kind === 'tree')
@@ -264,6 +274,18 @@ const Tree: React.FC<Proj & { x: number; theme: VenueTheme; sway: number }> = ({
     <circle cx={px(x) + u(0.44) + sway} cy={py(1.98)} r={u(0.5)} fill={theme.leaf} />
     <circle cx={px(x) + sway} cy={py(2.32)} r={u(0.62)} fill={theme.leaf} />
     <circle cx={px(x) - u(0.16) + sway} cy={py(2.16)} r={u(0.4)} fill={theme.leafDark} opacity={0.55} />
+  </g>
+);
+
+/**
+ * 灌木：没有围栏的场地（森林、夜）用它填两侧。
+ * 尺寸比树小一档、贴地，作用是"视线尽头不是一块空草地"。
+ */
+const Bush: React.FC<Proj & { x: number; theme: VenueTheme; sway: number }> = ({ x, px, py, u, theme, sway }) => (
+  <g>
+    <ellipse cx={px(x) - u(0.22) + sway} cy={py(0.2)} rx={u(0.32)} ry={u(0.24)} fill={theme.leafDark} />
+    <ellipse cx={px(x) + u(0.24) + sway} cy={py(0.18)} rx={u(0.3)} ry={u(0.22)} fill={theme.leaf} />
+    <ellipse cx={px(x) + sway} cy={py(0.26)} rx={u(0.34)} ry={u(0.26)} fill={theme.leaf} />
   </g>
 );
 

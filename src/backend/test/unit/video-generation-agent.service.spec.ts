@@ -1,6 +1,8 @@
 import { VideoGenerationAgentService } from '../../src/modules/learning/video-generation-agent.service';
 import { VisualAssetService } from '../../src/modules/learning/visual-asset.service';
 import { MOTION_DEFAULTS } from '../../src/modules/learning/video/action3d-registry';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 describe('VideoGenerationAgentService', () => {
   const createService = (visualAssetService?: VisualAssetService) =>
@@ -652,6 +654,48 @@ describe('VideoGenerationAgentService', () => {
     expect(scenes[0].setpiece).toBeUndefined();
     expect(scenes[1].setpiece).toBe('slide');
     expect(scenes[2].setpiece).toBe('slide');
+  });
+
+  /**
+   * 非滑梯主题：这是"改动只对小熊玩滑梯生效"的反证。
+   *
+   * 上面那条测试用的是带滑梯的分镜，所以它证明不了别的主题也被覆盖。
+   * 这份《小松鼠分果子》四幕分别落在四种舞台（巨图特写 / 双人徽章 / 全身木偶 ×2），
+   * 只要每一幕都拿到同一份 world，"整节课一处场地"才真的是所有主题都成立——
+   * 而不是渲染层对某一种分镜特判出来的效果。
+   */
+  it('非滑梯主题也整节课一处场地：按 habitat 推场地，四幕同一份 world 且不硬塞滑梯', async () => {
+    const fixture = JSON.parse(
+      readFileSync(join(__dirname, '../fixtures/forest-storyboard.json'), 'utf8'),
+    );
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(fixture, {} as any);
+    const scenes = manifest.props.scenes as any[];
+
+    expect(scenes).toHaveLength(4);
+    // 1. 每一幕都有 world（包括"巨图特写"和"双人徽章"这两种不画全身的舞台）
+    for (const scene of scenes) {
+      expect(scene.world).toBeTruthy();
+      expect(scene.world).toEqual(scenes[0].world);
+    }
+    // 2. 场地由文本里的"森林"推出，而不是默认草地
+    expect(scenes[0].world.venue).toBe('forest');
+    // 3. 没有滑梯就绝不硬塞一座：slide 与 setpiece 都必须缺席
+    expect(scenes[0].world.slide).toBeUndefined();
+    for (const scene of scenes) expect(scene.setpiece).toBeUndefined();
+
+    // 4. 四种舞台确实都出现了——否则这条测试会在"分镜被降级成同一种舞台"时假通过
+    const branches = scenes.map((s) => {
+      const it = s.interaction;
+      if (!it) return 'plain';
+      if (it.action3d) return '3d';
+      if (it.puppet) return 'puppet';
+      return `actor:${it.verb}`;
+    });
+    expect(branches[0]).toBe('plain');
+    expect(branches[1]).toBe('actor:handover');
+    expect(branches[2]).toBe('puppet');
+    expect(branches[3]).toBe('puppet');
   });
 
   /**

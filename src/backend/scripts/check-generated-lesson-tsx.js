@@ -13,6 +13,22 @@ const servicePath = path.join(
 
 const source = fs.readFileSync(servicePath, 'utf8');
 
+/**
+ * 渲染层源码（character/*、three/*）也是"模板"的一部分：它是被 sync:three-stage
+ * 打包成字符串常量一起下发的。有些契约只落在那一侧（比如"围栏按场地给"
+ * 在 WorldLayer 里），只查 lesson 模板就会误报缺失。
+ */
+const stagePath = path.join(
+  __dirname,
+  '..',
+  'src',
+  'modules',
+  'learning',
+  'video',
+  'stage-template.ts',
+);
+const stageSource = fs.existsSync(stagePath) ? fs.readFileSync(stagePath, 'utf8') : '';
+
 const anchor = 'return String.raw`';
 const start = source.indexOf(anchor);
 if (start < 0) {
@@ -141,6 +157,14 @@ const mustHave = [
   'scene.subtitlePages',
   'SUB_PRE_ROLL',
   'splitNarration(scene.narration || "", 15, 2)',
+  // 场地背景必须覆盖**所有画人物的舞台**。只给全身木偶与三维舞台画世界时，
+  // 双人徽章幕和巨图特写幕还是旧 habitat 屏保，同一节课出现两种背景。
+  // 少了这个组件，后面再有新舞台也会静默漏掉背景，而且不会有任何报错。
+  'const SceneBackdrop',
+  'cameraForWorld(world, "wide")',
+  // 围栏是游乐园/牧场的语汇：无条件画一条横贯全画面的木栅栏，
+  // "森林里的小松鼠"就成了"一个有围栏的空地"
+  'venueHasFence(world.venue)',
 ];
 
 // 有专属渲染分支的动效预设：少了分支，LLM 选到该动效会静默退化成 focus-ring
@@ -166,7 +190,9 @@ const missingRelations = graphRelations.filter(
 // 同理：语法层能产出的示意符号，模板里必须都有画法，否则抽象概念会退化成空白
 const graphSigns = ['count', 'rise', 'level', 'flow', 'time'];
 const missingSigns = graphSigns.filter((sign) => !template.includes(`sign === "${sign}"`));
-const missing = mustHave.filter((token) => !template.includes(token) && !source.includes(token));
+const missing = mustHave.filter(
+  (token) => !template.includes(token) && !source.includes(token) && !stageSource.includes(token),
+);
 console.log('missing_tokens=' + (missing.length ? missing.join(',') : 'none'));
 console.log('missing_relations=' + (missingRelations.length ? missingRelations.join(',') : 'none'));
 console.log('missing_signs=' + (missingSigns.length ? missingSigns.join(',') : 'none'));

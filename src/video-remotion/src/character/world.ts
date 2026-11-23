@@ -336,7 +336,18 @@ function isUsableBox(box?: Bounds): box is Bounds {
  * 每幕重新摆一遍——这正是"局部场景"与"一个地方"的区别。
  * ------------------------------------------------------------------ */
 
-export type Decor = { kind: 'tree' | 'fence' | 'bench' | 'sandbox' | 'wheel'; x: number };
+export type Decor = { kind: 'tree' | 'fence' | 'bench' | 'sandbox' | 'wheel' | 'bush'; x: number };
+
+/**
+ * 这处场地有没有围栏。
+ *
+ * 围栏是**游乐园/牧场**的语汇，不是所有户外的语汇。上一版无条件画一条横贯
+ * 全画面的木栅栏，于是"森林里的小松鼠"也站在一道公园围栏后面——场地词汇
+ * 和主题对不上时，孩子读到的不是"森林"，是"一个有围栏的空地"。
+ */
+export function venueHasFence(venue: Venue): boolean {
+  return venue === 'playground' || venue === 'meadow' || venue === 'riverside';
+}
 
 /**
  * 装饰布局。
@@ -344,6 +355,9 @@ export type Decor = { kind: 'tree' | 'fence' | 'bench' | 'sandbox' | 'wheel'; x:
  * 只用固定值，不用随机：同一节课重渲必须逐像素一致（Remotion 的硬要求）。
  * 位置经过一次实测调整——都要落在"可演区域 + 两侧各 2 个世界单位"内，
  * 否则镜头一平移就只剩空草地。
+ *
+ * 每种场地填背景的东西不同：没有围栏的场地（森林、夜）就得靠树和灌木把
+ * 画面两侧填满，否则镜头一平移就是一块空地。
  */
 export function venueDecor(world: WorldView): Decor[] {
   const decor: Decor[] = [
@@ -359,6 +373,17 @@ export function venueDecor(world: WorldView): Decor[] {
     decor.push({ kind: 'wheel', x: 3.4 });
   }
   if (world.venue === 'riverside') decor.push({ kind: 'sandbox', x: -2.6 });
+  if (!venueHasFence(world.venue)) {
+    // 没有围栏的场地：靠灌木和更密的树把两侧填住
+    decor.push(
+      { kind: 'tree', x: -5.4 },
+      { kind: 'tree', x: -7.2 },
+      { kind: 'bush', x: -1.6 },
+      { kind: 'bush', x: 4.4 },
+      { kind: 'bush', x: 9.4 },
+      { kind: 'tree', x: 10.4 },
+    );
+  }
   return decor;
 }
 

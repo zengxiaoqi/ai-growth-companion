@@ -28,6 +28,7 @@ import {
   normalizeWorld,
   slideLadderTop,
   venueDecor,
+  venueHasFence,
   worldBounds,
   worldLadderX,
   worldScale,
@@ -227,6 +228,31 @@ describe('world / 场地装饰', () => {
   it('非游乐园场地不放摩天轮（装饰也要跟着场地走）', () => {
     const kinds = venueDecor({ venue: 'forest' }).map((d) => d.kind);
     expect(kinds).not.toContain('wheel');
+  });
+
+  /**
+   * 围栏是游乐园/牧场的语汇，不是所有户外的语汇。
+   * 上一版无条件画一条横贯全画面的木栅栏，于是"森林里的小松鼠"也站在一道
+   * 公园围栏后面——场地词汇与主题对不上时，孩子读到的不是森林。
+   */
+  it('围栏只在游乐园/草地/河边出现，森林与夜晚没有', () => {
+    expect(venueHasFence('playground')).toBe(true);
+    expect(venueHasFence('meadow')).toBe(true);
+    expect(venueHasFence('riverside')).toBe(true);
+    expect(venueHasFence('forest')).toBe(false);
+    expect(venueHasFence('night')).toBe(false);
+  });
+
+  it('没有围栏的场地要用树和灌木把两侧填住（否则镜头一平移就只剩空地）', () => {
+    const forest = venueDecor({ venue: 'forest' });
+    expect(forest.some((d) => d.kind === 'bush')).toBe(true);
+    const trees = forest.filter((d) => d.kind === 'tree').length;
+    expect(trees).toBeGreaterThanOrEqual(5);
+    // 填的位置要覆盖可演区域两侧（±3.1 之外）
+    expect(Math.min(...forest.map((d) => d.x))).toBeLessThan(-4);
+    expect(Math.max(...forest.map((d) => d.x))).toBeGreaterThan(8);
+    // 游乐园不需要灌木：它有围栏与摩天轮
+    expect(venueDecor({ venue: 'playground' }).some((d) => d.kind === 'bush')).toBe(false);
   });
 
   it('装饰位置固定，不随幕漂移（同一处地方）', () => {

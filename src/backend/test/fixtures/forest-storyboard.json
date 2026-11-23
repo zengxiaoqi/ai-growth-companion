@@ -1,0 +1,76 @@
+{
+  "title": "小松鼠分果子",
+  "topic": "小松鼠分果子",
+  "domain": "social",
+  "totalDurationSec": 20,
+  "sceneCount": 4,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "sequence": 1,
+      "title": "森林里的小松鼠",
+      "concept": "认识森林场景里的小松鼠。",
+      "narration": "森林里住着一只小松鼠，它有一根蓬松的大尾巴。",
+      "onScreenText": "森林里的小松鼠",
+      "visualDescription": "森林里的小松鼠，蓬松大尾巴，树上挂着松果。",
+      "durationSec": 5,
+      "transitionToNext": "fade",
+      "emphasis": "intro"
+    },
+    {
+      "id": "scene-2",
+      "sequence": 2,
+      "title": "把苹果递给小兔",
+      "concept": "学会把东西递给朋友。",
+      "narration": "小松鼠把红苹果递给小兔，小兔伸手接住，两个人一起笑。",
+      "onScreenText": "递一个苹果",
+      "visualDescription": "森林空地上，小松鼠在左边把红苹果递给右边的小兔。",
+      "durationSec": 5,
+      "transitionToNext": "fade",
+      "emphasis": "core-concept",
+      "interaction": {
+        "verb": "handover",
+        "actors": [
+          { "id": "squirrel", "label": "小松鼠", "role": "giver" },
+          { "id": "rabbit", "label": "小兔", "role": "receiver" }
+        ],
+        "propId": "apple",
+        "caption": "小松鼠把苹果递给小兔"
+      }
+    },
+    {
+      "id": "scene-3",
+      "sequence": 3,
+      "title": "说声谢谢",
+      "concept": "收到东西要说谢谢。",
+      "narration": "小兔抱着苹果，轻轻说了一声谢谢。",
+      "onScreenText": "说声谢谢",
+      "visualDescription": "小兔抱着苹果站在森林里，笑着说话。",
+      "durationSec": 5,
+      "transitionToNext": "fade",
+      "emphasis": "detail",
+      "interaction": {
+        "verb": "speak",
+        "actors": [{ "id": "rabbit", "label": "小兔", "role": "speaker" }],
+        "speech": "谢谢你！"
+      }
+    },
+    {
+      "id": "scene-4",
+      "sequence": 4,
+      "title": "一起看苹果",
+      "concept": "分享让大家都开心。",
+      "narration": "小松鼠指着红苹果，告诉小兔这是刚从树上摘的。",
+      "onScreenText": "红红的苹果",
+      "visualDescription": "森林里，小松鼠指着红苹果，苹果在画面右侧。",
+      "durationSec": 5,
+      "transitionToNext": "fade",
+      "emphasis": "outro",
+      "interaction": {
+        "verb": "point",
+        "actors": [{ "id": "squirrel", "label": "小松鼠", "role": "main" }],
+        "propId": "apple"
+      }
+    }
+  ]
+}

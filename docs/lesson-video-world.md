@@ -73,6 +73,62 @@ close   focusBox=只有熊          ppu=268.7    （1.50×）
 `setpiece: 'slide'` 的含义是"这一幕在**使用**场地里的滑梯"，因此渲染层不再
 在角色旁边摆一个滑梯**图标**——那正是"真的滑梯 + 玩具图标"叠在同一个画面里的来源。
 
+## 覆盖范围：哪些幕在世界里，哪些不在
+
+世界层不是"给滑梯特判"，它按**舞台分支**生效。一节课的四类舞台：
+
+| 舞台 | 触发条件 | 背景 | 角色比例 |
+|---|---|---|---|
+| `Puppet2D` | 单人动词（说/指/走/爬/坐/欢呼） | 世界 | 世界（1.67×ppu） |
+| `ThreeActionStage` | 滑梯 / 拍球 | 世界（`withSlide=false`） | 世界 |
+| `ActionStage` | 双人动词（递给 / 一起抬）、3D 不可用时的降级 | 世界（`SceneBackdrop`，wide） | 固定 320px 徽章 |
+| 巨图特写（`plain`） | 无 interaction 的静态幕 | 世界（`SceneBackdrop`，wide） | 760×470 主视觉 |
+| `SceneGraphStage` | 关系图 / 画板 | 中性底（刻意） | 无角色 |
+
+场地由**整节课的文本**推出（`resolveLessonWorld`），与主题无关：
+
+- 全篇出现滑梯（滑 / 爬 / 提到"滑梯"）→ `playground` + 那一座滑梯；
+- 否则按 habitat 关键词 → `meadow` / `riverside` / `forest` / `night`（缺省 `meadow`）。
+
+### 场地的词汇也要跟着场地走
+
+围栏、长椅、沙坑、摩天轮不是"户外背景"，是**游乐园/牧场**的语汇。上一版无条件
+画一条横贯全画面的木栅栏，于是《松鼠分果子》的森林里也立着公园围栏——场地词汇
+和主题对不上时，孩子读到的不是森林，是"一个有围栏的空地"。
+
+现在 `venueHasFence()` 决定围栏：游乐园 / 草地 / 河边有；森林 / 夜晚没有，改用
+更密的树和贴地灌木把两侧填住（否则镜头一平移就只剩空地）。
+
+### 怎么验证它对所有主题生效
+
+`render-storyboard-lesson.cjs` 自己注入 plan / world / habitat，**只对《小熊玩滑梯》
+成立**——用它验证"是否所有主题生效"等于自己出题自己判卷。所以要分两步：
+
+```bash
+# 1) 任意分镜 → 后端真实装配出来的 props（含 world / setpiece / backgroundStyle）
+cd src/backend
+npx ts-node --transpile-only scripts/build-lesson-props.ts \
+  --file test/fixtures/forest-storyboard.json \
+  --out ../video-remotion/out/forest.props.json
+
+# 2) 用这份 props 渲染
+cd ../video-remotion
+node scripts/render-storyboard-lesson.cjs --props out/forest.props.json --still 180
+```
+
+`build-lesson-props.ts` 会把每一幕落到的分支和整节课的场地打出来：
+
+```
+[props] 4 幕 600 帧
+[props] 分支：1=plain, 2=actor:handover, 3=2d:speak, 4=2d:point
+[props] 场地：forest
+[props] setpiece：1=-, 2=-, 3=-, 4=-
+```
+
+四个分支、一份场地、没有滑梯——这就是"与主题无关"的证据。`test/fixtures/forest-storyboard.json`
+是为此加的常驻样例（四幕分别落在四种舞台），`video-generation-agent.service.spec.ts`
+里有一条测试钉住它。
+
 ## 改动落点
 
 | 文件 | 职责 |
@@ -82,7 +138,8 @@ close   focusBox=只有熊          ppu=268.7    （1.50×）
 | `src/video-remotion/src/character/setpiece.ts` | 布景几何唯一来源（`slideLadderX`、`ladderRungYs`、`slideBounds`…） |
 | `src/video-remotion/src/character/Puppet2D.tsx` | 有 `world` 时用 `cameraForWorld` 取景；爬梯动作整条 plan 平移到 `worldLadderX` |
 | `src/video-remotion/src/three/ThreeActionStage.tsx` | 同上；滑梯几何取 `world.slide`；背景用 `WorldLayer withSlide={false}` |
-| `video-generation-agent.service.ts` | `resolveLessonWorld()`：整节课算一次，逐幕下发同一份 `world` + `setpiece` |
+| `video-generation-agent.service.ts` | `resolveLessonWorld()`：整节课算一次，逐幕下发同一份 `world` + `setpiece`；`SceneBackdrop` 给双人徽章幕与巨图特写幕补上同一个背景 |
+| `backend/scripts/build-lesson-props.ts` | 任意分镜 → 后端真实装配的 props（验证"是否所有主题生效"的唯一可靠入口） |
 | `video/action3d-registry.ts` | `MOTION_DEFAULTS.slide` 是世界坐标的唯一定义 |
 
 老任务没有 `world` 字段 → `normalizeWorld` 返回 `null` → 退回原来的"按幕拟合"路径，
@@ -105,24 +162,33 @@ close   focusBox=只有熊          ppu=268.7    （1.50×）
 
 ## 局限
 
-1. **2D 与 3D 是两种渲染器，风格不可能完全一致**。几何、颜色、位置已经同源，
-   但三维侧面受光照影响偏暗（滑道侧面读作深棕，二维是同色平涂）。要彻底一致
-   得统一材质，属另一个课题。
-2. **爬梯仍只走二维**（`climb` 是 2D 独占原语），所以"爬"和"滑"两幕的熊
-   画法不同——这是既有的渲染器分工，不是本次改动引入的。
-3. **`ppu` 常常锁在 base**。焦点盒包含整座滑梯时 `fit < base`，变焦被夹到 1.0，
-   滑梯幕因此总是全景。这是刻意的（宁可不推近，也不裁掉正在用的装置），
-   副作用是滑梯幕与说话幕的景别差不够明显。
-4. **装饰允许被裁**。`worldBounds` 只含"必须完整可见"的范围（可演区域 ∪ 滑梯），
-   树、围栏、摩天轮是远景，出画不算错。代价是镜头平移到两端时，画面一侧会空。
+1. **角色画法仍有两套语言**。全身木偶（Puppet2D）与 320px 圆形徽章（ActionStage）
+   是两种表达：前者是"这个人在这个场地里"，后者是"两张脸在对话"。背景已经统一，
+   但同一个角色在双人幕里是徽章、在单人幕里是全身，切换时仍会跳。正解是让
+   Puppet2D 支持同场多个角色（双人动词改走木偶），这是下一个课题。
+2. **巨图特写幕的构图与世界无关**。它是 760×470 的主视觉特写（`portraitFraming`），
+   现在站在世界背景前，但"图有多大"仍按特写定律算，不参与世界比例。
+3. **2D 与 3D 是两种渲染器，风格不可能完全一致**。几何、颜色、位置已经同源，
+   但三维侧面受光照影响偏暗（滑道侧面读作深棕，二维是同色平涂）。
+4. **爬梯仍只走二维**（`climb` 是 2D 独占原语），"爬"和"滑"两幕的角色画法不同。
+5. **`ppu` 常常锁在 base**。焦点盒包含整座滑梯时 `fit < base`，变焦被夹到 1.0，
+   滑梯幕因此总是全景。这是刻意的（宁可不推近，也不裁掉正在用的装置）。
+6. **装饰允许被裁**。`worldBounds` 只含"必须完整可见"的范围（可演区域 ∪ 滑梯），
+   树、围栏、摩天轮是远景，出画不算错。代价是镜头平移到两端时一侧会空。
+7. **离线渲染不能验收角色美术**。`render-storyboard-lesson.cjs` 会把
+   `VECTOR_ANIMAL_IDS` 置空，所有角色都走 emoji 兜底（同一个字形，看起来像"两个
+   角色画成同一只灰狼"）。这是 harness 的限制，线上白名单是真的。脚本已在该情况下
+   打印提示。
 
 ## 复跑
 
 ```bash
-# 单帧
+# 单帧（默认《小熊玩滑梯》那份）
 cd src/video-remotion && node scripts/render-storyboard-lesson.cjs --still 420
 # 整片
 node scripts/render-storyboard-lesson.cjs
+# 换主题：先由后端真实装配出 props，再渲染（详见"覆盖范围"）
+node scripts/render-storyboard-lesson.cjs --props out/forest.props.json --still 180
 
 # 算术守卫（比例、爬梯同源、脏 props）
 cd ../backend && npx jest test/unit/lesson-world.spec.ts test/unit/stage-layout.spec.ts

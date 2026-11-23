@@ -1155,6 +1155,8 @@ import { Audio } from "@remotion/media";
 import { ThreeActionStage } from "./three/ThreeActionStage";
 import type { ThreeStageScene } from "./three/ThreeActionStage";
 import { Puppet2D } from "./character/Puppet2D";
+import { WorldLayer } from "./character/WorldLayer";
+import { cameraForWorld, normalizeWorld } from "./character/world";
 import type { MotionOp } from "./character/pose";
 import { portraitFraming, propSlot } from "./character/stage-layout";
 
@@ -2169,6 +2171,24 @@ const SpeechBubble: React.FC<{ text: string; side: "left" | "right"; accent: str
  * 按角色关系演出画面：把"谁对谁做什么"变成确定性的摆位与动作。
  * 这是画面与台词匹配的关键——不再只是"角色居中 + 道具两侧"。
  */
+/**
+ * 背景：任何"有人物"的幕都站在同一处场地里。
+ *
+ * 二维演员（Puppet2D）和三维舞台（ThreeActionStage）各自持有自己的相机——
+ * 它们要用同一条投影画角色，所以相机不能从这里往下传。剩下两种舞台
+ * （双人徽章、巨图特写）此前仍画旧 habitat 屏保，同一节课因此出现三种背景：
+ * 只有全身木偶幕站在公园里，双人幕和特写幕站在"另一片草地"。
+ *
+ * 这里给它们补上同一个世界。景别固定 wide：这两种舞台本身是"特写/半身"的
+ * 构图，背景要是也跟着推近，就只剩一堵围栏了。
+ */
+const SceneBackdrop: React.FC<{ scene: GeneratedScene; frame: number }> = ({ scene, frame }) => {
+  if ((scene.backgroundStyle || "environment") !== "environment") return null;
+  const world = normalizeWorld(scene.world);
+  if (!world) return null;
+  return <WorldLayer world={world} camera={cameraForWorld(world, "wide")} frame={frame} />;
+};
+
 const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
   const frame = useLocalFrame();
   const it = scene.interaction!;
@@ -2196,6 +2216,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
     const y = 250 + travel * 470;
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
+        <SceneBackdrop scene={scene} frame={frame} />
         <svg width={1920} height={1080} viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
           <polygon points="250,210 1740,900 1740,986 250,296" fill="#ffb347" stroke="#e08b2f" strokeWidth={7} />
           <polygon points="250,210 1740,900 1740,930 250,240" fill="#ffd08a" opacity={0.7} />
@@ -2223,6 +2244,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
     const squash = 1 - 0.12 * Math.max(0, 1 - lift * 4);
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
+        <SceneBackdrop scene={scene} frame={frame} />
         <div style={{ position: "absolute", left: 380, top: 430 }}>
           <ActorFigure actor={helperA} frame={frame} facing={1} gesture="offer" accent={accent} />
         </div>
@@ -2249,6 +2271,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
     const propY = 590 - Math.sin(ease * Math.PI) * 96;
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
+        <SceneBackdrop scene={scene} frame={frame} />
         <div style={{ position: "absolute", left: 300, top: 430 }}><ActorFigure actor={giver} frame={frame} facing={1} gesture="offer" accent={accent} /></div>
         <div style={{ position: "absolute", left: 1300, top: 430 }}><ActorFigure actor={receiver} frame={frame} facing={-1} gesture="receive" accent={accent} /></div>
         {it.propId ? (
@@ -2281,6 +2304,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
     const lift = Math.sin(frame / 12) * 18;
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
+        <SceneBackdrop scene={scene} frame={frame} />
         <div style={{ position: "absolute", left: 260, top: 470 }}><ActorFigure actor={helperA} frame={frame} facing={1} gesture="wave" accent={accent} /></div>
         <div style={{ position: "absolute", left: 1360, top: 470 }}><ActorFigure actor={helperB} frame={frame} facing={-1} gesture="wave" accent={accent} /></div>
         {it.propId ? (
@@ -2298,6 +2322,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
   if (it.verb === "speak" && speaker) {
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
+        <SceneBackdrop scene={scene} frame={frame} />
         <div style={{ position: "absolute", left: 1180, top: 430 }}><ActorFigure actor={speaker} frame={frame} facing={-1} gesture="wave" accent={accent} /></div>
         {actors[1] ? (
           <div style={{ position: "absolute", left: 300, top: 470 }}><ActorFigure actor={actors[1]} frame={frame} facing={1} gesture="idle" accent={accent} /></div>
@@ -2312,6 +2337,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
   if ((it.verb === "point" || it.verb === "hold") && helperA) {
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
+        <SceneBackdrop scene={scene} frame={frame} />
         <div style={{ position: "absolute", left: 360, top: 430 }}><ActorFigure actor={helperA} frame={frame} facing={1} gesture={it.verb === "point" ? "wave" : "receive"} accent={accent} /></div>
         {it.propId ? (
           <div style={{ position: "absolute", left: 1300, top: 480 }}>
@@ -4469,6 +4495,9 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
         <SceneGraphStage scene={scene} duration={duration} />
       ) : (
         <>
+          {/* 巨图特写幕也要站在同一处场地里：不然"森林里的小松鼠"这一屏是旧屏保，
+              下一屏（全身木偶）才是森林，孩子看到的是两个地方。 */}
+          <SceneBackdrop scene={scene} frame={frame} />
           {scene.onScreenText && scene.onScreenText !== scene.title ? (
             <div style={{ position: "absolute", left: 0, right: 0, top: 124, display: "flex", justifyContent: "center" }}>
               <div

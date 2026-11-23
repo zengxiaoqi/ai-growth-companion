@@ -28,14 +28,20 @@ const servicePath = path.join(
   'learning',
   'video-generation-agent.service.ts',
 );
-const fixturePath = path.join(
-  repoRoot,
-  'src',
-  'backend',
-  'test',
-  'fixtures',
-  'slide-storyboard.json',
-);
+/**
+ * 分镜来源。
+ *
+ * 默认是《小熊玩滑梯》那份真实分镜；`--fixture <path>` 可以换成任意一份，
+ * 这是"改动是否对所有主题生效"唯一靠得住的验证方式——只看滑梯那一份，
+ * 很容易把"只有带滑梯的课才走新路径"这种漏检当成通过。
+ */
+const argFixture = (() => {
+  const i = process.argv.indexOf('--fixture');
+  return i > 0 ? process.argv[i + 1] : null;
+})();
+const fixturePath = argFixture
+  ? path.resolve(remotionDir, argFixture)
+  : path.join(repoRoot, 'src', 'backend', 'test', 'fixtures', 'slide-storyboard.json');
 const templateListPath = path.join(
   repoRoot,
   'src',
@@ -64,8 +70,17 @@ function extractLessonTemplate() {
   const bodyStart = start + anchor.length;
   const end = source.indexOf('`;', bodyStart);
   if (end < 0) throw new Error('template end not found');
-  return source
-    .slice(bodyStart, end)
+  const raw = source.slice(bodyStart, end);
+  // 插值是后端常量（ANIMAL_EMOJI_MAP / VECTOR_ANIMAL_IDS / PROP_LABELS），这里
+  // 一律置空。后果要说清楚，否则会被误读成产品 bug：
+  //   VECTOR_ANIMAL_IDS 空了 ⇒ 所有角色都走 emoji 兜底，而兜底是同一个字形
+  //   （🐺），于是"松鼠和小兔画成同一个灰狼头"。**这是 harness 的限制，
+  //   不是线上行为**——线上白名单是真的，头像按 actor.id 取矢量素材。
+  //   所以本脚本只能验收取景/场地/几何，不能验收角色美术。
+  if (/\$\{JSON\.stringify/.test(raw)) {
+    console.log('[storyboard] 注意：角色美术在离线渲染里不可信（VECTOR_ANIMAL_IDS 被置空，头像退化成同一个字形）');
+  }
+  return raw
     .replace(/\$\{JSON\.stringify\(VECTOR_ANIMAL_IDS\)\}/g, '[]')
     .replace(/\$\{JSON\.stringify\([A-Z_]+\)\}/g, '{}');
 }
@@ -144,9 +159,21 @@ const PROP_LABELS = { slide: '滑梯', ball: '皮球' };
  * 数值保持同源（climb 的 -0.55→1.5 / steps 4 就是 PUPPET_DEFAULTS.climb），
  * 所以画面与线上一致；分镜本身不做任何美化，照抄 fixture。
  */
-const storyboard = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+/**
+ * props 直通模式：`--props <file>`。
+ *
+ * 这份脚本自己注入 plan / world / habitat，只对《小熊玩滑梯》成立；别的主题
+ * 必须用后端真实装配出来的 props（scripts/build-lesson-props.ts），否则测的是
+ * 脚本的假设，不是产品的行为。
+ */
+const propsArg = (() => {
+  const i = process.argv.indexOf('--props');
+  return i > 0 ? process.argv[i + 1] : null;
+})();
 
-const scenes = storyboard.scenes.map((s, i) => {
+const storyboard = propsArg ? null : JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+
+const scenes = !storyboard ? [] : storyboard.scenes.map((s, i) => {
   const item = plan[i];
   if (!item) throw new Error('plan/scene length mismatch at ' + i);
   const durationFrames = s.durationSec * FPS;
@@ -191,14 +218,18 @@ const scenes = storyboard.scenes.map((s, i) => {
   };
 });
 
-const totalFrames = scenes.reduce((sum, s) => sum + s.durationFrames, 0);
-const props = {
-  title: storyboard.title,
-  topic: storyboard.topic,
+const builtProps = {
+  title: storyboard ? storyboard.title : '',
+  topic: storyboard ? storyboard.topic : '',
   domain: 'language',
-  durationFrames: totalFrames,
+  durationFrames: scenes.reduce((sum, s) => sum + s.durationFrames, 0),
   scenes,
 };
+
+const props = propsArg
+  ? JSON.parse(fs.readFileSync(path.resolve(remotionDir, propsArg), 'utf8'))
+  : builtProps;
+const totalFrames = Number(props.durationFrames) || builtProps.durationFrames;
 
 const taskDir = path.join(remotionDir, '.generated', 'storyboard-lesson');
 fs.rmSync(taskDir, { recursive: true, force: true });
@@ -247,11 +278,11 @@ fs.writeFileSync(path.join(taskDir, 'props.json'), JSON.stringify(props), 'utf-8
 
 const entry = path.join(taskDir, 'index.ts');
 console.log(
-  `[storyboard] ${scenes.length} scenes, ${totalFrames} frames (${(totalFrames / FPS).toFixed(0)}s)`,
+  `[storyboard] ${(props.scenes || []).length} scenes, ${totalFrames} frames (${(totalFrames / FPS).toFixed(0)}s)`,
 );
 console.log(
   '[storyboard] 分支：' +
-    scenes
+    (props.scenes || [])
       .map((s, i) => {
         const it = s.interaction;
         const branch = !it
@@ -260,16 +291,26 @@ console.log(
             : 'plain'
           : it.action3d
             ? `3d:${it.action3d.motion}`
-            : `2d:${it.puppet ? it.puppet.motion : '?'}`;
+            : it.puppet
+              ? `2d:${it.puppet.motion}`
+              : `actor:${it.verb}`;
         return `${i + 1}=${branch}`;
       })
       .join(', '),
 );
 
+// 产文件名带分镜前缀：不同主题的抽帧才不会被上一份覆盖掉
+const tag = (propsArg || path.basename(fixturePath, '.json'))
+  .split(/[\\/]/)
+  .pop()
+  .replace(/\.json$/, '')
+  .replace(/\.props$/, '')
+  .replace(/-storyboard$/, '');
+
 const stillIdx = process.argv.indexOf('--still');
 if (stillIdx >= 0) {
   const frame = Number(process.argv[stillIdx + 1]) || 40;
-  const output = path.join('out', `storyboard-${frame}.png`);
+  const output = path.join('out', `${tag}-${frame}.png`);
   execFileSync(
     'npx',
     ['remotion', 'still', entry, 'StoryboardLesson', output, `--frame=${frame}`, '--props=' + path.join(taskDir, 'props.json'), '--log=error'],
@@ -279,7 +320,7 @@ if (stillIdx >= 0) {
   process.exit(0);
 }
 
-const output = path.join('out', 'storyboard-5scenes.mp4');
+const output = path.join('out', `${tag}-5scenes.mp4`);
 execFileSync(
   'npx',
   ['remotion', 'render', entry, 'StoryboardLesson', output, '--props=' + path.join(taskDir, 'props.json'), '--concurrency=4', '--log=error'],

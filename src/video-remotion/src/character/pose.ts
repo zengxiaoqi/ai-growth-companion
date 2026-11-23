@@ -14,8 +14,16 @@
  * 为什么动作写死在代码里、而参数开放给模型：
  * pose() 每帧都要算、必须确定、出错必须可降级——这类东西交给模型现算，
  * 换来的是不确定的渲染结果和静默失败。模型该做的是选原语、给参数、给关键帧，
- * 那是"编排"；这里提供的是"运动学词汇表"。新增原语 = 在这个文件加一个函数。
+ * 那是"编排"；这里提供的是"运动学词汇表"。
+ *
+ * 词汇表分两类（边界见 motion-clips.ts 顶部）：
+ *   - **数据式**：只动自己身体的原地动作（挥手 / 拍手 / 鞠躬…）写在
+ *     motion-clips.ts 的关键帧表里，本文件只提供插值器 `poseFromClip`；
+ *   - **函数式**：需要周期（呼吸、步频）或世界锚（梯子横档、滑面、球）的
+ *     动作留在这里。只有这一类才是"新增原语 = 加一个函数"。
  */
+
+import { MOTION_CLIPS, type Keyframe, type MotionClip, type PoseDelta } from './motion-clips';
 
 export type Tri = [number, number, number];
 
@@ -192,12 +200,152 @@ export function blendPose(a: Pose, b: Pose, t: number): Pose {
   };
 }
 
+/* ------------------------------------------------------------------ *
+ * 数据式动作：关键帧表 → 姿态
+ *
+ * 这里只做两件事：插值、校验。**不认识任何具体动作**——加动作在
+ * motion-clips.ts 里加数据。
+ * ------------------------------------------------------------------ */
+
+const EASE_FNS: Record<string, (t: number) => number> = {
+  linear: (t) => t,
+  in: (t) => t * t,
+  out: (t) => 1 - (1 - t) * (1 - t),
+  // 起停都有加速段：这是三维动画里"抬手"的默认手感
+  inOut: (t) => (t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t)),
+};
+
+/** 关键帧增量 → 完整姿态。没写的通道取站姿，所以数据只要写"变化的部分" */
+export function poseOfDelta(delta: PoseDelta): Pose {
+  return {
+    root: [0, SPEC.standHipY + (delta.dy ?? 0), 0],
+    rotZ: delta.rotZ ?? 0,
+    rotY: delta.rotY ?? 0,
+    handL: delta.handL ?? STAND_POSE.handL,
+    handR: delta.handR ?? STAND_POSE.handR,
+    footL: delta.footL ?? STAND_POSE.footL,
+    footR: delta.footR ?? STAND_POSE.footR,
+    tailSwing: delta.tailSwing ?? 0,
+    headTilt: delta.headTilt ?? 0,
+    squash: delta.squash ?? 1,
+  };
+}
+
 /**
- * 动作原语。这是有限集，也是"字母表"：
- * 位移 5 个、操作 5 个、手势 4 个、状态 4 个，约 18 个足以覆盖儿童教学场景。
- * 新动作优先走"组合 + 参数 + 关键帧"，只有真正新的运动学拓扑才加到这里。
+ * 关键帧插值。`t` 是**归一化时间** 0..1（= 帧 / (时长-1)）。
+ *
+ * 归一化是数据式的关键收益：同一份"挥手"在 1.5 秒幕和 6 秒幕里都成立，
+ * 后端因此**不必知道动作时长**——它只给动词，不换算帧数。
+ *
+ * 插值直接复用 `blendPose`（关节目标点线性混合），不另写一套：
+ * 同一个动作在两段之间的接缝、以及同一动作内部的关键帧，用的是同一套过渡规则，
+ * 不会出现"接缝是弧线、帧间是直线"的两种手感。
  */
-export const MOTION_OPS = [
+export function poseFromClip(clip: MotionClip, t: number): Pose {
+  const keys = clip.keys;
+  if (!keys.length) return poseOfDelta({});
+  const u = clamp(t, 0, 1);
+
+  let i = 0;
+  while (i < keys.length - 2 && u > keys[i + 1].at) i += 1;
+  const from: Keyframe = keys[i];
+  const to: Keyframe = keys[i + 1] ?? keys[i];
+  if (to.at <= from.at) return poseOfDelta(to.pose);
+
+  const raw = clamp((u - from.at) / (to.at - from.at), 0, 1);
+  // 端点直接返回，不走插值：k=1 时 a+(b-a)*1 会带出 1e-17 的浮点残差，
+  // 抽帧时看不出来，但"动作末帧必须精确等于站姿"这条断言会红。
+  if (raw <= 0) return poseOfDelta(from.pose);
+  if (raw >= 1) return poseOfDelta(to.pose);
+  const ease = EASE_FNS[from.ease ?? 'inOut'] ?? EASE_FNS.inOut;
+  return blendPose(poseOfDelta(from.pose), poseOfDelta(to.pose), ease(raw));
+}
+
+/**
+ * 动作表的校验。返回问题清单，空数组 = 通过。
+ *
+ * 为什么值得写：函数式原语的错只能靠抽帧看，数据式的错可以算出来。
+ * 其中两条是"手感问题变成算术问题"：
+ *   1. 手离肩超过臂长 → `clampReach` 会把手臂拉直截断，画面上是"手停在半空、
+ *      前臂不跟着走"（`hold` 第一版就是这类，靠人眼才发现）；
+ *   2. 脚落到地面以下 → 下蹲没抬脚，画面上是脚插进草里。
+ */
+export function normalizeClip(clip: MotionClip): string[] {
+  const issues: string[] = [];
+  const keys = clip.keys;
+  if (!Array.isArray(keys) || keys.length < 2) {
+    return [`${clip.id}: keys 少于 2 帧`];
+  }
+  if (Math.abs(keys[0].at - 0) > 1e-6) issues.push(`${clip.id}: 首帧 at 必须是 0`);
+  if (Math.abs(keys[keys.length - 1].at - 1) > 1e-6) issues.push(`${clip.id}: 末帧 at 必须是 1`);
+
+  const CHANNELS = new Set([
+    'handL', 'handR', 'footL', 'footR',
+    'rotZ', 'rotY', 'tailSwing', 'headTilt', 'squash', 'dy',
+  ]);
+  const ARM_TOLERANCE = 1e-6;
+  let prevAt = -Infinity;
+
+  for (const key of keys) {
+    if (!(key.at > prevAt)) issues.push(`${clip.id}: at 必须严格递增（${prevAt} → ${key.at}）`);
+    prevAt = key.at;
+
+    for (const name of Object.keys(key.pose)) {
+      if (!CHANNELS.has(name)) issues.push(`${clip.id}: 未知通道 ${name}`);
+    }
+    // 没写的通道取站姿：校验必须对**有效姿态**做。否则「只写了 dy 的蹲下」
+    // 会漏过脚穿地检查——脚没写就等于沿用站姿的 -0.62，照样插进地面。
+    const handL = key.pose.handL ?? STAND_POSE.handL;
+    const handR = key.pose.handR ?? STAND_POSE.handR;
+    const footL = key.pose.footL ?? STAND_POSE.footL;
+    const footR = key.pose.footR ?? STAND_POSE.footR;
+    const { dy, squash } = key.pose;
+
+    // 手不能超出臂长：肩关节在 ±SPEC.shoulder[0], SPEC.shoulder[1]
+    const reach = (hand: Tri, side: 1 | -1) => {
+      const dx = hand[0] - side * SPEC.shoulder[0];
+      const dyy = hand[1] - SPEC.shoulder[1];
+      const dz = hand[2] - SPEC.shoulder[2];
+      return Math.sqrt(dx * dx + dyy * dyy + dz * dz);
+    };
+    if (handL && reach(handL, -1) > SPEC.armLen + ARM_TOLERANCE) {
+      issues.push(`${clip.id}@${key.at}: 左手离肩 ${reach(handL, -1).toFixed(3)} > 臂长 ${SPEC.armLen}`);
+    }
+    if (handR && reach(handR, 1) > SPEC.armLen + ARM_TOLERANCE) {
+      issues.push(`${clip.id}@${key.at}: 右手离肩 ${reach(handR, 1).toFixed(3)} > 臂长 ${SPEC.armLen}`);
+    }
+
+    // 脚不能穿地：世界 y = standHipY + dy + foot.y，地面是 0
+    const ground = SPEC.standHipY + (dy ?? 0);
+    for (const [label, foot] of [['左脚', footL], ['右脚', footR]] as const) {
+      if (foot && ground + foot[1] < -1e-6) {
+        issues.push(`${clip.id}@${key.at}: ${label}穿地（${(ground + foot[1]).toFixed(3)}）`);
+      }
+    }
+
+    if (squash !== undefined && (squash < 0.8 || squash > 1.2)) {
+      issues.push(`${clip.id}@${key.at}: squash ${squash} 超出 [0.8, 1.2]`);
+    }
+    if (dy !== undefined && (dy < -0.5 || dy > 0.5)) {
+      issues.push(`${clip.id}@${key.at}: dy ${dy} 超出 [-0.5, 0.5]`);
+    }
+  }
+  return issues;
+}
+
+/** 这个动作需要哪些运动学参数（函数式查旧表，数据式读 clip 自己声明的） */
+export function motionRequires(motion: string): Array<keyof MotionInput> {
+  const clip = MOTION_CLIPS[motion];
+  if (clip) return (clip.requires ?? []) as Array<keyof MotionInput>;
+  return FUNCTION_MOTION_REQUIRES[motion] ?? [];
+}
+
+/**
+ * 函数式动作。这里只留"关键帧表达不了"的：需要周期（呼吸、步频）或
+ * 需要读世界几何（梯子横档、滑面、球）的动作。
+ * 普通原地动作请加到 motion-clips.ts，不要往这里加。
+ */
+export const FUNCTION_MOTIONS = [
   'idle',
   'speak',
   'point',
@@ -217,7 +365,18 @@ export const MOTION_OPS = [
    */
   'hold',
 ] as const;
-export type MotionOp = (typeof MOTION_OPS)[number];
+export type FunctionMotion = (typeof FUNCTION_MOTIONS)[number];
+
+/**
+ * 动作词汇表 = 函数式 + 数据式。
+ *
+ * `MotionOp` 从字面量联合改成 `string`，和 `Venue` 同处理：动作是**开放内容**，
+ * 让类型系统当白名单，加一个动作就得改类型定义——那正是"局限到特定动作"的载体。
+ * 丢掉的编译期穷举由 `motion-clip.spec.ts` 遍历真实数据补偿（覆盖面更全：
+ * 后加的数据式动作也会被扫到）。
+ */
+export type MotionOp = string;
+export const MOTION_OPS: readonly string[] = [...FUNCTION_MOTIONS, ...Object.keys(MOTION_CLIPS)];
 
 /** 动作输入：只含运动学需要的字段，渲染相关的（配色/名条/素材）不在这里 */
 export type MotionInput = {
@@ -627,6 +786,14 @@ export function dribblePose(
  * ------------------------------------------------------------------ */
 
 export function poseAt(input: MotionInput, frame: number): Pose {
+  // 数据式动作先查表。查不到才进 switch——所以这一段不影响任何函数式的行为
+  // （验收要求：11 个旧原语逐帧数值完全不变）。
+  const clip = MOTION_CLIPS[input.motion];
+  if (clip) {
+    const dur = Math.max(2, input.durationFrames || 90);
+    return poseFromClip(clip, clamp(frame / (dur - 1), 0, 1));
+  }
+
   switch (input.motion) {
     case 'slide':
       return slidePose(input, frame);
@@ -654,8 +821,8 @@ export function poseAt(input: MotionInput, frame: number): Pose {
   }
 }
 
-/** 这个原语需要哪些运动学参数（给后端做可演性校验用） */
-export const MOTION_REQUIRES: Record<MotionOp, Array<keyof MotionInput>> = {
+/** 函数式原语的参数需求。数据式动作把它写在 clip 的 `requires` 里 */
+export const FUNCTION_MOTION_REQUIRES: Record<string, Array<keyof MotionInput>> = {
   idle: [],
   speak: [],
   point: [],

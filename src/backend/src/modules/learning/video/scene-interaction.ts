@@ -37,6 +37,11 @@ export const INTERACTION_VERBS = [
   // 能力表的意义就是"渲染器会的，模型也能选"。
   'cheer',
   'sit',
+  // 打招呼类：契约里一直没有"挥手"，模型写"小熊朝小兔挥挥手"只能退回静态构图。
+  // 补动词而不是让 prompt 绕开——能力表缺格，模型就只能绕道。
+  'wave',
+  'clap',
+  'hips',
 ] as const;
 export type InteractionVerb = (typeof INTERACTION_VERBS)[number];
 
@@ -78,6 +83,10 @@ export const PUPPET_MOTIONS = [
    * 而不是沿一条写死的屏幕弧线飞过去。
    */
   'hold',
+  // 数据式动作（motion-clips.ts 的关键帧表）。加进这张表就能演，不需要写函数。
+  'wave',
+  'clap',
+  'hips',
 ] as const;
 export type PuppetMotion = (typeof PUPPET_MOTIONS)[number];
 
@@ -99,6 +108,9 @@ export const VERB_AS_MOTION: Partial<Record<InteractionVerb, PuppetMotion>> = {
   walk: 'walk',
   cheer: 'cheer',
   sit: 'sit',
+  wave: 'wave',
+  clap: 'clap',
+  hips: 'hips',
 };
 
 export interface PuppetAction {
@@ -220,6 +232,13 @@ function normalizeVerb(input: unknown): InteractionVerb | null {
     高兴: 'cheer',
     坐下: 'sit',
     坐着: 'sit',
+    挥手: 'wave',
+    招手: 'wave',
+    打招呼: 'wave',
+    拍手: 'clap',
+    鼓掌: 'clap',
+    叉腰: 'hips',
+    神气: 'hips',
   };
   if (zh[value]) return zh[value];
   return VERB_SET.has(value) ? (value as InteractionVerb) : null;
@@ -253,8 +272,16 @@ function normalizeRole(input: unknown): ActorRole {
 export function normalizePuppet(raw: unknown): PuppetAction | null {
   if (!raw || typeof raw !== 'object') return null;
   const source = raw as Record<string, unknown>;
-  const motion = clean(source.motion).toLowerCase();
-  if (!(PUPPET_MOTIONS as readonly string[]).includes(motion)) return null;
+  // 中文动词也认：模型常直接写「挥手」「拍手」。先查动作表，再走动词别名，
+  // 两步都要求结果落在 PUPPET_MOTIONS 内——降级仍由白名单兜住，不放宽。
+  const rawMotion = clean(source.motion).toLowerCase();
+  const alias = normalizeVerb(rawMotion);
+  const motion = (PUPPET_MOTIONS as readonly string[]).includes(rawMotion)
+    ? rawMotion
+    : alias && (PUPPET_MOTIONS as readonly string[]).includes(alias)
+      ? alias
+      : '';
+  if (!motion) return null;
   const actorId = clean(source.actorId).toLowerCase();
   if (!actorId) return null;
   const steps = Math.round(Number(source.steps));

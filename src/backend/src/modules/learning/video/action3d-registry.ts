@@ -161,6 +161,11 @@ export const PUPPET_DEFAULTS: Record<PuppetMotion, PuppetDefaults> = {
   climb: { start: [-0.6, 0.66, 0], end: [-0.6, 1.5, 0], steps: 4 },
   /** 托举：没有位移参数——站位由渲染层按"这一幕有两个人"排（见 world.duoStations） */
   hold: {},
+  // 数据式动作（motion-clips.ts）：没有世界轨迹，姿态全在关键帧里，
+  // 所以这里只需要"存在"，不需要给坐标。
+  wave: {},
+  clap: {},
+  hips: {},
 };
 
 /** 解析后的二维动作：坐标就位，渲染层直接按帧取值 */
@@ -207,6 +212,10 @@ export const PUPPET_MOTION_FRAMES: Record<PuppetMotion, number> = {
   point: 54,
   cheer: 45,
   sit: 60,
+  // 数据式动作：只是串演时的分配时长，clip 本身对时长不敏感。
+  wave: 60,
+  clap: 60,
+  hips: 60,
   walk: 90,
   enter: 75,
   climb: 120,

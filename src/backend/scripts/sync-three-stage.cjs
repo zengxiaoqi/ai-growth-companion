@@ -22,6 +22,7 @@ const remotionSrc = path.join(repoRoot, 'src', 'video-remotion', 'src');
 
 /** 按依赖顺序排列：被依赖的放前面，便于人工阅读产物 */
 const SOURCES = [
+  ['character/motion-clips.ts', path.join(remotionSrc, 'character', 'motion-clips.ts')],
   ['character/pose.ts', path.join(remotionSrc, 'character', 'pose.ts')],
   // 取景定律与布景注册表：两个渲染器都要 import，必须在角色/舞台之前写进任务目录
   ['character/stage-layout.ts', path.join(remotionSrc, 'character', 'stage-layout.ts')],

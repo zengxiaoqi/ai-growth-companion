@@ -173,6 +173,10 @@ const mustHave = [
   // 森林幕与室内幕高矮不同。`scaleSlide` 就是那条"整课统一"的携带者——
   // 少了它，室内幕会按自己的档取景，熊立刻放大。
   'world.scaleSlide',
+  // 动作关键帧表：原地动作是数据（motion-clips.ts），渲染层只做插值。
+  // 少了这两处，pose.ts 仍然只认写死的 switch，加"挥手"又得改代码。
+  'MOTION_CLIPS',
+  'poseFromClip',
   // 双人幕必须交给"两个木偶"，而不是徽章分支。这三个 token 分别钉住
   // 路由（partner）、道具归属（carryBy）、以及渲染层的接口（coStar）：
   // 少了任何一个，双人幕会静默退回"两个圆形头像 + 一条写死的抛物线"，

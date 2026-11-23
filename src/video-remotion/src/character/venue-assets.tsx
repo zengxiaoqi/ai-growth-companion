@@ -39,16 +39,34 @@ export const swayOf = (frame: number, u: (n: number) => number) => Math.sin(fram
  */
 export const WHEEL = { radius: 2.2, centerY: 1.35 } as const;
 
+/**
+ * 树。
+ *
+ * `params.scale` 是世界单位里的等比缩放（0.7 = 一棵小一号的树），不是像素。
+ *
+ * 为什么非要有这个旋钮：整棵树高 2.94 个世界单位 ≈ 1.76 个角色高，而 wide 景别
+ * 能看见的世界半宽只有 3.35（见 `worldScale`）。森林要在一个人身边读出"这是林子"，
+ * 只能靠大小错落——两棵大树 + 几棵小树；六棵一样大的树挤在 ±3.3 里就成了绿墙，
+ * 而且越靠近画面边缘越像柱子。
+ */
 const Tree: DecorRenderer = ({ item, theme, frame, px, py, u }) => {
   const x = item.x;
+  const s = Number(item.params?.scale ?? 1);
   const sway = swayOf(frame, u);
   return (
     <g>
-      <rect x={px(x) - u(0.075)} y={py(1.45)} width={u(0.15)} height={u(1.45)} rx={u(0.05)} fill={theme.woodDark} />
-      <circle cx={px(x) - u(0.42) + sway} cy={py(1.9)} r={u(0.56)} fill={theme.leaf} />
-      <circle cx={px(x) + u(0.44) + sway} cy={py(1.98)} r={u(0.5)} fill={theme.leaf} />
-      <circle cx={px(x) + sway} cy={py(2.32)} r={u(0.62)} fill={theme.leaf} />
-      <circle cx={px(x) - u(0.16) + sway} cy={py(2.16)} r={u(0.4)} fill={theme.leafDark} opacity={0.55} />
+      <rect
+        x={px(x) - u(0.075 * s)}
+        y={py(1.45 * s)}
+        width={u(0.15 * s)}
+        height={u(1.45 * s)}
+        rx={u(0.05 * s)}
+        fill={theme.woodDark}
+      />
+      <circle cx={px(x) - u(0.42 * s) + sway} cy={py(1.9 * s)} r={u(0.56 * s)} fill={theme.leaf} />
+      <circle cx={px(x) + u(0.44 * s) + sway} cy={py(1.98 * s)} r={u(0.5 * s)} fill={theme.leaf} />
+      <circle cx={px(x) + sway} cy={py(2.32 * s)} r={u(0.62 * s)} fill={theme.leaf} />
+      <circle cx={px(x) - u(0.16 * s) + sway} cy={py(2.16 * s)} r={u(0.4 * s)} fill={theme.leafDark} opacity={0.55} />
     </g>
   );
 };

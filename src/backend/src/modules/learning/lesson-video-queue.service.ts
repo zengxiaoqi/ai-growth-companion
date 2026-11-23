@@ -49,8 +49,11 @@ type RemotionFailureKind = 'environment' | 'generated-code' | 'unknown';
  *   venue-v1 —— 场地改为配方数据；`riverside` 真的画出了河，`classroom` 可用了。
  *              现有 5 种场地里只有 riverside 的画面变了（多了一条水带），
  *              其余逐像素不变；但缓存 key 无法只失效一部分，所以整体升一版。
+ *   venue-v2 —— 装饰摆位按"镜头真的看得到"重算：forest/night 从"一棵树都没有"
+ *              改成两侧树簇，meadow/riverside 的树收进可拍范围，夜晚另配天空层。
+ *              playground 逐字节未变（`Tree` 的 scale 默认 1），但同样整体升一版。
  */
-const RENDERER_SCHEMA_VERSION = String(process.env.VIDEO_RENDERER_SCHEMA_VERSION ?? 'venue-v1').trim();
+const RENDERER_SCHEMA_VERSION = String(process.env.VIDEO_RENDERER_SCHEMA_VERSION ?? 'venue-v2').trim();
 
 const FALLBACK_RENDER_ENGINES: RenderAttemptEngine[] = [
   'agent-remotion',

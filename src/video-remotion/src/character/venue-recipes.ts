@@ -180,6 +180,43 @@ export type DecorItem = {
   params?: Record<string, number | string>;
 };
 
+/**
+ * 每个装饰资产在世界 x 方向上的**可见半宽**（世界单位，不含 `scale`）。
+ *
+ * 它只服务一件事：把"这件东西还在不在镜头里"算出来。
+ *
+ * 为什么值得单独维护一张表：森林曾经把六棵树摆在 -7.2 ~ 10.4，而 wide 景别
+ * 可见的世界半宽只有 3.35（`worldScale` 的横向约束）。结果"森林"那一帧只剩
+ * 左下角一丛灌木，和草地完全分不出来——**配方看着很茂密，画面是空的**。
+ * 这种缺陷人眼只能靠抽帧偶尔撞见，算术却能在每次跑测试时撞见
+ * （`test/unit/venue-coverage.spec.ts`）。
+ *
+ * 加资产时补一行；`venue-recipe.spec.ts` 会检查这张表覆盖所有注册资产。
+ */
+export const DECOR_HALF_WIDTH: Record<string, number> = {
+  tree: 0.66,
+  bush: 0.36,
+  bench: 0.85,
+  sandbox: 1.0,
+  wheel: 2.25,
+  wall: 14,
+  window: 0.6,
+  desk: 0.7,
+  lamp: 0.19,
+  shelf: 0.6,
+};
+
+/**
+ * 一件装饰横向占多宽（半宽）。`params.scale` 参与计算：小树不只是画得小，
+ * 占的位置也窄——不折算的话"摆得下"的判定会比画面宽松。
+ */
+export function decorHalfWidth(item: DecorItem): number {
+  const scale = Number(item.params?.scale ?? 1);
+  const base = DECOR_HALF_WIDTH[item.asset] ?? 0;
+  return base * (Number.isFinite(scale) && scale > 0 ? scale : 1);
+}
+
+
 export type SkyLayer = {
   kind: 'sky';
   /**
@@ -269,6 +306,8 @@ export const BUILTIN_VENUES: readonly string[] = [
   'riverside',
   'forest',
   'night',
+  // 室内：加它之前这份基线只覆盖户外，教室配方的回归没人守
+  'classroom',
 ];
 
 /** 兜底场地：未知 id 落到这里，宁可画面普通，也不要空白 */
@@ -288,6 +327,24 @@ const OUTDOOR_SKY: SkyLayer = {
     { x: 320, y: 200, s: 1 },
     { x: 980, y: 150, s: 0.75 },
     { x: 1420, y: 300, s: 0.55 },
+  ],
+};
+
+/**
+ * 夜晚的天空：月亮换到两簇树之间，云也重新排。
+ *
+ * 为什么不能直接复用 `OUTDOOR_SKY`：月亮画在 (1560, 230)，而森林右侧那棵树
+ * （x=3.6）的树冠在宽景里正好盖住那一带——树是后画的，于是"晚上"只剩一块深蓝，
+ * 唯一的夜景标志被自己种的树吃掉了。天空层是**屏幕坐标**（不随镜头动），
+ * 所以这里按树冠的空档摆，而不是按世界坐标算。
+ */
+const NIGHT_SKY: SkyLayer = {
+  kind: 'sky',
+  fill: 'gradient',
+  sun: { x: 1180, y: 170, r: 66, glowR: 200 },
+  clouds: [
+    { x: 400, y: 260, s: 0.85 },
+    { x: 1520, y: 360, s: 0.6 },
   ],
 };
 
@@ -323,6 +380,32 @@ const PADDOCK_FENCE: FenceLayer = {
   postWidth: 0.09,
   railHeight: 0.07,
 };
+
+/**
+ * 森林/夜晚共用的树木摆位。
+ *
+ * 为什么抽成常量而不是两块配方各抄一遍：
+ *  - "白天在森林、晚上回到同一片林子"这件事，只有在坐标真是同一份时才成立，
+ *    抄两遍等于允许它们慢慢长歪；
+ *  - 覆盖守卫（`venue-coverage.spec.ts`）只需守一份坐标。
+ *
+ * 摆法：**中间留出林间空地**（角色站在那里），两侧各一组"远小树 + 近大树"。
+ * 数字是按**没有滑梯时的镜头宽度**算的（wide 可见半宽 ±3.35）：
+ *  - 每件装饰的 x 都落在镜头能到的范围内（否则摆了也拍不到）；
+ *  - 相邻两棵树的间距远小于"两倍可见半宽"，所以镜头平移到任何位置，
+ *    画内都至少有两棵树——"森林"不会缩水成"草地"。
+ */
+const WILD_TREES: DecorItem[] = [
+  // 先远后近（数组顺序 = 绘制顺序）：远树小、近树大
+  { asset: 'tree', x: -5.3, params: { scale: 0.62 } },
+  { asset: 'tree', x: 5.2, params: { scale: 0.62 } },
+  { asset: 'tree', x: -2.95, params: { scale: 0.9 } },
+  { asset: 'tree', x: 3.6, params: { scale: 0.95 } },
+  { asset: 'tree', x: -1.85, params: { scale: 0.72 } },
+  { asset: 'tree', x: 2.35, params: { scale: 0.8 } },
+  { asset: 'bush', x: -1.2 },
+  { asset: 'bush', x: 4.3 },
+];
 
 export const VENUE_RECIPES: Record<string, VenueRecipe> = {
   /**
@@ -368,10 +451,16 @@ export const VENUE_RECIPES: Record<string, VenueRecipe> = {
       PADDOCK_FENCE,
       {
         kind: 'decor',
+        /**
+         * 树的位置是按**没有滑梯时的镜头宽度**摆的（可见半宽 3.35）：
+         * 上一版照搬了 playground 的 6.6 / 8.2，而那两个位置只有带滑梯的公园
+         * 才拍得到——牧场没有滑梯，镜头一旦右移，两棵树都在画外，只剩围栏。
+         * 近处一棵、右侧一丛，任何机位都至少有一棵。
+         */
         items: [
           { asset: 'tree', x: -3.2 },
-          { asset: 'tree', x: 6.6 },
-          { asset: 'tree', x: 8.2 },
+          { asset: 'tree', x: 3.0 },
+          { asset: 'tree', x: 4.7, params: { scale: 0.86 } },
           { asset: 'bench', x: 5.6 },
         ],
       },
@@ -401,10 +490,11 @@ export const VENUE_RECIPES: Record<string, VenueRecipe> = {
       PADDOCK_FENCE,
       {
         kind: 'decor',
+        // 同 meadow：树按"没有滑梯"的镜头宽度摆（6.6 / 8.2 只对带滑梯的公园成立）
         items: [
           { asset: 'tree', x: -3.2 },
-          { asset: 'tree', x: 6.6 },
-          { asset: 'tree', x: 8.2 },
+          { asset: 'tree', x: 3.0 },
+          { asset: 'tree', x: 4.7, params: { scale: 0.86 } },
           { asset: 'bench', x: 5.6 },
           { asset: 'sandbox', x: -2.6 },
         ],
@@ -413,33 +503,22 @@ export const VENUE_RECIPES: Record<string, VenueRecipe> = {
   },
 
   /**
-   * 森林/夜晚：没有围栏。围栏是游乐园/牧场的语汇，森林里画一条横贯全画面的
-   * 木栅栏就变成"一个有围栏的空地"。两侧改由树与灌木填住，否则镜头一平移
-   * 就是一块空地。
+   * 森林/夜晚：没有围栏，也没有长椅。围栏和长椅都是**公园/牧场语汇**，
+   * 森林里画一条横贯全画面的木栅栏、摆一张公园长椅，就变成"一个有围栏的空地"。
+   *
+   * 这一版最重要的一处修改是**坐标**。上一版把六棵树摆在 -7.2~10.4，是按
+   * 带滑梯的宽度（ppu 更小、可见 ±4）估的；而森林没有滑梯，基准缩放 286 px/单位，
+   * wide 景别可见的世界半宽只有 **±3.35**。实测那六棵树里有五棵永远在画外，
+   * 剩下的一棵也在边缘——所以整帧只剩左下角一丛灌木，"森林"和"草地"分不出来。
+   *
+   * 现在的摆法：**中间留出可演空地，两侧各一组树**（近树 + 远小树），
+   * 保证镜头任何平移位置（±3.1）都至少有两棵树在画内，而且不压住角色。
+   * 这条不再靠人眼守：`test/unit/venue-coverage.spec.ts` 用算术钉住。
    */
   forest: {
     id: 'forest',
     theme: VENUE_THEMES.forest,
-    layers: [
-      OUTDOOR_SKY,
-      OUTDOOR_HILLS,
-      GRASS_GROUND,
-      {
-        kind: 'decor',
-        items: [
-          { asset: 'bush', x: -1.6 },
-          { asset: 'bush', x: 4.4 },
-          { asset: 'bush', x: 9.4 },
-          { asset: 'tree', x: -3.2 },
-          { asset: 'tree', x: 6.6 },
-          { asset: 'tree', x: 8.2 },
-          { asset: 'tree', x: -5.4 },
-          { asset: 'tree', x: -7.2 },
-          { asset: 'tree', x: 10.4 },
-          { asset: 'bench', x: 5.6 },
-        ],
-      },
-    ],
+    layers: [OUTDOOR_SKY, OUTDOOR_HILLS, GRASS_GROUND, { kind: 'decor', items: WILD_TREES }],
   },
 
   /**
@@ -477,29 +556,17 @@ export const VENUE_RECIPES: Record<string, VenueRecipe> = {
     ],
   },
 
+  /**
+   * 夜晚：与森林**共用同一份摆位**（`WILD_TREES`），只换配色。
+   *
+   * 这不是偷懒：同一片林子白天与晚上树不变，变的是光。共用常量让"白天在森林、
+   * 晚上回到同一片林子"两幕读起来是同一个地方，而不是两处不同的景——也顺手
+   * 保证了两处场地的覆盖守卫是同一份算术。
+   */
   night: {
     id: 'night',
     theme: VENUE_THEMES.night,
-    layers: [
-      OUTDOOR_SKY,
-      OUTDOOR_HILLS,
-      GRASS_GROUND,
-      {
-        kind: 'decor',
-        items: [
-          { asset: 'bush', x: -1.6 },
-          { asset: 'bush', x: 4.4 },
-          { asset: 'bush', x: 9.4 },
-          { asset: 'tree', x: -3.2 },
-          { asset: 'tree', x: 6.6 },
-          { asset: 'tree', x: 8.2 },
-          { asset: 'tree', x: -5.4 },
-          { asset: 'tree', x: -7.2 },
-          { asset: 'tree', x: 10.4 },
-          { asset: 'bench', x: 5.6 },
-        ],
-      },
-    ],
+    layers: [NIGHT_SKY, OUTDOOR_HILLS, GRASS_GROUND, { kind: 'decor', items: WILD_TREES }],
   },
 };
 

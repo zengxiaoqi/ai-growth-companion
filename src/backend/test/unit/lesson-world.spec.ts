@@ -248,9 +248,18 @@ describe('world / 场地装饰', () => {
     expect(forest.some((d) => d.kind === 'bush')).toBe(true);
     const trees = forest.filter((d) => d.kind === 'tree').length;
     expect(trees).toBeGreaterThanOrEqual(5);
-    // 填的位置要覆盖可演区域两侧（±3.1 之外）
-    expect(Math.min(...forest.map((d) => d.x))).toBeLessThan(-4);
-    expect(Math.max(...forest.map((d) => d.x))).toBeGreaterThan(8);
+    // 两侧都要有树，而不是"全堆在一边"
+    const xs = forest.map((d) => d.x);
+    expect(Math.min(...xs)).toBeLessThan(-2);
+    expect(Math.max(...xs)).toBeGreaterThan(2);
+    /**
+     * 这一条以前断言的是 `Math.max(...xs) > 8`——那是**错的**，而且错得看不出来：
+     * forest 没有滑梯，基准缩放 286 px/单位，wide 景别可见的世界半宽只有 3.35，
+     * 摆在 x=10 的树永远在画外。"摆得更远"被当成了"填得更满"，实际画面里一棵树
+     * 都没有，跟草地一模一样。真正的判据是"任何机位都要看得见东西"，
+     * 由 `venue-coverage.spec.ts` 用镜头宽度算；这里只兜住"别摆到镜头到不了的地方"。
+     */
+    expect(Math.max(...xs.map(Math.abs))).toBeLessThan(7.2);
     // 游乐园不需要灌木：它有围栏与摩天轮
     expect(venueDecor({ venue: 'playground' }).some((d) => d.kind === 'bush')).toBe(false);
   });

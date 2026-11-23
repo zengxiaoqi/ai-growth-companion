@@ -27,7 +27,7 @@
 
 import { ACTOR } from './pose';
 import { slideBounds, slideLadderX } from './setpiece';
-import { BUILTIN_VENUES, VENUE_RECIPES, venueRecipe } from './venue-recipes';
+import { BUILTIN_VENUES, DEFAULT_VENUE, VENUE_RECIPES, venueRecipe } from './venue-recipes';
 import {
   CAMERA_FOV,
   SAFE_X,
@@ -67,9 +67,26 @@ export const VENUES: readonly Venue[] = BUILTIN_VENUES;
 export type WorldSlide = { start: Tri3; end: Tri3 };
 
 export type WorldView = {
+  /** 场地 id：**幕级**（§6）。第 1 幕森林、第 2 幕家里，都是合法的。 */
   venue: Venue;
-  /** 本节课里有滑梯（爬 / 滑 / 提到滑梯）时给出。整节课只定义一次。 */
+  /**
+   * 这一幕场地的装置。滑梯属于 "playground 这个场地"，不属于"某一幕"：
+   * 本课有滑梯时，所有 playground 幕都带同一份几何；切到别的场地才缺席。
+   */
   slide?: WorldSlide;
+  /**
+   * 整课的滑梯几何，**只用于算基准缩放**（不用于绘制）。
+   *
+   * 为什么需要它：基准缩放必须整课一致，否则同一只熊在有滑梯幕与室内幕里高矮
+   * 不同——那正是前两轮修掉的 bug。而"整课有没有滑梯"只有后端知道，所以后端
+   * 把这份几何下发给每一幕，渲染层拿它算包围盒即可，不需要后端懂 ppu 怎么算。
+   */
+  scaleSlide?: WorldSlide;
+  /**
+   * 直接指定基准缩放（px / 世界单位）。缺省时由 `worldScale(world)` 算。
+   * 旧任务缓存的 props 没有这个字段，所以它是可选的。
+   */
+  scaleRef?: number;
 };
 
 /* ------------------------------------------------------------------ *
@@ -85,8 +102,18 @@ export { VENUE_RECIPES };
 
 export function venueFromHabitat(habitat?: string): Venue {
   const value = String(habitat || '').trim().toLowerCase();
-  return VENUE_RECIPES[value] ? value : 'meadow';
+  if (!value) return DEFAULT_VENUE;
+  if (VENUE_RECIPES[value]) return value;
+  // 拼错的场地名不能悄悄变成草地：留一条日志，否则"为什么这课是草地"无从查起
+  if (!WARNED_VENUES.has(value)) {
+    WARNED_VENUES.add(value);
+    // eslint-disable-next-line no-console
+    console.warn(`[world] 未登记的场地 "${value}"，回落到 ${DEFAULT_VENUE}`);
+  }
+  return DEFAULT_VENUE;
 }
+
+const WARNED_VENUES = new Set<string>();
 
 /**
  * 渲染层对 world 的校验。
@@ -101,8 +128,17 @@ export function normalizeWorld(raw: unknown): WorldView | null {
   const venue = venueFromHabitat(String(source.venue ?? ''));
   const slideRaw = source.slide as Record<string, unknown> | undefined;
   const slide = slideRaw ? toSlide(slideRaw) : null;
-  if (!slide) return { venue };
-  return { venue, slide };
+  // 整课滑梯：只影响基准缩放，不影响这一幕画不画滑梯，所以坏数据也只丢它自己
+  const scaleRaw = source.scaleSlide as Record<string, unknown> | undefined;
+  const scaleSlide = scaleRaw ? toSlide(scaleRaw) : null;
+  const scaleRefRaw = Number(source.scaleRef);
+  const scaleRef = Number.isFinite(scaleRefRaw) && scaleRefRaw > 0 ? scaleRefRaw : undefined;
+
+  const world: WorldView = { venue };
+  if (slide) world.slide = slide;
+  if (scaleSlide) world.scaleSlide = scaleSlide;
+  if (scaleRef) world.scaleRef = scaleRef;
+  return world;
 }
 
 function toSlide(raw: Record<string, unknown>): WorldSlide | null {
@@ -153,12 +189,29 @@ export function worldBounds(world: WorldView): Bounds {
  * 自己装了多大东西"，所以同一只熊在滑梯幕 360px、在说话幕 437px。
  */
 export function worldScale(world: WorldView): number {
-  const box = worldBounds(world);
+  // 显式指定优先：后端算好整课唯一值时走这条，渲染层不再二次推导
+  if (Number.isFinite(world.scaleRef) && (world.scaleRef as number) > 0) {
+    return world.scaleRef as number;
+  }
+  const box = boundsForScale(world);
   const height = Math.max(0.4, box.maxY - box.minY);
   const width = Math.max(0.4, box.maxX - box.minX);
   const byHeight = (SUBJECT_BAND - 10) / height;
   const byWidth = (STAGE.width - 2 * SAFE_X) / width;
   return Math.min(byHeight, byWidth);
+}
+
+/**
+ * 算基准缩放用的包围盒：**这一幕的装置，或整课的装置**。
+ *
+ * 与 `worldBounds` 的区别必须保留：`worldBounds` 给镜头夹取范围，只能用"这一幕
+ * 真实有的东西"——否则室内幕的镜头能平移到一座并不存在的滑梯旁，画面变成空地。
+ * 而基准缩放要的是"整课最退远的那一档"，所以允许看 `scaleSlide`。
+ */
+function boundsForScale(world: WorldView): Bounds {
+  const slide = world.slide ?? world.scaleSlide;
+  if (!slide) return OPEN_VENUE_BOUNDS;
+  return unionAll([slideBounds(slide.start, slide.end, 1), OPEN_VENUE_BOUNDS]);
 }
 
 /**

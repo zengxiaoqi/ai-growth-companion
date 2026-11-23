@@ -243,12 +243,20 @@ describe('VideoGenerationAgentService', () => {
             sequence: 1,
             title: '递皮球',
             concept: '分享',
-            narration: '小熊把红色皮球轻轻递给小兔。',
+            narration: '小兔把红色皮球轻轻递给另一只小兔。',
             onScreenText: '一起分享',
-            visualDescription: '小熊把红色皮球递给小兔，小兔双手接过',
+            visualDescription: '小兔把红色皮球递给小兔，小兔双手接过',
             durationSec: 12,
             transitionToNext: 'fade',
             emphasis: 'core-concept',
+            interaction: {
+              verb: 'handover',
+              actors: [
+                { id: 'rabbit', label: '小兔', role: 'giver' },
+                { id: 'rabbit', label: '另一只小兔', role: 'receiver' },
+              ],
+              propId: 'ball',
+            },
           },
         ],
         visualTheme: {
@@ -267,7 +275,7 @@ describe('VideoGenerationAgentService', () => {
     expect(generatedCode).toContain('const ActorFigure');
     expect(generatedCode).toContain('assets/vector/animals/');
     expect(generatedCode).toContain('VECTOR_ANIMAL_IDS.indexOf(actor.id)');
-    expect(generatedCode).toContain('"bear"');
+    expect(generatedCode).toContain('"rabbit"');
     // 代码驱动的动画：入场弹性 + 呼吸 + 手臂摆动
     expect(generatedCode).toContain('0.55 + enter * 0.45');
     expect(generatedCode).toContain('armAngle');
@@ -600,8 +608,8 @@ describe('VideoGenerationAgentService', () => {
   it('滑梯分镜解析成 3D 动作并随 props 下发（渲染层不再自己算坐标）', async () => {
     const service = createService(new VisualAssetService());
     const manifest = await service.generateRemotionComposition({
-      title: '小熊滑滑梯',
-      topic: '小熊滑滑梯',
+      title: '小兔滑滑梯',
+      topic: '小兔滑滑梯',
       domain: 'social',
       totalDurationSec: 6,
       sceneCount: 1,
@@ -609,11 +617,11 @@ describe('VideoGenerationAgentService', () => {
         {
           id: 'scene-1',
           sequence: 1,
-          title: '小熊滑滑梯',
+          title: '小兔滑滑梯',
           concept: '排队轮流',
-          narration: '小熊爬上滑梯，从滑梯上滑下来，稳稳落在草地上。',
+          narration: '小兔爬上滑梯，从滑梯上滑下来，稳稳落在草地上。',
           onScreenText: '滑下来',
-          visualDescription: '小熊坐在滑梯顶端，顺着滑梯滑下来',
+          visualDescription: '小兔坐在滑梯顶端，顺着滑梯滑下来',
           durationSec: 6,
           transitionToNext: 'fade',
           emphasis: 'core-concept',
@@ -626,7 +634,7 @@ describe('VideoGenerationAgentService', () => {
     expect(built.interaction?.action3d).toMatchObject({
       motion: 'slide',
       propId: 'slide',
-      actorId: 'bear',
+      actorId: 'rabbit',
     });
     // 坐标与造型必须已由注册表补齐，渲染层拿到的是确定值
     expect(built.interaction.action3d.start).toEqual(expect.any(Array));
@@ -651,8 +659,8 @@ describe('VideoGenerationAgentService', () => {
   it('整节课共用同一处场地：每幕拿到同一份 world，用滑梯的幕只标 setpiece', async () => {
     const service = createService(new VisualAssetService());
     const manifest = await service.generateRemotionComposition({
-      title: '小熊玩滑梯',
-      topic: '小熊玩滑梯',
+      title: '小兔玩滑梯',
+      topic: '小兔玩滑梯',
       domain: 'social',
       totalDurationSec: 18,
       sceneCount: 3,
@@ -660,16 +668,16 @@ describe('VideoGenerationAgentService', () => {
         {
           id: 'scene-1',
           sequence: 1,
-          title: '草地上的小熊',
+          title: '草地上的小兔',
           concept: '排队轮流',
-          narration: '小熊指着彩色滑梯。',
+          narration: '小兔指着彩色滑梯。',
           onScreenText: '彩色滑梯',
-          visualDescription: '小熊站在草地上指向滑梯',
+          visualDescription: '小兔站在草地上指向滑梯',
           durationSec: 6,
           emphasis: 'core-concept',
           interaction: {
             verb: 'point',
-            actors: [{ id: 'bear', label: '小熊', role: 'main' }],
+            actors: [{ id: 'rabbit', label: '小兔', role: 'main' }],
           },
         },
         {
@@ -677,14 +685,14 @@ describe('VideoGenerationAgentService', () => {
           sequence: 2,
           title: '先爬楼梯',
           concept: '排队轮流',
-          narration: '小熊抓住梯子一步一步往上爬。',
+          narration: '小兔抓住梯子一步一步往上爬。',
           onScreenText: '爬上去',
-          visualDescription: '小熊在梯子前手脚交替向上爬',
+          visualDescription: '小兔在梯子前手脚交替向上爬',
           durationSec: 6,
           emphasis: 'core-concept',
           interaction: {
             verb: 'climb',
-            actors: [{ id: 'bear', label: '小熊', role: 'main' }],
+            actors: [{ id: 'rabbit', label: '小兔', role: 'main' }],
             propId: 'slide',
           },
         },
@@ -693,14 +701,14 @@ describe('VideoGenerationAgentService', () => {
           sequence: 3,
           title: '滑下来',
           concept: '排队轮流',
-          narration: '小熊顺着滑梯滑下来。',
+          narration: '小兔顺着滑梯滑下来。',
           onScreenText: '滑下来',
-          visualDescription: '小熊坐在滑梯顶端顺着滑梯滑下来',
+          visualDescription: '小兔坐在滑梯顶端顺着滑梯滑下来',
           durationSec: 6,
           emphasis: 'core-concept',
           interaction: {
             verb: 'slide',
-            actors: [{ id: 'bear', label: '小熊', role: 'main' }],
+            actors: [{ id: 'rabbit', label: '小兔', role: 'main' }],
           },
         },
       ],
@@ -725,10 +733,10 @@ describe('VideoGenerationAgentService', () => {
   });
 
   /**
-   * 非滑梯主题：这是"改动只对小熊玩滑梯生效"的反证。
+   * 非滑梯主题：这是"改动只对兔子玩滑梯生效"的反证。
    *
    * 上面那条测试用的是带滑梯的分镜，所以它证明不了别的主题也被覆盖。
-   * 这份《小松鼠分果子》四幕分别落在四种舞台（巨图特写 / 双人徽章 / 全身木偶 ×2），
+   * 这份《小兔子分果子》四幕分别落在四种舞台（巨图特写 / 双人徽章 / 全身木偶 ×2），
    * 只要每一幕都拿到同一份 world，"整节课一处场地"才真的是所有主题都成立——
    * 而不是渲染层对某一种分镜特判出来的效果。
    */
@@ -789,7 +797,7 @@ describe('VideoGenerationAgentService', () => {
     expect(handover.verb).toBe('handover');
     expect(handover.puppet).toBeTruthy();
     expect(handover.puppet.motion).toBe('hold');
-    expect(handover.puppet.actorId).toBe('squirrel');
+    expect(handover.puppet.actorId).toBe('rabbit');
     expect(handover.puppet.partner).toBeTruthy();
     expect(handover.puppet.partner.motion).toBe('hold');
     expect(handover.puppet.partner.actorId).toBe('rabbit');
@@ -825,8 +833,8 @@ describe('VideoGenerationAgentService', () => {
   it('LLM 直接声明 verb=climb 时下发 puppet，不再掉回静态构图', async () => {
     const service = createService(new VisualAssetService());
     const manifest = await service.generateRemotionComposition({
-      title: '小熊爬滑梯',
-      topic: '小熊爬滑梯',
+      title: '小兔爬滑梯',
+      topic: '小兔爬滑梯',
       domain: 'social',
       totalDurationSec: 6,
       sceneCount: 1,
@@ -836,16 +844,16 @@ describe('VideoGenerationAgentService', () => {
           sequence: 1,
           title: '一步一步爬上去',
           concept: '排队轮流',
-          narration: '小熊抓住梯子，一步一步往上爬。',
+          narration: '小兔抓住梯子，一步一步往上爬。',
           onScreenText: '爬上去',
-          visualDescription: '小熊在梯子前，手脚交替向上爬',
+          visualDescription: '小兔在梯子前，手脚交替向上爬',
           durationSec: 6,
           transitionToNext: 'fade',
           emphasis: 'core-concept',
           // 新 prompt 之后 LLM 的写法：只给 verb，不给 puppet
           interaction: {
             verb: 'climb',
-            actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+            actors: [{ id: 'rabbit', label: '小兔', role: 'helper' }],
             propId: 'slide',
           },
         },
@@ -913,14 +921,14 @@ describe('VideoGenerationAgentService', () => {
           sequence: 1,
           title: '走到滑梯前',
           concept: '认识滑梯',
-          narration: '小熊走过来，指着滑梯说：看，这就是滑梯。',
+          narration: '小兔走过来，指着滑梯说：看，这就是滑梯。',
           onScreenText: '滑梯',
-          visualDescription: '小熊走到滑梯前，抬手介绍',
+          visualDescription: '小兔走到滑梯前，抬手介绍',
           durationSec: 6,
           transitionToNext: 'fade',
           emphasis: 'core-concept',
           performance: {
-            actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+            actors: [{ id: 'rabbit', label: '小兔', role: 'helper' }],
             actions: [
               { verb: 'walk' },
               { verb: 'point', propId: 'slide' },
@@ -949,8 +957,8 @@ describe('VideoGenerationAgentService', () => {
   it('performance 写坏时回落到 interaction，而不是整幕变白卡片', async () => {
     const service = createService(new VisualAssetService());
     const manifest = await service.generateRemotionComposition({
-      title: '小熊爬梯',
-      topic: '小熊爬梯',
+      title: '小兔爬梯',
+      topic: '小兔爬梯',
       domain: 'social',
       totalDurationSec: 6,
       sceneCount: 1,
@@ -960,17 +968,17 @@ describe('VideoGenerationAgentService', () => {
           sequence: 1,
           title: '爬上去',
           concept: '坚持',
-          narration: '小熊一步一步爬上去。',
+          narration: '小兔一步一步爬上去。',
           onScreenText: '爬上去',
-          visualDescription: '小熊在梯子上往上爬',
+          visualDescription: '小兔在梯子上往上爬',
           durationSec: 6,
           transitionToNext: 'fade',
           emphasis: 'core-concept',
           performance: {
-            actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+            actors: [{ id: 'rabbit', label: '小兔', role: 'helper' }],
             actions: [{ verb: 'jump' }],
           },
-          interaction: { verb: 'climb', actors: [{ id: 'bear', label: '小熊', role: 'helper' }] },
+          interaction: { verb: 'climb', actors: [{ id: 'rabbit', label: '小兔', role: 'helper' }] },
         },
       ],
     } as any);

@@ -1,5 +1,6 @@
 import { VideoGenerationAgentService } from '../../src/modules/learning/video-generation-agent.service';
 import { VisualAssetService } from '../../src/modules/learning/visual-asset.service';
+import { MOTION_DEFAULTS } from '../../src/modules/learning/video/action3d-registry';
 
 describe('VideoGenerationAgentService', () => {
   const createService = (visualAssetService?: VisualAssetService) =>
@@ -562,6 +563,95 @@ describe('VideoGenerationAgentService', () => {
     expect(built.interaction.action3d.start).toHaveLength(3);
     expect(built.interaction.action3d.rig.fur).toBeTruthy();
     expect(built.interaction.action3d.durationFrames).toBeGreaterThan(0);
+  });
+
+  /**
+   * 整节课共用一处场地。
+   *
+   * 上一版每一幕各自成景：说话幕是一只熊站在一片空草地上，爬梯幕是一把孤立
+   * 的梯子，滑梯幕是另一座按"这一幕装得下"缩放的滑梯。于是同一只熊在三幕里
+   * 三个大小，滑梯和它的比例也对不上。
+   *
+   * 修复不是给某一幕调尺寸，而是让**整节课只下发一份 world**：位置不变、
+   * 缩放基准由它算出，镜头只允许变焦不平移世界。所以这里钉三件事：
+   *  1. 每一幕的 world 是同一份（同一处公园、同一座滑梯坐标）；
+   *  2. 滑梯坐标等于 MOTION_DEFAULTS（三维建 mesh 用的同一组数）；
+   *  3. 用滑梯的幕只挂 setpiece，不额外摆道具——否则画面里会有两座滑梯。
+   */
+  it('整节课共用同一处场地：每幕拿到同一份 world，用滑梯的幕只标 setpiece', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition({
+      title: '小熊玩滑梯',
+      topic: '小熊玩滑梯',
+      domain: 'social',
+      totalDurationSec: 18,
+      sceneCount: 3,
+      scenes: [
+        {
+          id: 'scene-1',
+          sequence: 1,
+          title: '草地上的小熊',
+          concept: '排队轮流',
+          narration: '小熊指着彩色滑梯。',
+          onScreenText: '彩色滑梯',
+          visualDescription: '小熊站在草地上指向滑梯',
+          durationSec: 6,
+          emphasis: 'core-concept',
+          interaction: {
+            verb: 'point',
+            actors: [{ id: 'bear', label: '小熊', role: 'main' }],
+          },
+        },
+        {
+          id: 'scene-2',
+          sequence: 2,
+          title: '先爬楼梯',
+          concept: '排队轮流',
+          narration: '小熊抓住梯子一步一步往上爬。',
+          onScreenText: '爬上去',
+          visualDescription: '小熊在梯子前手脚交替向上爬',
+          durationSec: 6,
+          emphasis: 'core-concept',
+          interaction: {
+            verb: 'climb',
+            actors: [{ id: 'bear', label: '小熊', role: 'main' }],
+            propId: 'slide',
+          },
+        },
+        {
+          id: 'scene-3',
+          sequence: 3,
+          title: '滑下来',
+          concept: '排队轮流',
+          narration: '小熊顺着滑梯滑下来。',
+          onScreenText: '滑下来',
+          visualDescription: '小熊坐在滑梯顶端顺着滑梯滑下来',
+          durationSec: 6,
+          emphasis: 'core-concept',
+          interaction: {
+            verb: 'slide',
+            actors: [{ id: 'bear', label: '小熊', role: 'main' }],
+          },
+        },
+      ],
+    } as any);
+
+    const scenes = manifest.props.scenes as any[];
+    expect(scenes).toHaveLength(3);
+
+    // 1. 同一份场地：任意两幕的 world 必须逐字段相等
+    for (const scene of scenes) {
+      expect(scene.world).toEqual(scenes[0].world);
+      expect(scene.world.venue).toBe('playground');
+    }
+    // 2. 滑梯坐标与三维舞台同源
+    expect(scenes[0].world.slide.start).toEqual([...MOTION_DEFAULTS.slide.start]);
+    expect(scenes[0].world.slide.end).toEqual([...MOTION_DEFAULTS.slide.end]);
+
+    // 3. setpiece：用滑梯的幕才标；说话幕不标（它只是"在公园里说话"）
+    expect(scenes[0].setpiece).toBeUndefined();
+    expect(scenes[1].setpiece).toBe('slide');
+    expect(scenes[2].setpiece).toBe('slide');
   });
 
   /**

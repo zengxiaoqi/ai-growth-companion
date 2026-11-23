@@ -103,8 +103,17 @@ export interface MotionDefaults {
 export const MOTION_DEFAULTS: Record<Action3DMotion, MotionDefaults> = {
   slide: {
     durationFrames: 90,
-    start: [-3.1, 2.7, 0],
-    end: [2.9, 0.3, 0],
+    /**
+     * 滑梯在世界里的固定位置。**这是整节课唯一的滑梯**：三维舞台照它建 mesh、
+     * 二维场地照它画平台与爬梯、爬梯动作照它算落点（见 setpiece.slideLadderX）。
+     *
+     * 以前的 [−3.1, 2.7] → [2.9, 0.3] 是一条"从画面左上滑到右下"的轨迹，
+     * 与爬梯幕里那把梯子（x=−0.55）没有任何关系，于是"爬上去的梯子"和
+     * "滑下来的滑梯"在同一节课里是两座不同的设施。
+     * 现在滑梯只在原点右侧：爬梯在它左后方，滑道向右下，符合孩子熟悉的样子。
+     */
+    start: [0.66, 2.6, 0],
+    end: [4.26, 0.3, 0],
   },
   dribble: {
     durationFrames: 96,
@@ -143,7 +152,13 @@ export const PUPPET_DEFAULTS: Record<PuppetMotion, PuppetDefaults> = {
   sit: {},
   walk: { start: [-1.6, 0.66, 0], end: [0, 0.66, 0] },
   enter: { start: [-1.9, 0.66, 0], end: [0.15, 0.66, 0] },
-  climb: { start: [-0.55, 0.66, 0], end: [-0.55, 1.5, 0], steps: 4 },
+  /**
+   * 爬梯的横向落点 = 滑梯爬梯的位置（MOTION_DEFAULTS.slide 的平台在 0.66，
+   * 爬梯在平台后 1.5 → −0.60）。写在这里的是**标称值**，渲染层最终会把整条
+   * 动作串平移到世界里的那把梯子上（Puppet2D 的 worldLadderX 对齐），
+   * 所以改滑梯尺寸时这里不需要跟着改，也不会出现"手抓空气"。
+   */
+  climb: { start: [-0.6, 0.66, 0], end: [-0.6, 1.5, 0], steps: 4 },
 };
 
 /** 解析后的二维动作：坐标就位，渲染层直接按帧取值 */

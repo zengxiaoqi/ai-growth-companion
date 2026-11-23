@@ -45,7 +45,9 @@ import {
   type Bounds,
   type Shot,
 } from "../character/stage-layout";
-import { LADDER, SLIDE, actorHeadTop, slideBounds } from "../character/setpiece";
+import { LADDER, SLIDE, actorHeadTop, ladderRungYs, slideBounds, slideLadderX } from "../character/setpiece";
+import { WorldLayer } from "../character/WorldLayer";
+import { cameraForWorld, normalizeWorld } from "../character/world";
 
 export type ThreeRig = {
   fur: string;
@@ -365,12 +367,16 @@ const Blob: React.FC<{ x: number; z: number; y?: number; r: number; opacity: num
  * 因为"平台多厚、护边多高"同时决定取景高度（见 slideWorldHeight），
  * 两处各写一份，就会出现"画面装下了结构、取景却算矮了"的分裂。
  * ------------------------------------------------------------------ */
-const SlideRig: React.FC<{ start: Tri; end: Tri }> = ({ start, end }) => {
+const SlideRig: React.FC<{ start: readonly [number, number, number]; end: readonly [number, number, number] }> = ({ start, end }) => {
   const dx = end[0] - start[0];
   const dy = end[1] - start[1];
   const len = Math.sqrt(dx * dx + dy * dy) || 1;
   const angle = Math.atan2(dy, dx);
   const mid: Tri = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2, 0];
+  // 爬梯的位置与横档高度都从 setpiece 取，和二维 WorldLayer 是同一份：
+  // 同一个梯子不能有两种密度，否则切换渲染器时梯子会整个换一个样子。
+  const ladderX = slideLadderX(start, end);
+  const rungYs = ladderRungYs(start[1]);
   const deckColor = "#ffb347";
   const railColor = "#ff8f4d";
   const postColor = "#cf9a63";
@@ -419,20 +425,16 @@ const SlideRig: React.FC<{ start: Tri; end: Tri }> = ({ start, end }) => {
       {[-1, 1].map((side) => (
         <mesh
           key={`ladder-${side}`}
-          position={[start[0] - Math.cos(angle) * SLIDE.ladderInset + side * LADDER.railHalf, start[1] / 2 - SLIDE.postLift, 0]}
+          position={[ladderX + side * LADDER.railHalf, start[1] / 2 - SLIDE.postLift, 0]}
         >
           <cylinderGeometry args={[LADDER.sidePostRadius, LADDER.sidePostRadius, Math.max(0.5, start[1] - SLIDE.ladderFoot), 8]} />
           <meshStandardMaterial color={postColor} roughness={0.8} />
         </mesh>
       ))}
-      {Array.from({ length: LADDER.sideRungs }).map((_, i) => (
+      {rungYs.map((y, i) => (
         <mesh
           key={`rung-${i}`}
-          position={[
-            start[0] - Math.cos(angle) * SLIDE.ladderInset,
-            LADDER.sideRungStart + i * ((Math.max(0.5, start[1] - 0.3) - LADDER.sideRungStart) / (LADDER.sideRungs - 1)),
-            0,
-          ]}
+          position={[ladderX, y, 0]}
           rotation={[0, 0, Math.PI / 2]}
         >
           <cylinderGeometry args={[LADDER.sideRungRadius, LADDER.sideRungRadius, LADDER.sideRungLength, 8]} />
@@ -482,16 +484,41 @@ export const ThreeActionStage: React.FC<{
   frame: number;
   /** 景别覆盖。不给就按动作判定：slide → wide，dribble → medium */
   shot?: Shot;
-}> = ({ scene, frame, shot: shotOverride }) => {
+  /**
+   * 场地（与二维同源）。给了它，相机缩放就是整节课的基准缩放 × 景别变焦，
+   * 而不是"这一幕装得下就多大"——三维幕和二维幕的熊才是同一个大小。
+   */
+  world?: unknown;
+}> = ({ scene, frame, shot: shotOverride, world: rawWorld }) => {
   const { width, height } = useVideoConfig();
   const accent = scene.accent || "#4d96ff";
   const isSlide = scene.motion === "slide";
   const scale = scene.rig.scale || 1;
 
   /**
+   * 滑梯的位置由**场地**说了算，不由分镜说了算。
+   *
+   * 分镜也可能带 start/end（模型偶尔照抄坐标，旧任务缓存的是上一版默认值）。
+   * 它一旦和场地里的滑梯不一致，画面就成了"熊在这座滑梯上滑、背景里是另一座"。
+   * 动作只表达"在滑梯上滑"，几何永远来自 world.slide。
+   */
+  const world = normalizeWorld(rawWorld);
+  const slideGeom =
+    isSlide && world && world.slide
+      ? { start: world.slide.start, end: world.slide.end }
+      : { start: scene.start, end: scene.end };
+  const stageScene = isSlide
+    ? {
+        ...scene,
+        start: slideGeom.start as [number, number, number],
+        end: slideGeom.end as [number, number, number],
+      }
+    : scene;
+
+  /**
    * 取景：观众要看到的是"这一幕占了世界上哪一块"，不是"某个动作该配哪个
-   * 机位"。滑梯横跨 7.7 个世界单位、平台上的坐姿角色还比结构更高，两者都
-   * 必须整块进画；而"角色该画多大"只看站立身高。
+   * 机位"。滑梯横跨数米、平台上的坐姿角色还比结构更高，两者都必须整块进画；
+   * 而"角色该画多大"只看站立身高。
    *
    * 用包围盒而不是只报高度：横向范围决定 ppu 与平移。以前只报高度，
    * 滑梯的左端贴到 x=115px、右端空出 437px —— 看起来像左边被裁了，
@@ -499,17 +526,26 @@ export const ThreeActionStage: React.FC<{
    */
   const subjectHeight = actorHeadTop(SPEC.standHipY, Math.max(1, scale));
   const content = isSlide
-    ? slideBounds(scene.start, scene.end, Math.max(1, scale))
+    ? slideBounds(slideGeom.start, slideGeom.end, Math.max(1, scale))
     : actorBounds(scene, Math.max(1, scale));
   const shot = shotOverride ?? shotForMotion(scene.motion);
-  const view = framingFor({ bounds: content, subjectHeight }, shot).camera;
+  /**
+   * 有世界时用世界镜头：缩放固定、只按内容中心平移。三维幕因此与同一节课的
+   * 二维幕共用一个标尺——以前三维幕按"整条滑梯装得下"算，二维幕按"这一幕
+   * 内容装得下"算，同一个角色在两类幕里大小不同，切换时像换了个人。
+   */
+  const worldCamera = world ? cameraForWorld(world, shot, content) : null;
+  const view = worldCamera ? worldCamera.camera : framingFor({ bounds: content, subjectHeight }, shot).camera;
 
-  const slide = isSlide ? slidePose(scene, frame) : null;
+  const slide = isSlide ? slidePose(stageScene, frame) : null;
   const dribble = isSlide ? null : dribblePose(scene, frame);
   const pose = slide || dribble!.pose;
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
+      {/* 场地背景：与二维同一份世界。滑梯在这里不画——三维舞台自己用 mesh 建，
+          这样它才能参与光照与前后遮挡，而不会被一张平面图压在后面。 */}
+      {world && worldCamera ? <WorldLayer world={world} camera={worldCamera} frame={frame} withSlide={false} /> : null}
       <ThreeCanvas
         width={width}
         height={height}
@@ -526,7 +562,7 @@ export const ThreeActionStage: React.FC<{
         <group position={[-view.lookX, -view.lookY, 0]}>
           <ProceduralChar rig={scene.rig} pose={pose} />
 
-          {isSlide ? <SlideRig start={scene.start} end={scene.end} /> : null}
+          {isSlide ? <SlideRig start={slideGeom.start} end={slideGeom.end} /> : null}
 
           {dribble ? (
             <>

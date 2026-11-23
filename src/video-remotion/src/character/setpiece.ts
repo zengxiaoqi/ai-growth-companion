@@ -49,9 +49,10 @@ export const LADDER = {
   /** 立杆粗细（世界单位），2D 按缩放乘 */
   railWidth: 0.058,
   rungWidthRatio: 0.78,
-  /** 3D 侧视爬梯：横档根数、杆径、横档长（= 两杆间距，同一把梯子） */
-  sideRungs: 5,
-  sideRungStart: 0.28,
+  /** 3D 侧视爬梯：杆径、横档长（= 两杆间距，同一把梯子）。
+   *  横档根数与位置**不在这里**——由 ladderRungYs() 按平台高度生成，
+   *  以前这里写死 sideRungs: 5 均匀铺五根，二维却画十几根，同一个梯子
+   *  两种密度，切换渲染器时梯子会整个换一个样子。 */
   sidePostRadius: 0.05,
   sideRungRadius: 0.04,
   sideRungLength: ACTOR.gripWidth,
@@ -65,6 +66,18 @@ export const LADDER = {
  */
 export function ladderTopY(climbEndY: number): number {
   return climbEndY + LADDER.topHeadroom;
+}
+
+/**
+ * 爬梯的横档高度列表。
+ *
+ * 2D 与 3D **必须**用这一份：以前二维按 `CLIMB.step` 画十几根，三维按
+ * `sideRungs: 5` 均匀铺五根——同一个梯子两种密度，切换渲染器时梯子会
+ * 整个换一个样子。间距必须等于攀爬每上一阶的高度，手脚才落在横档上。
+ */
+export function ladderRungYs(topY: number): number[] {
+  const count = Math.max(2, Math.floor((topY - LADDER.rungStart) / CLIMB.step) + 1);
+  return Array.from({ length: count }, (_, i) => LADDER.rungStart + i * CLIMB.step);
 }
 
 /** 梯子在某处立起来时占据的世界范围（含描边，round cap 多出半个线宽） */
@@ -119,6 +132,26 @@ export const SLIDE = {
  */
 export function slideTopY(startY: number): number {
   return startY + SLIDE.platformThickness + SLIDE.railHeight;
+}
+
+/** 滑道倾角（弧度）。二维画斜板、三维转 mesh、梯子定向都用它，别各算一次。 */
+export function slideDeckAngle(start: readonly [number, number, number], end: readonly [number, number, number]): number {
+  return Math.atan2(end[1] - start[1], end[0] - start[0]);
+}
+
+/**
+ * 爬梯在世界里的 x。
+ *
+ * 这个位置以前被算了三次：三维 SlideRig 里算一次（start - cos*inset）、
+ * 二维梯子用"动作起点"当 x、爬梯动作的起点又是注册表写死的 -0.55。
+ * 三个值互不相干，于是画面上的梯子和角色手里的梯子可以是两把。
+ * 现在只在这里算一次：三维立杆、二维横档、爬梯动作的落点全部取自它。
+ */
+export function slideLadderX(
+  start: readonly [number, number, number],
+  end: readonly [number, number, number],
+): number {
+  return start[0] - Math.cos(slideDeckAngle(start, end)) * SLIDE.ladderInset;
 }
 
 /* ------------------------------------------------------------------ *

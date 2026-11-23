@@ -38,6 +38,7 @@ import {
   composePerformance,
   deriveInteractionFromText,
   hasAnyMotionCue,
+  hasThreeMotionCue,
   normalizeSceneInteraction,
   normalizeScenePerformance,
   type InteractionVerb,
@@ -45,6 +46,7 @@ import {
   type SceneInteraction,
 } from './video/scene-interaction';
 import {
+  MOTION_DEFAULTS,
   resolveAction3D,
   resolveActorRig,
   resolvePuppet,
@@ -617,6 +619,15 @@ export class VideoGenerationAgentService {
             },
           ];
 
+    /**
+     * 整节课的场地：先算一次，再把同一份写进每一幕。
+     *
+     * 为什么在 lesson 层算：场地是"一个地方"，不是"每一幕的布景"。
+     * 逐幕各推一次会出现"第 2 幕公园、第 3 幕森林"——孩子看到的不是转场而是
+     * 瞬移；而滑梯这种大件只在需要它的两幕出现，也读不出"他爬的就是那座滑梯"。
+     * 同一份 world 还意味着后续取景用同一个基准缩放，熊的大小不会逐幕变。
+     */
+    const lessonWorld = this.resolveLessonWorld(sourceScenes, topic);
     const builtScenes = sourceScenes.slice(0, 8).map((scene: any, index: number) => {
       const title = this.toText(
         scene?.title || scene?.scene || scene?.shot,
@@ -875,6 +886,21 @@ export class VideoGenerationAgentService {
           }
         : undefined;
 
+      /**
+       * 这一幕是不是在"用"场地里的滑梯（爬上去 / 滑下来 / 指着它）。
+       *
+       * 与 propId 的区别很重要：propId 让渲染层在角色旁边摆一个滑梯**图标**，
+       * 而滑梯现在本来就在公园里。同一个画面里出现"真的滑梯 + 一个玩具图标"
+       * 是最糟的叠加——所以用滑梯的幕只给 setpiece，不再给滑梯道具。
+       */
+      const usesSetpiece =
+        !!interaction &&
+        (interaction.verb === 'slide' ||
+          interaction.propId === 'slide' ||
+          interaction.action3d?.motion === 'slide' ||
+          interaction.puppet?.motion === 'climb' ||
+          (sequence ?? []).some((segment) => segment.motion === 'climb'));
+
       return {
         id: `scene-${index + 1}`,
         title,
@@ -887,6 +913,13 @@ export class VideoGenerationAgentService {
         interaction: interactionForRender,
         action,
         habitat,
+        /**
+         * 场地：整节课同一份。渲染层用它算"基准缩放 + 镜头"，因此同一只熊
+         * 在任何一幕里都是同一个大小，滑梯与熊的比例也只有一个。
+         * 旧任务没有这个字段，渲染层会退回"按这一幕自己拟合"的老路径。
+         */
+        world: lessonWorld,
+        ...(usesSetpiece ? { setpiece: 'slide' } : {}),
         // 画板是画面主体，背景必须退到幕后，否则图形和森林草地互相抢
         backgroundStyle: figure
           ? 'neutral'
@@ -1244,6 +1277,17 @@ type GeneratedScene = {
   interaction?: SceneInteractionView;
   action: string;
   habitat: string;
+  /**
+   * 场地：整节课同一份（venue + 滑梯的世界坐标）。
+   * 渲染层据此算一次基准缩放、按幕只做变焦与平移，所以"熊与滑梯的比例"
+   * 在每一幕都一样。旧分镜没有这个字段，渲染层退回按幕拟合的老路径。
+   */
+  world?: { venue: string; slide?: { start: number[]; end: number[] } };
+  /**
+   * 这一幕用到的世界装置（目前只有 "slide"）。它让渲染层把整座滑梯框进画面，
+   * 并且**不再摆一个滑梯图标**——滑梯本来就在公园里，图标是重复的。
+   */
+  setpiece?: string;
   /**
    * 背景档位。background 决定画面"在哪里发生"，不决定"讲什么"：
    * environment=真实世界场景（动物/植物/自然），配森林、草原、河岸；
@@ -4355,6 +4399,7 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
       ) : use3d && action3d ? (
         <ThreeActionStage
           frame={stageFrame}
+          world={scene.world}
           scene={{
             motion: action3d.motion,
             actorId: action3d.actorId,
@@ -4373,6 +4418,10 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
           frame={stageFrame}
           scene={{
             motion: puppet.motion,
+            // 场地随"这一幕的数据"一起传：它是场景的一部分（这一幕发生在哪个
+            // 世界的哪个位置），不是渲染器的全局配置。
+            world: scene.world,
+            setpiece: scene.setpiece,
             rig: puppet.rig,
             start: puppet.start,
             end: puppet.end,
@@ -4388,6 +4437,9 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
             // 串演幕同理：point 可能不在第一段，光看 puppet.motion 会漏掉道具。
             props:
               scene.interaction!.propId &&
+              // 用滑梯的幕不摆滑梯图标：公园里已经有一座真的了，
+              // 再摆一张小图标就是"同一画面两个滑梯"，孩子会以为有两座。
+              scene.setpiece !== "slide" &&
               (puppet.motion === "point" ||
                 (puppet.sequence || []).some((step) => step.motion === "point"))
                 ? [
@@ -4632,6 +4684,58 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
 
   private inferDynamicHabitat(source: string): string {
     return matchKeyword(source, HABITAT_KEYWORDS) || 'forest';
+  }
+
+  /**
+   * 整节课的场地（见 buildDynamicSceneProps 的说明）。
+   *
+   * 两个判断，顺序不能换：
+   *  1. 只要这节课出现过滑梯（滑 / 爬 / 提到滑梯），就是游乐园。不能只按
+   *     habitat 关键词判——"小熊先爬楼梯再滑滑梯"这句里没有"公园"二字，
+   *     但它显然发生在公园里。有滑梯却没有公园，正是"梯子孤零零"的来源。
+   *  2. 否则按 habitat 关键词推（草地 / 河边 / 森林 / 夜里）。
+   *
+   * venue 与 slide 一起下发：滑梯的位置来自 MOTION_DEFAULTS（三维舞台建 mesh
+   * 用的同一组数字），所以二维场地画出来的滑梯就是三维里那座。
+   */
+  private resolveLessonWorld(
+    sourceScenes: any[],
+    topic: string,
+  ): { venue: string; slide?: { start: number[]; end: number[] } } {
+    const text = [
+      topic,
+      ...sourceScenes.map(
+        (scene: any) =>
+          `${scene?.title ?? ''} ${scene?.visualDescription ?? scene?.imagePrompt ?? scene?.visualPrompt ?? ''} ${scene?.narration ?? ''}`,
+      ),
+    ].join(' ');
+    const deck = sourceScenes.some((scene: any) => this.sceneUsesSlide(scene));
+    const hasSlide = deck || hasThreeMotionCue(text) === 'slide';
+    if (!hasSlide) return { venue: this.inferDynamicHabitat(text) };
+    return {
+      venue: 'playground',
+      slide: {
+        start: [...MOTION_DEFAULTS.slide.start],
+        end: [...MOTION_DEFAULTS.slide.end],
+      },
+    };
+  }
+
+  /** 这一幕是否用到了滑梯（滑下去 / 爬上去 / 指着滑梯） */
+  private sceneUsesSlide(scene: any): boolean {
+    const performance = normalizeScenePerformance(scene?.performance);
+    const actions = performance
+      ? performance.actions
+      : scene?.interaction
+        ? [scene.interaction]
+        : [];
+    return actions.some(
+      (action: any) =>
+        action?.verb === 'slide' ||
+        action?.propId === 'slide' ||
+        action?.action3d?.motion === 'slide' ||
+        action?.puppet?.motion === 'climb',
+    );
   }
 
   /**

@@ -93,7 +93,46 @@ if (!fs.existsSync(planPath)) {
   );
   process.exit(1);
 }
+/**
+ * 场地：线上由 buildDynamicSceneProps 的 resolveLessonWorld 算好、逐幕下发同一份。
+ * 这里从 action3d-registry 的 MOTION_DEFAULTS 里读出滑梯坐标（正则读源码，
+ * 读不到就直接失败）——手抄一份必然漂移，而这类漂移的表现是"预览里对、线上错"，
+ * 最难查。
+ */
+function readSlideDefaults() {
+  const registryPath = path.join(
+    repoRoot,
+    'src',
+    'backend',
+    'src',
+    'modules',
+    'learning',
+    'video',
+    'action3d-registry.ts',
+  );
+  const source = fs.readFileSync(registryPath, 'utf8');
+  const match = source.match(
+    /slide:\s*\{[\s\S]*?start:\s*\[([-\d.,\s]+)\],\s*end:\s*\[([-\d.,\s]+)\]/,
+  );
+  if (!match) throw new Error('MOTION_DEFAULTS.slide not found in action3d-registry.ts');
+  const nums = (s) => s.split(',').map((v) => Number(v.trim()));
+  return { start: nums(match[1]), end: nums(match[2]) };
+}
+
 const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
+const slideDefaults = readSlideDefaults();
+const hasSlide = plan.some((item) => {
+  const action = item.interaction;
+  return (
+    item.branch === '2d:climb' ||
+    action?.verb === 'slide' ||
+    action?.propId === 'slide' ||
+    action?.action3d?.motion === 'slide'
+  );
+});
+const world = hasSlide
+  ? { venue: 'playground', slide: slideDefaults }
+  : { venue: 'meadow' };
 
 const PROP_LABELS = { slide: '滑梯', ball: '皮球' };
 
@@ -135,6 +174,15 @@ const scenes = storyboard.scenes.map((s, i) => {
     ...(s.sceneGraph ? { sceneGraph: s.sceneGraph } : {}),
     action: 'idle',
     habitat: 'grassland',
+    // 整节课同一份场地：滑梯在哪不取决于"这一幕用不用它"
+    world,
+    // 与线上同一判据：用到滑梯的幕只给 setpiece，不再摆滑梯图标
+    ...(item.branch === '2d:climb' ||
+    item.interaction?.propId === 'slide' ||
+    item.interaction?.verb === 'slide' ||
+    item.interaction?.action3d?.motion === 'slide'
+      ? { setpiece: 'slide' }
+      : {}),
     backgroundStyle: 'environment',
     generatedVisual: 'bear-grassland',
     template: s.animationTemplate ? s.animationTemplate.id : 'language.story-scene',

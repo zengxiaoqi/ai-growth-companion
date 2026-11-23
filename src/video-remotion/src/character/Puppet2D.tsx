@@ -39,7 +39,9 @@ import {
   type Bounds,
   type Shot,
 } from './stage-layout';
-import { LADDER, actorHeadTop, ladderBounds, ladderTopY } from './setpiece';
+import { LADDER, actorHeadTop, ladderBounds, ladderTopY, slideBounds } from './setpiece';
+import { WorldLayer } from './WorldLayer';
+import { cameraForWorld, normalizeWorld, worldLadderX } from './world';
 
 /* ------------------------------------------------------------------ *
  * 取景
@@ -102,6 +104,18 @@ export type Puppet2DScene = {
    * 只影响取景，不影响动作本身：动作的世界坐标由后端定死。
    */
   shot?: Shot;
+  /**
+   * 场地。整节课共用同一个世界（滑梯在哪、公园长什么样），由后端在每一幕
+   * 写同一份数据。给了它就走"世界 + 镜头"的取景，没给（旧缓存分镜）仍按
+   * 这一幕自己拟合——两条路径的画面不可能一样，但旧任务不会因此崩掉。
+   */
+  world?: unknown;
+  /**
+   * 这一幕用到的那件**世界装置**（目前只有滑梯）。
+   * 不是"道具"：滑梯在场地里本来就在，这一幕要拍的是"角色与它互动"，
+   * 所以取景要把整座滑梯框进来，而不是在旁边摆一个滑梯图标。
+   */
+  setpiece?: string;
 };
 
 /** 颜色压暗：给每个形状描一圈同色深边，角色不会糊进背景 */
@@ -440,6 +454,23 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
   }
   if (!plan.length) plan.push(single);
 
+  /**
+   * 场地与"梯子落点"。
+   *
+   * 有了世界之后，爬梯的横向落点不再由动作注册表单独决定：梯子长在滑梯上，
+   * 位置由滑梯几何算（worldLadderX）。所以整条动作串被整体平移，让爬梯段
+   * 正好落在世界里的那把梯子上——平移量很可能只有 0.05 个单位，但它是
+   * **算式**，不是"刚好差不多"：改滑梯尺寸时手不会突然悬在梯子外面。
+   */
+  const world = normalizeWorld(scene.world);
+  const climbSlice = plan.find((slice) => slice.motion === 'climb') ?? null;
+  const worldLadder = world ? worldLadderX(world) : null;
+  if (worldLadder !== null && climbSlice) {
+    const climbStartX = (climbSlice.input.start?.[0] ?? 0) + climbSlice.carry[0];
+    const dx = worldLadder - climbStartX;
+    for (const slice of plan) slice.carry[0] += dx;
+  }
+
   const active = plan.find((slice) => frame < slice.from + slice.durationFrames) ?? plan[plan.length - 1];
   // overlayFrom 是"场景进度的比例"，所以分母用场景帧数而不是动作串总帧数
   const totalFrames = Math.max(1, scene.durationFrames);
@@ -478,7 +509,6 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
     pose.rotY > 0.2 ? 1 : pose.rotY < -0.2 ? -1 : dirX < -0.05 ? -1 : 1;
 
   /** 串演里的攀爬段：哪怕不是当前段，取景与梯子也要按它算 */
-  const climbSlice = plan.find((slice) => slice.motion === 'climb') ?? null;
   const climb = !!climbSlice;
   // 每上一阶的高度：横档间距与它同源，所以手/脚永远落在横档附近
   const climbStep = climbSlice
@@ -492,29 +522,26 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
     : SPEC.standHipY + 0.84;
   const ladderTop = ladderTopY(Math.min(MAX_STAND_Y, climbEndY));
   /**
-   * 梯子挂在爬梯段的落点上，不跟当前髋部走。
-   * 以前写的是 x={root[0]}——单幕爬梯时两者相等所以看不出问题，
-   * 但"走过去再爬"里，走路途中梯子会跟着角色横向平移，像被拖着走。
+   * 兜底路径（没有世界数据的旧分镜）的梯子位置：挂在爬梯段落点上。
+   * 有世界时梯子长在滑梯上，位置由 worldLadderX 给出，这里不参与。
    */
-  const ladderX = climbSlice
+  const fallbackLadderX = climbSlice
     ? (climbSlice.input.start?.[0] ?? 0) + climbSlice.carry[0]
     : root[0];
 
   /**
-   * 取景：只回答"这一幕占了世界上哪一块"，不回答"该放多大"。
+   * 取景：分两条路。
    *
-   * 以前这里算的是两个数（内容高度 / 主体高度），横向完全没有约束——
-   * 于是"内容偏左""横向太宽"没有地方表达，只能靠人眼看出来再逐个调坐标，
-   * 那就是"针对某个场景特定优化"。现在交给包围盒：
-   *   - 角色轨迹（每一段沿途采样，带 carry 位移）；
-   *   - 布景（爬梯时整把梯子，含描边）；
-   *   - 道具（被指着的东西）。
-   * 取景定律据此同时约束纵向与横向，并把画面按内容中心对齐。
+   * **有世界（新路径）**：缩放由 worldScale 决定，整节课一个值；景别只做
+   * 1.0~1.5 倍变焦，镜头按角色平移。于是熊在每一幕都是同一个大小，
+   * 熊与滑梯的比例永远是同一个比例——比例一致性来自"世界只定义一次"，
+   * 不来自"每一幕都拟合一遍"。
    *
-   * subjectHeight 仍然只用"站立身高"：动作终点的头顶高度会把"爬得高"
-   * 误当成"角色很大"，全景被无谓地推远（实测梯子会缩到 365px，画面空一半）。
-   * rig.scale 只按"不小于 1"计入：小动物画小一点是造型意图，但取景要给
-   * 满尺寸留够空间，否则 giraffe(1.1) 会顶出去。
+   * **没有世界（旧分镜缓存）**：仍按这一幕自己的包围盒拟合。这条路只为
+   * 不崩而保留，画面与改动前一致。
+   *
+   * subjectHeight 只在旧路径里用：动作终点的头顶高度会把"爬得高"误当成
+   * "角色很大"，全景被无谓推远（实测梯子会缩到 365px，画面空一半）。
    */
   const subjectHeight = actorHeadTop(SPEC.standHipY, Math.max(1, scale));
   const drawScale = Math.max(1, scale);
@@ -541,13 +568,40 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
     return { minX, maxX, minY: 0, maxY };
   };
 
-  const contentBoxes: Bounds[] = plan.map(actorBoundsOf);
-  if (climb) contentBoxes.push(ladderBounds(ladderX, ladderTop));
-  for (const p of scene.props || []) contentBoxes.push(propBounds(p));
-  const content = unionAll(contentBoxes);
-
+  const actorBox = unionAll(plan.map(actorBoundsOf));
   const shot = scene.shot ?? shotForMotion(climb ? 'climb' : activeMotion);
-  const framing = framingFor({ bounds: content, subjectHeight }, shot);
+
+  /**
+   * 这一幕要装进画面的东西：角色轨迹 + 道具 + （如果这一幕在用滑梯）整座滑梯。
+   *
+   * 用滑梯时把滑梯框进来，是"爬/指/滑"这类幕的语义要求：孩子要同时看到
+   * "他在哪"和"他在对什么做动作"。其余幕只框角色，镜头就能稍微推近。
+   * 两者的缩放都夹在 [基准缩放, 基准缩放 × 焦距] 之间（见 cameraForWorld），
+   * 所以不存在"这一幕为了装下滑梯把熊缩小"那种比例漂移。
+   */
+  const focusBox = unionAll([
+    actorBox,
+    ...(scene.props || []).map(propBounds),
+    ...(world && world.slide && scene.setpiece === 'slide'
+      ? [slideBounds(world.slide.start, world.slide.end, drawScale)]
+      : []),
+  ]);
+
+  const ladderX = worldLadder ?? fallbackLadderX;
+  const worldCamera = world ? cameraForWorld(world, shot, focusBox) : null;
+  const framing = worldCamera
+    ? worldCamera
+    : framingFor(
+        {
+          bounds: unionAll([
+            actorBox,
+            ...(climb ? [ladderBounds(fallbackLadderX, ladderTop)] : []),
+            ...(scene.props || []).map(propBounds),
+          ]),
+          subjectHeight,
+        },
+        shot,
+      );
 
   const cx = framing.originX;
   const GROUND_Y = framing.groundY;
@@ -598,6 +652,9 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
+      {/* 场地：天、地、围栏、树、长椅、沙坑、摩天轮，以及整座滑梯（含爬梯）。
+          它用与角色同一个相机投影，所以放大缩小时"熊和滑梯的比例"不会变。 */}
+      {world && worldCamera ? <WorldLayer world={world} camera={worldCamera} frame={frame} /> : null}
       <svg
         width={1920}
         height={1080}
@@ -633,8 +690,10 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
           );
         })}
 
-        {/* 梯子必须在角色之前画（背景层），否则会盖住手脚 */}
-        {climb ? (
+        {/* 梯子必须在角色之前画（背景层），否则会盖住手脚。
+            有世界时梯子由 WorldLayer 画——它是滑梯的一部分，不是这一幕的道具；
+            这里只保留旧分镜（没有世界数据）的兜底。 */}
+        {climb && !worldCamera ? (
           <Ladder
             x={ladderX}
             baseY={0}

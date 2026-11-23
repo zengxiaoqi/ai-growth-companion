@@ -127,7 +127,7 @@ describe('resolvePuppetSequence', () => {
     const seq = resolvePuppetSequence(['walk', 'climb'], { sceneDurationFrames: 300 })!;
     expect(seq[0].start).toEqual([-1.6, 0.66, 0]);
     expect(seq[0].end).toEqual([0, 0.66, 0]);
-    expect(seq[1].start).toEqual([-0.55, 0.66, 0]);
-    expect(seq[1].end).toEqual([-0.55, 1.5, 0]);
+    expect(seq[1].start).toEqual([-0.6, 0.66, 0]);
+    expect(seq[1].end).toEqual([-0.6, 1.5, 0]);
   });
 });

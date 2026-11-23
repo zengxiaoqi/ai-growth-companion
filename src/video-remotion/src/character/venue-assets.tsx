@@ -141,6 +141,173 @@ const Wheel: DecorRenderer = ({ item, theme, px, py, u, frame }) => {
   );
 };
 
+/* ------------------------------------------------------------------ *
+ * 室内资产
+ *
+ * 它们与树、长椅是同一类东西：拿到世界坐标、配色、帧号就画自己。室内没有
+ * 新的渲染原语，只是换了资产——这正是"原语可枚举、内容不可枚举"的意思。
+ * ------------------------------------------------------------------ */
+
+/**
+ * 墙：横向铺满 + 指定高度。
+ *
+ * 参数走 `params`（`from/to/height`），因为"墙有多宽"不是它自己的属性，
+ * 是配方的构图决定。分缝每 2.4 个世界单位一条，让整面墙不是一整块色块。
+ */
+const Wall: DecorRenderer = ({ item, theme, px, py, u }) => {
+  const from = Number(item.params?.from ?? -12);
+  const to = Number(item.params?.to ?? 12);
+  const height = Number(item.params?.height ?? 3);
+  const seams = Math.max(1, Math.round((to - from) / 2.4));
+  return (
+    <g>
+      <rect x={px(from)} y={py(height)} width={u(to - from)} height={u(height)} fill={theme.hillFar} />
+      {Array.from({ length: seams }).map((_, i) => (
+        <line
+          key={`seam-${i}`}
+          x1={px(from + i * 2.4)}
+          y1={py(height)}
+          x2={px(from + i * 2.4)}
+          y2={py(0)}
+          stroke={theme.woodDark}
+          strokeWidth={Math.max(1, u(0.012))}
+          opacity={0.16}
+        />
+      ))}
+      {/* 吊顶线：没有它，墙顶和画面顶会连成一片，房间没有"高度" */}
+      <rect x={px(from)} y={py(height)} width={u(to - from)} height={u(0.1)} fill={theme.wood} opacity={0.55} />
+    </g>
+  );
+};
+
+/** 课桌：桌面 0.66（≈1.1 米）——比角色膝盖略高，孩子才像"站在桌边" */
+const Desk: DecorRenderer = ({ item, theme, px, py, u }) => {
+  const x = item.x;
+  return (
+    <g>
+      <rect x={px(x) - u(0.62)} y={py(0.66)} width={u(1.24)} height={u(0.07)} rx={u(0.02)} fill={theme.wood} />
+      {[-0.52, 0.52].map((dx) => (
+        <rect
+          key={dx}
+          x={px(x) + u(dx) - u(0.035)}
+          y={py(0.66)}
+          width={u(0.07)}
+          height={u(0.66)}
+          fill={theme.woodDark}
+        />
+      ))}
+      {/* 侧挂的书包格 */}
+      <rect x={px(x) + u(0.16)} y={py(0.52)} width={u(0.36)} height={u(0.22)} rx={u(0.02)} fill={theme.woodDark} opacity={0.85} />
+    </g>
+  );
+};
+
+/** 落地灯：灯杆 + 灯罩 + 一圈很淡的光晕（不发光就只是一根棍子） */
+const Lamp: DecorRenderer = ({ item, theme, px, py, u }) => {
+  const x = item.x;
+  const height = Number(item.params?.height ?? 2);
+  return (
+    <g>
+      <circle cx={px(x)} cy={py(height - 0.1)} r={u(0.55)} fill={theme.sun} opacity={0.18} />
+      <rect x={px(x) - u(0.025)} y={py(height)} width={u(0.05)} height={u(height)} fill={theme.metal} />
+      <rect x={px(x) - u(0.22)} y={py(0.04)} width={u(0.44)} height={u(0.04)} rx={u(0.02)} fill={theme.metal} />
+      <path
+        d={`M ${px(x) - u(0.26)} ${py(height)} L ${px(x) + u(0.26)} ${py(height)} L ${px(x) + u(0.16)} ${py(height - 0.22)} L ${px(x) - u(0.16)} ${py(height - 0.22)} Z`}
+        fill={theme.wood}
+      />
+    </g>
+  );
+};
+
+/** 书架：三层隔板 + 一排书脊。书脊颜色从配色里取，跟着场地色调走 */
+const Shelf: DecorRenderer = ({ item, theme, px, py, u }) => {
+  const x = item.x;
+  const boards = [1.12, 0.72, 0.32];
+  const spines = [theme.leaf, theme.hillNear, theme.metal, theme.path];
+  return (
+    <g>
+      <rect x={px(x) - u(0.62)} y={py(1.22)} width={u(1.24)} height={u(1.22)} fill={theme.woodDark} opacity={0.32} />
+      {boards.map((y) => (
+        <rect
+          key={`board-${y}`}
+          x={px(x) - u(0.66)}
+          y={py(y)}
+          width={u(1.32)}
+          height={u(0.05)}
+          rx={u(0.02)}
+          fill={theme.wood}
+        />
+      ))}
+      {[0.32, 0.72].flatMap((y, row) =>
+        [0, 1, 2, 3].map((i) => (
+          <rect
+            key={`book-${row}-${i}`}
+            x={px(x) - u(0.56) + u(i * 0.26)}
+            y={py(y) - u(0.26)}
+            width={u(0.18)}
+            height={u(0.26)}
+            rx={u(0.02)}
+            fill={spines[(row * 4 + i) % 4]}
+            opacity={0.85}
+          />
+        )),
+      )}
+    </g>
+  );
+};
+
+/**
+ * 窗：室内最强的识别符号。
+ *
+ * 玻璃用资产私有的浅蓝，不取场地配色——窗外的天不该跟着墙面变。
+ * 窗框走 `theme.wood`，这样它和课桌、书架是同一套木头。
+ */
+const Window: DecorRenderer = ({ item, theme, px, py, u }) => {
+  const x = item.x;
+  const width = Number(item.params?.width ?? 1.6);
+  const height = Number(item.params?.height ?? 1.4);
+  const sill = Number(item.params?.sill ?? 0.9);
+  const left = px(x) - u(width / 2);
+  const top = py(sill + height);
+  return (
+    <g>
+      <rect x={left} y={top} width={u(width)} height={u(height)} fill="#cfe8f5" />
+      {/* 玻璃上的一道斜光，让"外面是白天"读得出来 */}
+      <path
+        d={`M ${left + u(width * 0.55)} ${top} L ${left + u(width)} ${top} L ${left + u(width)} ${top + u(height * 0.45)} Z`}
+        fill="#ffffff"
+        opacity={0.45}
+      />
+      <rect
+        x={left}
+        y={top}
+        width={u(width)}
+        height={u(height)}
+        fill="none"
+        stroke={theme.wood}
+        strokeWidth={u(0.06)}
+      />
+      <line
+        x1={px(x)}
+        y1={top}
+        x2={px(x)}
+        y2={py(sill)}
+        stroke={theme.wood}
+        strokeWidth={u(0.045)}
+      />
+      <line
+        x1={left}
+        y1={py(sill + height / 2)}
+        x2={left + u(width)}
+        y2={py(sill + height / 2)}
+        stroke={theme.wood}
+        strokeWidth={u(0.045)}
+      />
+      <rect x={left - u(0.08)} y={py(sill)} width={u(width + 0.16)} height={u(0.07)} rx={u(0.02)} fill={theme.wood} />
+    </g>
+  );
+};
+
 /**
  * 资产注册表。**加资产 = 在这里加一行**，加场地不用碰它，反之亦然。
  * 测试会断言"这张表覆盖 DECOR_ASSET_IDS"，漏注册会红。
@@ -151,4 +318,9 @@ export const DECOR_RENDERERS: Record<string, DecorRenderer> = {
   bench: Bench,
   sandbox: Sandbox,
   wheel: Wheel,
+  wall: Wall,
+  window: Window,
+  desk: Desk,
+  lamp: Lamp,
+  shelf: Shelf,
 };

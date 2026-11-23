@@ -97,6 +97,8 @@ export const VENUE_THEMES: Record<string, VenueTheme> = {
     metal: '#9fb3c8',
     leaf: '#55b46a',
     leafDark: '#3d8a4e',
+    /** 河水。其他场地不写，`water` 层会退回 hillNear */
+    water: '#4fb8d9',
   },
   forest: {
     skyTop: '#bfe6ff',
@@ -113,6 +115,26 @@ export const VENUE_THEMES: Record<string, VenueTheme> = {
     metal: '#9aa9b8',
     leaf: '#4faf63',
     leafDark: '#357a46',
+  },
+  /**
+   * 室内：暖木墙 + 米色地板。
+   * `skyTop` 同时是"纯色背景"的填充色（室内没有天空），所以它取墙的颜色。
+   */
+  classroom: {
+    skyTop: '#f3e6d0',
+    skyBottom: '#f3e6d0',
+    sun: '#ffe6b0',
+    cloud: '#fffdf8',
+    hillFar: '#efe0c8',
+    hillNear: '#e3d3b8',
+    ground: '#e8dcc6',
+    groundTop: '#d6c5a8',
+    path: '#d9c5a4',
+    wood: '#c9a06a',
+    woodDark: '#8b6a42',
+    metal: '#9aa3ac',
+    leaf: '#7fb069',
+    leafDark: '#5c8f4e',
   },
   night: {
     skyTop: '#13233f',
@@ -367,6 +389,15 @@ export const VENUE_RECIPES: Record<string, VenueRecipe> = {
       OUTDOOR_SKY,
       OUTDOOR_HILLS,
       GRASS_GROUND,
+      /**
+       * 水面。放在地面之后、围栏之前：水是"近处的岸"，围栏在它后面更远。
+       *
+       * 参数是量出来的，不是估的：侧视图里"远处的地面"只被压成地平线附近一条
+       * 窄带，所以河必须**贴着地平线很薄**（0.22 个世界单位 ≈ 50px）。
+       * 给 0.5 深就会变成"脚边的护城河"，还被字幕压住——第一版就是这么错的。
+       * 这一层是**新原语**，不是新场地：湖、水池、海边都复用它。
+       */
+      { kind: 'water', from: -14, to: 14, surfaceY: 0, depth: 0.2, opacity: 0.95 },
       PADDOCK_FENCE,
       {
         kind: 'decor',
@@ -406,6 +437,41 @@ export const VENUE_RECIPES: Record<string, VenueRecipe> = {
           { asset: 'tree', x: -7.2 },
           { asset: 'tree', x: 10.4 },
           { asset: 'bench', x: 5.6 },
+        ],
+      },
+    ],
+  },
+
+  /**
+   * 室内：教室。
+   *
+   * 这套配方存在的意义不是"再加一处场地"，而是证明**户外与室内用的是同一组
+   * 原语**：没有天空就用 `fill: 'solid'` 的背景层，没有草地就用 `floor` 地面，
+   * 墙与课桌只是装饰资产。渲染器一行没动。
+   *
+   * 室内不需要地平线与远山：有墙就没有远处。
+   */
+  classroom: {
+    id: 'classroom',
+    theme: VENUE_THEMES.classroom,
+    layers: [
+      { kind: 'sky', fill: 'solid' },
+      { kind: 'ground', asset: 'floor', topBand: 0.06 },
+      {
+        kind: 'decor',
+        items: [
+          /**
+           * 墙先画，后面的家具才站在它前面。
+           *
+           * 家具位置受一条硬约束：wide 镜头下可见的世界 x 只有约 ±2（ppu 由
+           * "角色 + 一点余量"算出，不是"装下整间屋子"）。摆在 ±3 之外的书架、
+           * 第二张桌子都只会露一角——第一版就是这么错的，画面看着像"空房间"。
+           * 所以室内只摆三件、都压在 ±2 内：窗、一张课桌、一盏灯。
+           */
+          { asset: 'wall', x: 0, params: { from: -14, to: 14, height: 2.6 } },
+          { asset: 'window', x: -1.55, params: { width: 1.2, height: 1.2, sill: 0.95 } },
+          { asset: 'desk', x: 1.1 },
+          { asset: 'lamp', x: 1.85, params: { height: 2.0 } },
         ],
       },
     ],
@@ -451,7 +517,7 @@ export const DECOR_ASSET_IDS: readonly string[] = [
   'sandbox',
   'wheel',
   'wall',
-  'floor',
+  'window',
   'desk',
   'lamp',
   'shelf',
@@ -539,6 +605,10 @@ export function normalizeRecipe(raw: unknown, path = 'recipe'): RecipeIssue[] {
 
 function scanPixels(value: unknown, path: string, issues: RecipeIssue[]): void {
   if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    value.forEach((child, i) => scanPixels(child, `${path}[${i}]`, issues));
+    return;
+  }
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
     if (PIXEL_KEYS.has(key)) issues.push({ kind: 'pixel-coordinate', path: `${path}.${key}` });
     if (child && typeof child === 'object') scanPixels(child, `${path}.${key}`, issues);

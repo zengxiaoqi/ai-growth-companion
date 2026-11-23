@@ -41,10 +41,16 @@ type RemotionFailureKind = 'environment' | 'generated-code' | 'unknown';
  *
  * 为什么必须进 key：3D 舞台改的是"同一份分镜画出不同画面"。内容哈希不变时
  * 会命中 2D 时代的旧 MP4，用户点「重新生成」也拿不到新画面，等于改了没用。
- * 升版本号（3d-v1 → 3d-v2）会让旧缓存整体失效一次，这是有意的：
- * 只有拿到新画面，版本才有意义。设成空串可临时回到"纯内容哈希"的行为。
+ * 升版本号会让旧缓存整体失效一次，这是有意的：只有拿到新画面，版本才有意义。
+ * 设成空串可临时回到"纯内容哈希"的行为。
+ *
+ * 版本历史：
+ *   3d-v1  —— 三维舞台 + 世界层
+ *   venue-v1 —— 场地改为配方数据；`riverside` 真的画出了河，`classroom` 可用了。
+ *              现有 5 种场地里只有 riverside 的画面变了（多了一条水带），
+ *              其余逐像素不变；但缓存 key 无法只失效一部分，所以整体升一版。
  */
-const RENDERER_SCHEMA_VERSION = String(process.env.VIDEO_RENDERER_SCHEMA_VERSION ?? '3d-v1').trim();
+const RENDERER_SCHEMA_VERSION = String(process.env.VIDEO_RENDERER_SCHEMA_VERSION ?? 'venue-v1').trim();
 
 const FALLBACK_RENDER_ENGINES: RenderAttemptEngine[] = [
   'agent-remotion',

@@ -2,77 +2,61 @@
 
 ## 近期变更
 
-**上游同步 (29 commits)**:
-- `feat(video): 动作改关键帧表，加挥手/拍手/叉腰只改数据` — 核心改动：将肢体动词改为关键帧驱动（puppet keyframe），渲染器零改动
-- `feat(video): WorldView 支持整课尺度字段 scaleSlide/scaleRef` — 场景比例统一化
-- `refactor(video): 场地改为配方数据，渲染器只认图层原语` — venue system restructured
-- `fix(db): add migration for video QA columns missing in production` — 数据库修复（本次分析的起点）
+**本轮分析周期 (8 commits since last report):**
+- `d70b6f4` fix(db): add migration for video QA columns missing in production
+- `324070b` fix(llm): recover XML-style tool calls emitted in content by gateways
+- `64a4599` deploy: expose backend port 3000 for Flutter Web
+- `329696f` deploy: mount Flutter Web build into backend static assets
+- `149599f` fix(dev): make stop.bat reliably kill process trees and verify ports
+- `1874b2d` Merge branch 'main' of ssh://ssh.github.com:443/zengxiaoqi/ai-growth-companion
+- `d0a17da` feat: 同步本地课程增强、安全配置与部署文档
+- `f234d05` ci: add InstaBox compose deployment config
 
-**本地修改**:
-- `src/backend/src/modules/voice/edge-tts-v2.ts` + `voice.service.ts` — Edge TTS V2 令牌兼容层重构（将 protocol 模块 patch 改为直接 patch EdgeTTS 类和 Constants 常量）
-- `video-generation-agent.service.spec.ts` — 已更新测试断言以匹配 vector→local 路径迁移
-- Prettier 格式化若干测试文件
+**本分析报告期间 (8 new commits on upstream main):**
+- `4b045cc` feat(video): 动作改关键帧表，加挥手/拍手/叉腰只改数据
+- `a774b62` docs: 动作关键帧表方案，原地动作数据化
+- `2271622` chore(video): 渲染版本升到 venue-v1
+- `86b9790` feat(video): WorldView 支持整课尺度字段 scaleSlide/scaleRef
+- `4cb5aad` feat(video): venue 改幕级，场地随幕变、基准缩放整课不变
+- + 更多 video 渲染 refactor commits (venue-prefab, puppet skeleton, etc.)
+
+**已提交修复:**
+- `8e05740` fix(voice): improve EdgeTTS V2 token patch; fix(video-test): update asset assertions
+  - Edge TTS V2 兼容层优化：改用直接 patch class prototype 和 Constants 的方式
+  - video-generation-agent 测试断言更新：vector→local 路径迁移
 
 ## 当前能力矩阵
 
-| 模块 | 完成度 | 状态 |
-|------|--------|------|
-| Child Experience | 100% | ✅ Flutter Web 待重建（122 files stale） |
+| 模块 | 完成度 | 待优化 |
+|------|--------|--------|
+| Child Experience | 100% | Flutter Web 有 122 文件 stale |
 | Parent Dashboard | 100% | ✅ |
 | Content System | 100% | ✅ |
-| Infrastructure | 100% | ✅ 部署健康 HTTPS:200 |
-| Code Quality | 98% | ⚠️ 8 个上游视频生成测试过期需跟进 |
-
-## 指标统计
-
-```
-Backend TS files:    361  lines  ~75k
-Frontend Dart files: 170  lines  ~85k  
-Web files:           132  lines  ~37k
-Content JSON:         53  lines  ~8k
-Total:             ~205k lines
-```
-
-## 测试状态
-
-**整体通过率**: 99.7% (2367 passed / 8 failed)
-
-- ✅ Voice tests (55): 全部通过 — Edge TTS V2 补丁正常编译运行
-- ❌ Video-generation-agent (8/20): **上游 venue 重构导致结构变更**，这些测试因 `DYNAMIC_REMOTION_MISSING_CHARACTER_ASSET` 异常而失败 — 属于 upstream 改动需要适配新 API 的预存问题
-- ✅ 其余所有 unit 测试: 2367 passed
-
-## 部署状态
-
-```
-HTTPS: https://lingxi.chataifree.eu.org/ → 200 OK ✅
-Cloudflare Tunnel: active (4 days uptime) ✅
-Nginx: ✅ `/uploads/` location 使用 `^~` 优先级 ✅
-Flutter Web: v1787475203 (3 days stale, 122 lib files newer than build) ⚠️
-Backend process: PID 481, node v22.22.0, running via systemd ✅
-```
+| Infrastructure | 100% | ✅ HTTPS 200, tunnel 正常 |
+| Code Quality | 98% | ⚠️ 8 个 upstream 视频生成测试需适配新 API |
 
 ## 🎯 今日建议行动
 
-| 优先级 | 任务 | 风险 | 备注 |
-|--------|------|------|------|
-| P0 | 推送本地 voice TTS 改动到 origin/main | 低 | edge-tts-v2.ts + voice.service.ts + 相关测试 |
-| P1 | 更新 video-generation-agent.service.spec.ts 中 8 个过期测试 | 中 | 配合上游 venue-keyframe 重构，需理解新的 manifest 结构后修正 |
-| P2 | Flutter Web 重建（122 文件 stale） | 低 | 下次有网时执行 `flutter build web` |
-| P2 | 清理 git stash（3 条无用历史 stash） | 低 | `git stash drop @{$i}` |
+1. **P0 — Flutter Web rebuild**: 122 个 lib 文件比构建产物新，需要重建部署到 CDN
+2. **P1 — Fix 8 个过期的 video-generation-agent 测试**: upstream venue/puppet 重构后测试断言需要更新
+3. **P2 — Git stash cleanup**: 清理 3 条历史无用 stash
+4. **P2 — 验证上游 video render 功能**: venue-v1 重构后的实际渲染效果
 
 ## 🔮 下一步规划
 
-1. **短期（本周）**：将本地语音 TTS 修复推送，处理 8 个过期视频生成测试
-2. **中期**：关注 venue-v1 关键帧渲染方案的完整回归验证
-3. **长期**：继续推进 Ph6 语音交互增强剩余部分（AI 对话升级）
+1. **短期 (本周)**: Flutter Web rebuild → P1 test fixes → 验证所有功能
+2. **中期 (P6 收尾)**: 语音交互完整测试 + AI对话升级验证
+3. **长期 (Ph7 vision)**: 智能推荐引擎 + 家长社区
 
-## 已验证事项
+## 统计
 
-- [x] Backend build clean (`nest build`)
-- [x] Voice tests passing (55/55)
-- [x] Merge conflict resolved (learning.controller.spec.ts)
-- [x] Deployment health checked (HTTPS 200)
-- [ ] Flutter Web rebuild (needs network)
+- **Backend**: 361 TS files, ~75k lines
+- **Flutter**: 170 Dart files, ~85k lines  
+- **Web**: 132 TS/TSX files, ~37k lines
+- **Content**: 53 JSON files, ~8k lines
+- **Tests**: 2375 total, 2367 passing, 8 failing (upstream venue API)
+- **Deploy**: HTTPS 200 OK, Cloudflare tunnel active 4+ days
+- **Flutter Build**: v1787475203 (stale — 122 files newer)
 
 ---
-*分析 #184 · 累计 800 commits · 距离上次分析 2 天*
+*Analysis #184 · Total commits: 801 · Status: Committed & needs rebase-push*

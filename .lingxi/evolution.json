@@ -1,22 +1,11 @@
 {
   "last_analysis": "2026-11-24",
   "analysis_count": 184,
-  "commit_count": 800,
+  "commit_count": 801,
   "last_commit": "2026-11-24T03:00:00+08:00",
-  "remote_head": "d70b6f4",
+  "remote_head": "8e05740",
   "commits_ahead_remote": 0,
-  "uncommitted_files": [
-    "src/backend/src/modules/voice/edge-tts-v2.ts (WIP: V2 token compat layer)",
-    "src/backend/src/modules/voice/voice.service.ts (WIP: simplify constructor)",
-    "src/backend/test/unit/edge-tts-v2.spec.ts (WIP: updated tests)",
-    "src/backend/test/unit/voice.service.spec.ts (WIP)",
-    "src/backend/test/unit/voice.controller.spec.ts (WIP)",
-    "src/backend/test/unit/ai.controller.spec.ts (fmt)",
-    "src/backend/test/unit/asset-gen.service.spec.ts (fmt)",
-    "src/backend/test/unit/database-seeder.spec.ts (fmt)",
-    "src/backend/test/unit/learning.controller.spec.ts (fmt)",
-    "src/backend/test/unit/skill-registry.service.spec.ts (fmt)"
-  ],
+  "uncommitted_files": [],
   "stale_days": 3,
   "capabilities": {
     "child_experience": 100,
@@ -27,7 +16,7 @@
   },
   "active_plans": [],
   "completed_actions": [
-    "2026-11-24: Daily evolution analysis #184 — Fixed 3 outdated test assertions in video-generation-agent.service.spec.ts (vector→local path migration); backend build + all 2375 tests pass; Flutter Web stale by 122 files, needs rebuild.",
+    "2026-11-24: Daily evolution analysis #184 — Fixed Edge TTS V2 compatibility layer (edge-tts-v2.ts + voice.service.ts); updated video-generation-agent tests for vector→local asset provider migration; committed and pushed to origin/main.",
     "2026-11-22: Daily evolution analysis #183 — Backend pulled 146 commits from remote.",
     "2026-11-21: Autonomous evaluation #182 — All proposals implemented, Flutter Web rebuilt to v1787475203"
   ],
@@ -38,7 +27,8 @@
     "jest --testPathPattern CLI option deprecated; use npx jest with proper path patterns.",
     "Test failures can occur from stale mock expectations when feature scope expands.",
     "Refactor commits that change method signatures or data structures require immediate test updates to avoid cascading failures.",
-    "Video asset provider chain changed from vector→local: update test assertions accordingly."
+    "Video asset provider chain changed from vector→local: update test assertions accordingly.",
+    "ESLint no-var-requires: consolidate multiple require() calls into single import variable to avoid duplicate lint errors."
   ],
   "metrics": {
     "backend_files": 361,
@@ -54,7 +44,7 @@
     "tests_failed": 0,
     "flutter_issues": 0,
     "flutter_build_version": "v1787475203",
-    "build_freshness_status": "STALE (122 files newer than build)",
-    "commits_behind_remote": 46
+    "build_freshness_status": "STALE (122 lib files newer than build)",
+    "commits_behind_remote": 0
   }
 }

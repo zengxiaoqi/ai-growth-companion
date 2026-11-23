@@ -159,6 +159,8 @@ export const PUPPET_DEFAULTS: Record<PuppetMotion, PuppetDefaults> = {
    * 所以改滑梯尺寸时这里不需要跟着改，也不会出现"手抓空气"。
    */
   climb: { start: [-0.6, 0.66, 0], end: [-0.6, 1.5, 0], steps: 4 },
+  /** 托举：没有位移参数——站位由渲染层按"这一幕有两个人"排（见 world.duoStations） */
+  hold: {},
 };
 
 /** 解析后的二维动作：坐标就位，渲染层直接按帧取值 */
@@ -208,6 +210,12 @@ export const PUPPET_MOTION_FRAMES: Record<PuppetMotion, number> = {
   walk: 90,
   enter: 75,
   climb: 120,
+  /**
+   * 托举没有"自然时长"：它是一段持续状态，不是一次动作。
+   * 给 90 只是因为串演时需要一个数（例如"托一下 → 走开"），
+   * 单独一幕的时长永远由旁白决定，不会用到这里。
+   */
+  hold: 90,
 };
 
 /** 单段最短帧数：再短就看不出是一个动作，只剩关节抖动 */

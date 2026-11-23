@@ -165,6 +165,13 @@ const mustHave = [
   // 围栏是游乐园/牧场的语汇：无条件画一条横贯全画面的木栅栏，
   // "森林里的小松鼠"就成了"一个有围栏的空地"
   'venueHasFence(world.venue)',
+  // 双人幕必须交给"两个木偶"，而不是徽章分支。这三个 token 分别钉住
+  // 路由（partner）、道具归属（carryBy）、以及渲染层的接口（coStar）：
+  // 少了任何一个，双人幕会静默退回"两个圆形头像 + 一条写死的抛物线"，
+  // 而画面照样出得来，不会报错。
+  'puppet.partner',
+  'puppet.carryBy',
+  'coStar:',
 ];
 
 // 有专属渲染分支的动效预设：少了分支，LLM 选到该动效会静默退化成 focus-ring

@@ -417,3 +417,27 @@ export function worldLadderX(world: WorldView): number | null {
   if (!world.slide) return null;
   return slideLadderX(world.slide.start, world.slide.end);
 }
+
+/** 双人站位之间的距离（两人中心间距，世界单位）。约 0.66 个角色身高 */
+const DUO_SPAN = 1.75;
+
+/**
+ * 两个角色的站位（世界 x）。
+ *
+ * 双人动作不是"把两个头像摆在画面两端"：递给需要两只手在中缝相遇，
+ * 一起抬需要两人各托住东西的一侧。间距由**手臂够得着**决定——1.75 个世界单位
+ * 时，两条 0.72 的前伸手臂之间还剩 0.3 左右的空当，正好放一件道具，
+ * 而且道具要走的那段距离在画面上看得见（太近就成了"原地换个手"）。
+ *
+ * 有滑梯时整对平移到爬梯左侧的空地：站着的地方不能落在滑梯的立柱与爬梯里，
+ * 否则画面上是"两个人穿在一副铁架子里递苹果"。站位只依赖场地几何，
+ * 与"这一节课讲什么"无关。
+ */
+export function duoStations(world: WorldView): [number, number] {
+  const half = DUO_SPAN / 2;
+  const ladder = worldLadderX(world);
+  if (ladder === null) return [-half, half];
+  // 爬梯外侧再留一个身位：1.15 ≈ 身宽的一半 + 一点余地
+  const center = Math.max(OPEN_VENUE_BOUNDS.minX + half, ladder - 1.15);
+  return [center - half, center + half];
+}

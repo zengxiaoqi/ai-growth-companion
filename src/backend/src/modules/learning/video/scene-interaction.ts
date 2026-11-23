@@ -63,7 +63,22 @@ export type Action3DMotion = (typeof ACTION3D_MOTIONS)[number];
  * 这里只列"2D 独占"的部分：walk/enter/climb 没有 3D 实现（也不需要，
  * 2D 骨架足够且更便宜），slide/dribble 走 3D 舞台。
  */
-export const PUPPET_MOTIONS = ['idle', 'speak', 'point', 'walk', 'enter', 'climb', 'cheer', 'sit'] as const;
+export const PUPPET_MOTIONS = [
+  'idle',
+  'speak',
+  'point',
+  'walk',
+  'enter',
+  'climb',
+  'cheer',
+  'sit',
+  /**
+   * 双手在身前托着东西。双人动词（递给 / 一起抬）的每个角色都用它：
+   * 手的位置就是道具的挂点，两个人各托一侧，东西才落在两只手中间，
+   * 而不是沿一条写死的屏幕弧线飞过去。
+   */
+  'hold',
+] as const;
 export type PuppetMotion = (typeof PUPPET_MOTIONS)[number];
 
 /**
@@ -72,8 +87,10 @@ export type PuppetMotion = (typeof PUPPET_MOTIONS)[number];
  * 放在契约层而不是装配层，因为它回答的是"这个 verb 渲染器能不能演"，
  * 属于能力表。以前这张表写在装配层，generate-video-content 的白名单又另抄
  * 一份，两处一漂移就会出现"提示词允许 jump、渲染器不认识 jump"。
- * 没有映射的动词（handover / lift-together / hold）代表"单角色骨架演不了"，
- * 需要双人舞台或徽章分支——这是真实的渲染器边界，不是遗漏。
+ * 这张表只覆盖"一个角色就能演"的动词。handover / lift-together 不在表里，
+ * 但它们不再落到徽章分支：那两种动词的边界不是"骨架演不了"，而是"骨架只有一个人"。
+ * 骨架扩成能演两个人之后（PuppetAction.partner），它们由一对 hold 演，
+ * 人物语言与单人幕同一套。真正的降级（徽章）只留给未知动词与 3D 不可用时的滑梯。
  */
 export const VERB_AS_MOTION: Partial<Record<InteractionVerb, PuppetMotion>> = {
   point: 'point',
@@ -89,6 +106,26 @@ export interface PuppetAction {
   actorId: string;
   /** climb 的阶梯数；其余动作忽略 */
   steps?: number;
+  /**
+   * 双人幕的第二个角色（递给 / 一起抬）。
+   *
+   * 为什么放在 puppet 里而不是新开一个 `duo` 字段：双人幕与单人幕的区别只有
+   * "多一份播放表"，渲染器、取景、场地全是同一套。新字段会让模板分叉成两条
+   * 渲染路径，而分叉正是"双人幕画成另一种人物语言"的起点。
+   */
+  partner?: {
+    motion: PuppetMotion;
+    actorId: string;
+    label?: string;
+    /** 造型参数由装配层解析（渲染层的 ActorRig），契约层不认识它的形状 */
+    rig?: any;
+  };
+  /**
+   * 道具在哪只手里（配合 partner）：
+   *  - `handover`：从主角色的手移到副角色的手；
+   *  - `shared`：两人各托一侧，停在两手之间。
+   */
+  carryBy?: 'self' | 'coStar' | 'shared' | 'handover';
 }
 
 export type Vec3 = [number, number, number];

@@ -693,9 +693,58 @@ describe('VideoGenerationAgentService', () => {
       return `actor:${it.verb}`;
     });
     expect(branches[0]).toBe('plain');
-    expect(branches[1]).toBe('actor:handover');
+    // 双人幕现在走木偶（两个 hold），不再是徽章分支——见下一条测试
+    expect(branches[1]).toBe('puppet');
     expect(branches[2]).toBe('puppet');
     expect(branches[3]).toBe('puppet');
+  });
+
+  /**
+   * 双人动词的两个落点都要钉住，缺一不可：
+   *  1. **路由**：handover / lift-together 必须交给木偶（两个人），而不是徽章分支。
+   *     只钉住"有 partner"不够——如果路由退回徽章，partner 字段永远不会出现，
+   *     测试要靠"puppet.motion === 'hold'"来判断它到底走的是哪条路。
+   *  2. **道具归属**：递给是"从一个人的手移到另一个人的手"，一起抬是"两人合托"，
+   *     两者用同一个字段（carryBy）区分。写错这个字，画面上就是"一起抬"变成
+   *     "一个人把东西递给另一个人"，孩子的理解完全不同。
+   */
+  it('双人动词交给两个木偶演：递给沿手移动、一起抬两人合托', async () => {
+    const fixture = JSON.parse(
+      readFileSync(join(__dirname, '../fixtures/forest-storyboard.json'), 'utf8'),
+    );
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(fixture, {} as any);
+    const scenes = manifest.props.scenes as any[];
+
+    // 递给（第 2 幕）：两个 hold，道具从主角色手上移到副角色手上
+    const handover = scenes[1].interaction;
+    expect(handover.verb).toBe('handover');
+    expect(handover.puppet).toBeTruthy();
+    expect(handover.puppet.motion).toBe('hold');
+    expect(handover.puppet.actorId).toBe('squirrel');
+    expect(handover.puppet.partner).toBeTruthy();
+    expect(handover.puppet.partner.motion).toBe('hold');
+    expect(handover.puppet.partner.actorId).toBe('rabbit');
+    expect(handover.puppet.partner.rig).toBeTruthy();
+    expect(handover.puppet.carryBy).toBe('handover');
+
+    // 一起抬：同一套骨架，但道具停在两人手之间
+    const lift = JSON.parse(JSON.stringify(fixture));
+    lift.scenes[1].interaction.verb = 'lift-together';
+    lift.scenes[1].interaction.propId = 'block';
+    const liftManifest = await service.generateRemotionComposition(lift, {} as any);
+    const liftInteraction = (liftManifest.props.scenes as any[])[1].interaction;
+    expect(liftInteraction.puppet.motion).toBe('hold');
+    expect(liftInteraction.puppet.partner.actorId).toBe('rabbit');
+    expect(liftInteraction.puppet.carryBy).toBe('shared');
+
+    // 没有道具时不留"空手递"：carryBy 不下发，渲染层也就不会画道具
+    const empty = JSON.parse(JSON.stringify(fixture));
+    delete empty.scenes[1].interaction.propId;
+    const emptyManifest = await service.generateRemotionComposition(empty, {} as any);
+    const emptyInteraction = (emptyManifest.props.scenes as any[])[1].interaction;
+    expect(emptyInteraction.puppet.partner).toBeTruthy();
+    expect(emptyInteraction.puppet.carryBy).toBeUndefined();
   });
 
   /**

@@ -130,6 +130,41 @@ export const STAND_POSE: Omit<Pose, "root"> = {
 };
 
 /**
+ * 双手中点（相对髋部的局部坐标）。**手里那件东西的挂点**。
+ *
+ * 递给 / 合抬的道具位置必须是"手算出来的"，不能是"屏幕上挑一个点"。
+ * 前者在换角色体型、换动作、换景别时都自动跟着手；后者只能对上某一帧，
+ * 于是全片里道具一会儿贴着手、一会儿离手半尺。
+ */
+export function gripLocal(pose: Pose): Tri {
+  /**
+   * 挂点是**前伸的那只手**（局部 +x），不是两手的中点。
+   *
+   * 中点只对"双手捧在胸前"成立；双人动作的手是一伸一垂，中点会落回肚皮，
+   * 东西就贴在身上而不是递在两人之间。朝向由 facing 镜像，所以这只手
+   * 永远朝着对方——两个人各自伸出的手之间的空隙，正是道具该在的位置。
+   */
+  return [pose.handR[0], pose.handR[1], pose.handR[2]];
+}
+
+/**
+ * 局部点 → 世界点：施加躯干倾角，再按朝向镜像。
+ *
+ * 与 Puppet2D 的投影是同一套约定（先绕髋旋转、再翻左右），所以这里算出的
+ * "手在世界里的位置"和画面上画出来的手是同一个位置。分成两处算就会出现
+ * "道具在手的右边一指远"——因为有一步忘了镜像。
+ */
+export function localToWorld(root: Tri, pose: Pose, local: Tri, facing: 1 | -1): Tri {
+  const c = Math.cos(pose.rotZ);
+  const s = Math.sin(pose.rotZ);
+  return [
+    root[0] + (local[0] * c - local[1] * s) * facing,
+    root[1] + local[0] * s + local[1] * c,
+    root[2] + local[2],
+  ];
+}
+
+/**
  * 两个姿态之间的线性混合（t=0 取 a，t=1 取 b）。
  *
  * 用途是一幕多动作的**段落接缝**：走路末帧手臂在体侧，point 首帧手臂已平举，
@@ -173,6 +208,14 @@ export const MOTION_OPS = [
   'dribble',
   'cheer',
   'sit',
+  /**
+   * 双手在身前托着一件东西。递给与合抬都用它。
+   *
+   * 这不是"站着手抬一点"的同义反复：这两个动作的语义是"东西在谁手里"，
+   * 所以手必须有一个**确定的目标点**，道具才能挂上去。手势一旦是浮动的，
+   * 道具就得另算一条时间线，两条线迟早会错开（"东西悬在离手一掌远的地方"）。
+   */
+  'hold',
 ] as const;
 export type MotionOp = (typeof MOTION_OPS)[number];
 
@@ -287,6 +330,34 @@ function sitPose(frame: number): Pose {
     tailSwing: Math.sin(frame / 10) * 0.3,
     headTilt: 0,
     squash: 1,
+  };
+}
+
+/**
+ * 托举：**朝向对方的那只手臂前伸**，另一只自然垂在体侧。
+ *
+ * 为什么不是"双手在胸前捧着"（第一版就是这么写的）：
+ * 正面视角里，双手收到身前画出来是"抱胸/比划"，因为手臂在投影上只能往
+ * 身体中线折——两道弯都朝内，看着像在跟自己的肚子较劲。而双人动作要表达的是
+ * "把东西递到对方面前"，能读出来的只有**伸出去的那条手臂**。
+ *
+ * 两个约束决定了手的位置：
+ *   - 肩到手 0.46，接近臂长 0.54：再近手臂就折成"抱胸"，再远会被 clampReach 钳制，
+ *     画面上是手停在半空、前臂不跟着走；
+ *   - 手在身体轮廓之外（局部 x 0.72 > 躯干半径 0.3）：东西才不在肚皮上，
+ *     而是在两人之间的空当里。
+ */
+function holdPose(frame: number): Pose {
+  const base = idlePose(frame, 0.6);
+  const breathe = Math.sin(frame / 15) * 0.012;
+  return {
+    ...base,
+    // 局部 +x 是"角色前方"（由 facing 镜像）：两个人各自把这条手臂伸向对方
+    handR: [0.72, 0.29 + breathe, 0.26],
+    // 另一侧自然下垂略前摆：抬到胸口就变成"双手捧"，那是另一种语义
+    handL: [-0.34, -0.04 + breathe, 0.1],
+    rotZ: 0.05,
+    headTilt: 0.05,
   };
 }
 
@@ -575,6 +646,8 @@ export function poseAt(input: MotionInput, frame: number): Pose {
       return cheerPose(frame);
     case 'sit':
       return sitPose(frame);
+    case 'hold':
+      return holdPose(frame);
     case 'idle':
     default:
       return idlePose(frame);
@@ -588,6 +661,7 @@ export const MOTION_REQUIRES: Record<MotionOp, Array<keyof MotionInput>> = {
   point: [],
   cheer: [],
   sit: [],
+  hold: [],
   walk: ['start', 'end'],
   enter: ['start', 'end'],
   climb: ['start', 'end'],

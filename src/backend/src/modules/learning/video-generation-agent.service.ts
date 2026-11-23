@@ -818,8 +818,28 @@ export class VideoGenerationAgentService {
               sceneDurationFrames: Math.round(durationSec * 30),
             })
           : null;
+      /**
+       * 双人幕：递给 / 一起抬。
+       *
+       * 这两种动词以前的归属是徽章分支（圆形头像 + 一条写死的屏幕弧线），
+       * 于是同一节课里同一个角色在双人幕是头像、在单人幕是全身。人物语言不统一
+       * 不是美术问题，是**渲染器只支持一个人**导致的：单角色骨架演不了"两个身体
+       * 之间的接触"，那就把骨架扩成能演两个人，而不是给这两个动词另开一种画法。
+       *
+       * 两个人的动作都是 hold（双手在身前托着东西）：手的位置就是道具的挂点，
+       * 于是"递到手里"和"两人一起托着"都落在同一套几何上，不需要额外的关键帧。
+       */
+      const duoPartner =
+        !action3d &&
+        interaction &&
+        (interaction.verb === 'handover' || interaction.verb === 'lift-together') &&
+        interaction.actors.length >= 2
+          ? interaction.actors[1]
+          : null;
+      const duoMotion: PuppetMotion | null = duoPartner ? 'hold' : null;
+
       const puppetMotion: PuppetMotion | null =
-        sequence?.[0]?.motion ?? interaction?.puppet?.motion ?? singleActorGesture;
+        sequence?.[0]?.motion ?? interaction?.puppet?.motion ?? singleActorGesture ?? duoMotion;
       const puppet =
         !action3d && puppetMotion
           ? resolvePuppet(puppetMotion, {
@@ -880,6 +900,26 @@ export class VideoGenerationAgentService {
                     ...puppet,
                     ...(sequence ? { sequence } : {}),
                     rig: resolveActorRig(puppet.actorId),
+                    ...(duoPartner
+                      ? {
+                          partner: {
+                            motion: 'hold' as PuppetMotion,
+                            actorId: duoPartner.id,
+                            label: duoPartner.label,
+                            rig: resolveActorRig(duoPartner.id),
+                          },
+                          /**
+                           * 道具在哪只手里：递给=从主角色移到副角色；一起抬=停在两手之间。
+                           * 只有真的给了道具才算——没有道具时"空手递出去"比徽章更糟。
+                           */
+                          ...(interaction.propId
+                            ? {
+                                carryBy:
+                                  interaction.verb === 'handover' ? 'handover' : 'shared',
+                              }
+                            : {}),
+                        }
+                      : {}),
                   },
                 }
               : {}),
@@ -4461,6 +4501,27 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
             // 指认幕必须把被指的东西画出来，否则"指着空气"比原来的小图标更差。
             // 道具由这里渲染（PropArt 只在这个文件里），Puppet2D 只负责摆位置。
             // 串演幕同理：point 可能不在第一段，光看 puppet.motion 会漏掉道具。
+            // 第二个人：与主角色共用一台相机、各自的播放表（见 Puppet2D 的 coStar）
+            coStar:
+              puppet.partner && puppet.partner.rig
+                ? {
+                    rig: puppet.partner.rig,
+                    motion: puppet.partner.motion,
+                    durationFrames: duration,
+                  }
+                : undefined,
+            // 手里的东西：位置由两人的手算出来（Puppet2D 的 carry），
+            // 所以"递到手里"不是一条写死的屏幕弧线，而是两只手的距离在变
+            carry:
+              puppet.partner && puppet.carryBy && scene.interaction!.propId
+                ? {
+                    node: (
+                      <PropArt id={scene.interaction!.propId} x={0} y={0} frame={stageFrame} />
+                    ),
+                    size: 0.36,
+                    by: puppet.carryBy,
+                  }
+                : undefined,
             props:
               scene.interaction!.propId &&
               // 用滑梯的幕不摆滑梯图标：公园里已经有一座真的了，

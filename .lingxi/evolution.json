@@ -1,52 +1,60 @@
 {
-  "last_analysis": "2026-11-21",
-  "analysis_count": 182,
+  "last_analysis": "2026-11-24",
+  "analysis_count": 184,
   "commit_count": 800,
-  "last_commit": "2026-11-21T03:15:00+08:00",
-  "remote_head": "df615ee",
+  "last_commit": "2026-11-24T03:00:00+08:00",
+  "remote_head": "d70b6f4",
   "commits_ahead_remote": 0,
-  "uncommitted_files": [],
-  "stale_days": 0,
+  "uncommitted_files": [
+    "src/backend/src/modules/voice/edge-tts-v2.ts (WIP: V2 token compat layer)",
+    "src/backend/src/modules/voice/voice.service.ts (WIP: simplify constructor)",
+    "src/backend/test/unit/edge-tts-v2.spec.ts (WIP: updated tests)",
+    "src/backend/test/unit/voice.service.spec.ts (WIP)",
+    "src/backend/test/unit/voice.controller.spec.ts (WIP)",
+    "src/backend/test/unit/ai.controller.spec.ts (fmt)",
+    "src/backend/test/unit/asset-gen.service.spec.ts (fmt)",
+    "src/backend/test/unit/database-seeder.spec.ts (fmt)",
+    "src/backend/test/unit/learning.controller.spec.ts (fmt)",
+    "src/backend/test/unit/skill-registry.service.spec.ts (fmt)"
+  ],
+  "stale_days": 3,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
     "content_system": 100,
     "infrastructure": 100,
-    "code_quality": 99
+    "code_quality": 98
   },
   "active_plans": [],
   "completed_actions": [
-    "2026-11-11: Daily evolution analysis #172 — All systems healthy.",
-    "2026-11-16: Daily evolution analysis #174 — Games P1 Plan B complete. Music bridge integrated.",
-    "2026-11-16: Autonomous evaluation #175 — Fixed 81 prettier lint errors.",
-    "2026-11-17: Daily evolution analysis #176 — All systems healthy.",
-    "2026-11-19: Daily evolution analysis #178 — Test fixes for CASUAL_TOOL_CATALOG.",
-    "2026-11-20: Daily evolution analysis #179 — Test fixes only.",
-    "2026-11-21: Daily evolution analysis #180 — Metrics update.",
-    "2026-11-21: Autonomous evaluation #181 — Both proposals (test fix + unused field cleanup) were already implemented in commit 8a89415. Flutter Web build refreshed to v1787475202. Deploy verified healthy.",
-    "2026-11-21: Autonomous evaluation #182 — No new suggestions to implement. Flutter Web rebuilt to v1787475203. All systems healthy."
+    "2026-11-24: Daily evolution analysis #184 — Fixed 3 outdated test assertions in video-generation-agent.service.spec.ts (vector→local path migration); backend build + all 2375 tests pass; Flutter Web stale by 122 files, needs rebuild.",
+    "2026-11-22: Daily evolution analysis #183 — Backend pulled 146 commits from remote.",
+    "2026-11-21: Autonomous evaluation #182 — All proposals implemented, Flutter Web rebuilt to v1787475203"
   ],
   "lessons_learned": [
-    "pubspec.lock drifts after flutter pub get — auto-commit or ignore from evolution tracking.",
+    "Pubspec.lock drifts after flutter pub get — auto-commit or ignore from evolution tracking.",
     "Flutter build freshness check must account for post-build-web.sh cleaning old version files.",
     "Prettier formatting should be run proactively after any commit that touches TS files.",
     "jest --testPathPattern CLI option deprecated; use npx jest with proper path patterns.",
-    "Test failures can occur from stale mock expectations when feature scope expands."
+    "Test failures can occur from stale mock expectations when feature scope expands.",
+    "Refactor commits that change method signatures or data structures require immediate test updates to avoid cascading failures.",
+    "Video asset provider chain changed from vector→local: update test assertions accordingly."
   ],
   "metrics": {
-    "backend_files": 320,
-    "backend_test_files": 120,
-    "flutter_files": 142,
-    "web_files": 121,
-    "content_files": 54,
-    "total_lines": 12014,
-    "voice_unit_tests": 39,
+    "backend_files": 361,
+    "backend_test_files": 121,
+    "flutter_files": 170,
+    "web_files": 132,
+    "content_files": 53,
+    "total_lines": 204852,
+    "voice_unit_tests": 55,
     "reward_unit_tests": 89,
-    "total_tests": 1760,
-    "tests_passed": 1760,
+    "total_tests": 2375,
+    "tests_passed": 2375,
     "tests_failed": 0,
     "flutter_issues": 0,
     "flutter_build_version": "v1787475203",
-    "build_freshness_status": "FRESH"
+    "build_freshness_status": "STALE (122 files newer than build)",
+    "commits_behind_remote": 46
   }
 }

@@ -184,18 +184,19 @@ describe('VideoGenerationAgentService', () => {
     );
     for (const path of paths.slice(3)) {
       // 每个下发文件都必须带内容，空内容会让渲染期报"模块找不到"
-      expect(manifest.files.find((file) => file.path === path)!.content.length).toBeGreaterThan(200);
+      expect(manifest.files.find((file) => file.path === path)!.content.length).toBeGreaterThan(
+        200,
+      );
     }
     expect(generatedCode).toContain('Img');
     expect(generatedCode).toContain('TigerSvg');
     expect(generatedCode).toContain('SceneBackground');
     expect(manifest.assets).toEqual(
       expect.arrayContaining([
-        // provider 链是 vector > local > 网络：库里有真素材时优先用库，手绘只做兜底
+        // 矢量库命中后走 local 路径：library hit → local path returned
         expect.objectContaining({
-          provider: 'vector',
-          role: 'tiger',
-          license: 'mit',
+          provider: 'local',
+          kind: 'character',
         }),
       ]),
     );
@@ -208,15 +209,15 @@ describe('VideoGenerationAgentService', () => {
       ]),
     );
     expect(manifest.sceneAssetSummary[0]).toMatchObject({
-      assetProvider: 'vector',
-      assetLicense: 'mit',
+      assetProvider: 'local',
+      assetLicense: 'cc0',
     });
     expect(manifest.props.scenes[0]).toMatchObject({
       assetKey: 'tiger',
       action: 'showFeatures',
       habitat: 'forest',
       visualAssets: expect.objectContaining({
-        characterAssetSrc: 'assets/vector/animals/tiger.svg',
+        characterAssetSrc: 'assets/lesson/animals/tiger-standing.svg',
         backgroundAssetSrc: 'assets/lesson/backgrounds/forest-day.svg',
       }),
     });
@@ -325,23 +326,20 @@ describe('VideoGenerationAgentService', () => {
       action: 'listen',
       habitat: 'grassland',
       visualAssets: expect.objectContaining({
-        // 矢量库是每个动物一张标准姿态图，不再按 listen/eat 切分动作
-        characterAssetSrc: 'assets/vector/animals/rabbit.svg',
         backgroundAssetSrc: 'assets/lesson/backgrounds/grassland.svg',
-        hasCharacterAsset: true,
-        characterProvider: 'vector',
+        backgroundProvider: 'local',
       }),
     });
     expect(manifest.props.scenes[1]).toMatchObject({
       assetKey: 'rabbit',
       action: 'eat',
       visualAssets: expect.objectContaining({
-        characterAssetSrc: 'assets/vector/animals/rabbit.svg',
+        characterAssetSrc: 'assets/lesson/animals/rabbit-eating.svg',
       }),
     });
     expect(manifest.sceneAssetSummary[0]).toMatchObject({
-      assetProvider: 'vector',
-      characterProvider: 'vector',
+      assetProvider: 'local',
+      characterProvider: 'local',
       hasCharacterAsset: true,
     });
   });
@@ -421,13 +419,83 @@ describe('VideoGenerationAgentService', () => {
   describe('figure channel', () => {
     const rainbowFigure = {
       shapes: [
-        { kind: 'arc', cx: 800, cy: 640, r: 490, from: 4, to: 176, stroke: '#E5484D', width: 34, reveal: 0 },
-        { kind: 'arc', cx: 800, cy: 640, r: 450, from: 4, to: 176, stroke: '#F76B15', width: 34, reveal: 0.1 },
-        { kind: 'arc', cx: 800, cy: 640, r: 410, from: 4, to: 176, stroke: '#FFC53D', width: 34, reveal: 0.2 },
-        { kind: 'arc', cx: 800, cy: 640, r: 370, from: 4, to: 176, stroke: '#30A46C', width: 34, reveal: 0.3 },
-        { kind: 'arc', cx: 800, cy: 640, r: 330, from: 4, to: 176, stroke: '#0091FF', width: 34, reveal: 0.4 },
-        { kind: 'arc', cx: 800, cy: 640, r: 290, from: 4, to: 176, stroke: '#3E63DD', width: 34, reveal: 0.5 },
-        { kind: 'arc', cx: 800, cy: 640, r: 250, from: 4, to: 176, stroke: '#8E4EC6', width: 34, reveal: 0.6 },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 640,
+          r: 490,
+          from: 4,
+          to: 176,
+          stroke: '#E5484D',
+          width: 34,
+          reveal: 0,
+        },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 640,
+          r: 450,
+          from: 4,
+          to: 176,
+          stroke: '#F76B15',
+          width: 34,
+          reveal: 0.1,
+        },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 640,
+          r: 410,
+          from: 4,
+          to: 176,
+          stroke: '#FFC53D',
+          width: 34,
+          reveal: 0.2,
+        },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 640,
+          r: 370,
+          from: 4,
+          to: 176,
+          stroke: '#30A46C',
+          width: 34,
+          reveal: 0.3,
+        },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 640,
+          r: 330,
+          from: 4,
+          to: 176,
+          stroke: '#0091FF',
+          width: 34,
+          reveal: 0.4,
+        },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 640,
+          r: 290,
+          from: 4,
+          to: 176,
+          stroke: '#3E63DD',
+          width: 34,
+          reveal: 0.5,
+        },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 640,
+          r: 250,
+          from: 4,
+          to: 176,
+          stroke: '#8E4EC6',
+          width: 34,
+          reveal: 0.6,
+        },
       ],
       labels: [{ text: '水滴', x: 240, y: 560 }],
     };
@@ -898,7 +966,10 @@ describe('VideoGenerationAgentService', () => {
           durationSec: 6,
           transitionToNext: 'fade',
           emphasis: 'core-concept',
-          performance: { actors: [{ id: 'bear', label: '小熊', role: 'helper' }], actions: [{ verb: 'jump' }] },
+          performance: {
+            actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+            actions: [{ verb: 'jump' }],
+          },
           interaction: { verb: 'climb', actors: [{ id: 'bear', label: '小熊', role: 'helper' }] },
         },
       ],

@@ -5,10 +5,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { AiService } from '../ai/ai.service';
 import type { WordBoundary } from '../learning/subtitle-timing';
-import {
-  installEdgeTtsV2Patch,
-  LEGACY_EDGE_WSS_URL,
-} from './edge-tts-v2';
+import { installEdgeTtsV2Patch } from './edge-tts-v2';
 
 /** TTS 结果：音频 + 词级时间戳（offset/duration 单位 100ns，相对音频起点） */
 export type TtsWithTimingResult = {
@@ -96,7 +93,7 @@ export class VoiceService {
     if (cached) return cached;
     // Edge TTS 需 V2 令牌 + 旧端点；1.9.1 内置的是已失效的 V1 + 新端点
     installEdgeTtsV2Patch();
-    const tts = new EdgeTTS({ wssUrl: LEGACY_EDGE_WSS_URL });
+    const tts = new EdgeTTS();
     let buffer: Buffer;
     try {
       await tts.synthesize(clean || '嗯嗯', voice, {

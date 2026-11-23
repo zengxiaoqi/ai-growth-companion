@@ -24,10 +24,7 @@ export const LEGACY_EDGE_WSS_URL =
 
 // 固定前缀使用 Base64 分段存储，避免源码中出现明文版权串
 const PREFIX = Buffer.from(
-  [
-    'Q29weXJpZ2h0IChDKSBNaWNyb3NvZnQg',
-    'Q29ycG9yYXRpb24uIEFsbCByaWdodHMgcmVzZXJ2ZWQu',
-  ].join(''),
+  ['Q29weXJpZ2h0IChDKSBNaWNyb3NvZnQg', 'Q29ycG9yYXRpb24uIEFsbCByaWdodHMgcmVzZXJ2ZWQu'].join(''),
   'base64',
 );
 
@@ -54,23 +51,15 @@ const rol16 = (x: number) => ((x << 16) | (x >>> 16)) >>> 0;
 function cs64Digest(data: Buffer, shaDigest: Buffer): Buffer {
   const keyA = (shaDigest.readUInt32LE(0) | 1) >>> 0;
   const keyB = (shaDigest.readUInt32LE(4) | 1) >>> 0;
-  const factors = [
-    mul(keyA, 0x82893933) >>> 0,
-    mul(keyB, 0x82893933) >>> 0,
-  ];
-  const terms = COEFFICIENTS.map(
-    ([coefficient], i) => mul(coefficient, factors[i % 2]) >>> 0,
-  );
+  const factors = [mul(keyA, 0x82893933) >>> 0, mul(keyB, 0x82893933) >>> 0];
+  const terms = COEFFICIENTS.map(([coefficient], i) => mul(coefficient, factors[i % 2]) >>> 0);
   const offsets = COEFFICIENTS.map(([, offset]) => offset);
   const padded = Buffer.alloc(Math.ceil((data.length + 1) / 8) * 8);
   padded.set(data, 1);
   for (let i = 0; i < padded.length / 4; i++) {
     const word = padded.readUInt32LE(i * 4);
     let term = mul(word, i % 2 === 0 ? keyA : keyB);
-    let offset = mul(
-      rol16(word),
-      i % 2 === 0 ? 0xef0569fb : 0xc31713db,
-    );
+    let offset = mul(rol16(word), i % 2 === 0 ? 0xef0569fb : 0xc31713db);
     if (i === 0) {
       term = (term + mul(0xf2f90b1a, factors[0])) >>> 0;
       offset = (offset + 0x0b1a0000) >>> 0;
@@ -136,16 +125,15 @@ let installed = false;
 export function installEdgeTtsV2Patch(): void {
   if (installed) return;
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const protocol = require('@andresaya/edge-tts/dist/core/protocol');
-  protocol.generateSecMsGec = () => generateSecMsGecV2();
-  protocol.buildSynthesisUrl = (
-    _base: string,
-    token: string,
-    gec: string,
-    _version: string,
-    connectionId: string,
-  ) =>
-    `${LEGACY_EDGE_WSS_URL}?TrustedClientToken=${token}&Sec-MS-GEC=${gec}` +
-    `&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION_V2}&ConnectionId=${connectionId}`;
+  const EdgeTTSClass = require('@andresaya/edge-tts').EdgeTTS;
+  EdgeTTSClass.prototype.generateSecMsGec = () => generateSecMsGecV2();
+  // Patch buildSynthesisUrl by overriding synthesize's URL construction
+  // Since the library hard-codes Constants.WSS_URL, we override the constant
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const eTTS = require('@andresaya/edge-tts');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const constants = eTTS.Constants || require('@andresaya/edge-tts/dist/config/constants');
+  constants.WSS_URL = LEGACY_EDGE_WSS_URL;
+  constants.VERSION_MS_GEC = SEC_MS_GEC_VERSION_V2;
   installed = true;
 }

@@ -163,8 +163,12 @@ const mustHave = [
   'const SceneBackdrop',
   'cameraForWorld(world, "wide")',
   // 围栏是游乐园/牧场的语汇：无条件画一条横贯全画面的木栅栏，
-  // "森林里的小松鼠"就成了"一个有围栏的空地"
-  'venueHasFence(world.venue)',
+  // "森林里的小松鼠"就成了"一个有围栏的空地"。
+  // 判定已从 `venueHasFence(world.venue)` 改由配方派生（配方里有没有 fence 层），
+  // 所以钉的是"渲染器按 world.venue 取配方"这件事本身：少了它，场地退化成
+  // 一个写死的背景，加多少配方都不会生效。
+  'venueRecipe(world.venue)',
+  'VENUE_RECIPES',
   // 双人幕必须交给"两个木偶"，而不是徽章分支。这三个 token 分别钉住
   // 路由（partner）、道具归属（carryBy）、以及渲染层的接口（coStar）：
   // 少了任何一个，双人幕会静默退回"两个圆形头像 + 一条写死的抛物线"，

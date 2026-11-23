@@ -27,6 +27,7 @@
 
 import { ACTOR } from './pose';
 import { slideBounds, slideLadderX } from './setpiece';
+import { BUILTIN_VENUES, VENUE_RECIPES, venueRecipe } from './venue-recipes';
 import {
   CAMERA_FOV,
   SAFE_X,
@@ -40,10 +41,21 @@ import {
 
 export type Tri3 = readonly [number, number, number];
 
-/** 场地类型。决定的不是"讲什么"，而是"这是个什么地方"。 */
-export type Venue = 'playground' | 'meadow' | 'riverside' | 'forest' | 'night';
+/**
+ * 场地 id。
+ *
+ * **开放字符串，不是字面量联合**。场地是内容，会无限增长；用联合类型等于让
+ * 类型系统替内容做白名单——每加一处场地都要改类型定义，"零改代码"就断了。
+ * 换来的类型安全由 `normalizeRecipe` + 遍历 `Object.keys(VENUE_RECIPES)` 的
+ * 全量测试补，覆盖面比编译期穷举更全。
+ */
+export type Venue = string;
 
-export const VENUES: readonly Venue[] = ['playground', 'meadow', 'riverside', 'forest', 'night'];
+/**
+ * 内置场地清单。**不再是类型来源**，只是"回归基线"：测试要求这里每一个都有
+ * 配方，反过来不要求——加新场地不需要动这个数组。
+ */
+export const VENUES: readonly Venue[] = BUILTIN_VENUES;
 
 /**
  * 世界里的一处滑梯：平台（start）到滑道末端（end）。
@@ -61,112 +73,19 @@ export type WorldView = {
 };
 
 /* ------------------------------------------------------------------ *
- * 场地配色。装饰元素（树、围栏、长椅）共用一套，颜色随场地换。
+ * 场地配色与配方
+ *
+ * 数据全部在 `venue-recipes.ts`：这里只做转发，保持旧调用点（测试、模板）
+ * 的 import 路径不变。加场地不需要动这个文件。
  * ------------------------------------------------------------------ */
 
-export type VenueTheme = {
-  skyTop: string;
-  skyBottom: string;
-  sun: string;
-  cloud: string;
-  hillFar: string;
-  hillNear: string;
-  ground: string;
-  groundTop: string;
-  path: string;
-  wood: string;
-  woodDark: string;
-  metal: string;
-  leaf: string;
-  leafDark: string;
-};
-
-export const VENUE_THEMES: Record<Venue, VenueTheme> = {
-  playground: {
-    skyTop: '#a9e4ff',
-    skyBottom: '#e8f7ff',
-    sun: '#ffd76a',
-    cloud: '#ffffff',
-    hillFar: '#b7e3c6',
-    hillNear: '#96d6ae',
-    ground: '#8ed47a',
-    groundTop: '#a6df8e',
-    path: '#e9d3a8',
-    wood: '#c98a5a',
-    woodDark: '#8d5524',
-    metal: '#9fb3c8',
-    leaf: '#57b96a',
-    leafDark: '#3e8f52',
-  },
-  meadow: {
-    skyTop: '#bfeaff',
-    skyBottom: '#f0f9ff',
-    sun: '#ffe08a',
-    cloud: '#ffffff',
-    hillFar: '#c6e8c9',
-    hillNear: '#a4d9ab',
-    ground: '#8ed47a',
-    groundTop: '#a9e094',
-    path: '#e6d2ac',
-    wood: '#c08b5c',
-    woodDark: '#8a5a2f',
-    metal: '#a8b8c6',
-    leaf: '#5bbb6c',
-    leafDark: '#41904f',
-  },
-  riverside: {
-    skyTop: '#a7e8ff',
-    skyBottom: '#eaf9ff',
-    sun: '#ffdf85',
-    cloud: '#ffffff',
-    hillFar: '#a9dcc2',
-    hillNear: '#8ecfae',
-    ground: '#7fc97a',
-    groundTop: '#95d78c',
-    path: '#d9c39b',
-    wood: '#bb8a5e',
-    woodDark: '#84562f',
-    metal: '#9fb3c8',
-    leaf: '#55b46a',
-    leafDark: '#3d8a4e',
-  },
-  forest: {
-    skyTop: '#bfe6ff',
-    skyBottom: '#eef9ff',
-    sun: '#ffe08a',
-    cloud: '#ffffff',
-    hillFar: '#a8d6bd',
-    hillNear: '#87c4a1',
-    ground: '#79c073',
-    groundTop: '#8ed083',
-    path: '#cdb894',
-    wood: '#b98456',
-    woodDark: '#7d5029',
-    metal: '#9aa9b8',
-    leaf: '#4faf63',
-    leafDark: '#357a46',
-  },
-  night: {
-    skyTop: '#13233f',
-    skyBottom: '#29456f',
-    sun: '#f2f0d8',
-    cloud: '#3a5170',
-    hillFar: '#22384f',
-    hillNear: '#1b2d40',
-    ground: '#2c4636',
-    groundTop: '#35533f',
-    path: '#3d4a3f',
-    wood: '#6f523c',
-    woodDark: '#4a3527',
-    metal: '#7d8b99',
-    leaf: '#2f5c41',
-    leafDark: '#234631',
-  },
-};
+export { VENUE_THEMES } from './venue-recipes';
+export type { VenueRecipe, VenueTheme } from './venue-recipes';
+export { VENUE_RECIPES };
 
 export function venueFromHabitat(habitat?: string): Venue {
   const value = String(habitat || '').trim().toLowerCase();
-  return (VENUES as readonly string[]).includes(value) ? (value as Venue) : 'meadow';
+  return VENUE_RECIPES[value] ? value : 'meadow';
 }
 
 /**
@@ -346,53 +265,35 @@ export type Decor = { kind: 'tree' | 'fence' | 'bench' | 'sandbox' | 'wheel' | '
  * 和主题对不上时，孩子读到的不是"森林"，是"一个有围栏的空地"。
  */
 export function venueHasFence(venue: Venue): boolean {
-  return venue === 'playground' || venue === 'meadow' || venue === 'riverside';
+  return venueRecipe(venue).layers.some((layer) => layer.kind === 'fence');
 }
 
 /**
  * 装饰布局。
  *
- * 只用固定值，不用随机：同一节课重渲必须逐像素一致（Remotion 的硬要求）。
- * 位置经过一次实测调整——都要落在"可演区域 + 两侧各 2 个世界单位"内，
- * 否则镜头一平移就只剩空草地。
+ * **从配方派生**，不再在这里用 if 判断场地。这样"森林没有围栏""游乐园有摩天轮"
+ * 这类断言自动变成"对配方的断言"——测试不用重写，而且以后加场地时它会继续守着。
  *
- * 每种场地填背景的东西不同：没有围栏的场地（森林、夜）就得靠树和灌木把
- * 画面两侧填满，否则镜头一平移就是一块空地。
+ * 只用固定值，不用随机：同一节课重渲必须逐像素一致（Remotion 的硬要求）。
  */
 export function venueDecor(world: WorldView): Decor[] {
-  const decor: Decor[] = [
-    { kind: 'tree', x: -3.2 },
-    { kind: 'bench', x: 5.6 },
-    { kind: 'tree', x: 6.6 },
-    { kind: 'tree', x: 8.2 },
-  ];
-  if (world.venue === 'playground') {
-    decor.push({ kind: 'sandbox', x: -2.6 });
-    // 摩天轮画在滑梯正后方（不是画面边缘）：它是"这是游乐园"的一句话，
-    // 放在边缘就有一半在画外，等于没说。
-    decor.push({ kind: 'wheel', x: 3.4 });
-  }
-  if (world.venue === 'riverside') decor.push({ kind: 'sandbox', x: -2.6 });
-  if (!venueHasFence(world.venue)) {
-    // 没有围栏的场地：靠灌木和更密的树把两侧填住
-    decor.push(
-      { kind: 'tree', x: -5.4 },
-      { kind: 'tree', x: -7.2 },
-      { kind: 'bush', x: -1.6 },
-      { kind: 'bush', x: 4.4 },
-      { kind: 'bush', x: 9.4 },
-      { kind: 'tree', x: 10.4 },
-    );
+  const decor: Decor[] = [];
+  for (const layer of venueRecipe(world.venue).layers) {
+    if (layer.kind !== 'decor') continue;
+    for (const item of layer.items) {
+      if ((DECOR_KINDS as readonly string[]).includes(item.asset)) {
+        decor.push({ kind: item.asset as Decor['kind'], x: item.x });
+      }
+    }
   }
   return decor;
 }
 
-/**
- * 摩天轮尺寸。写在这里而不是 WorldLayer 里，是因为它同时决定"背景装饰的
- * 尺度"——半径 2.2 个世界单位 ≈ 4 米，与滑梯（平台 2.6）是同一处公园的量级。
- * 换成屏幕像素写死的话，镜头一变焦它就和滑梯对不上，又回到"贴图背景"。
- */
-export const WHEEL = { radius: 2.2, centerY: 1.35 } as const;
+/** `venueDecor` 认识的资产（室内资产不进这个函数：它是 3D 侧与旧测试的接口） */
+const DECOR_KINDS = ['tree', 'bush', 'bench', 'sandbox', 'wheel'] as const;
+
+/* 摩天轮尺寸随资产走（`venue-assets.tsx` 的 `WHEEL`）：它是"画出来的东西"的
+ * 参数，不是世界几何。放在这里会让 world.ts 反过来依赖美术层。 */
 
 /* ------------------------------------------------------------------ *
  * 滑梯的二维几何（WorldLayer 用；三维 SlideRig 用同一组参数）

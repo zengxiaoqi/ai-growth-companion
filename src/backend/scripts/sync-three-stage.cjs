@@ -26,8 +26,12 @@ const SOURCES = [
   // 取景定律与布景注册表：两个渲染器都要 import，必须在角色/舞台之前写进任务目录
   ['character/stage-layout.ts', path.join(remotionSrc, 'character', 'stage-layout.ts')],
   ['character/setpiece.ts', path.join(remotionSrc, 'character', 'setpiece.ts')],
+  // 场地配方（数据）与装饰资产（组件）。world 依赖配方、WorldLayer 依赖两者，
+  // 少同步一个，任务目录里就会在 import 处炸——而且只在线上出片时才炸。
+  ['character/venue-recipes.ts', path.join(remotionSrc, 'character', 'venue-recipes.ts')],
   // 场地层：整节课共用的世界 + 镜头。渲染器依赖它，必须排在它们之前
   ['character/world.ts', path.join(remotionSrc, 'character', 'world.ts')],
+  ['character/venue-assets.tsx', path.join(remotionSrc, 'character', 'venue-assets.tsx')],
   ['character/WorldLayer.tsx', path.join(remotionSrc, 'character', 'WorldLayer.tsx')],
   ['character/Puppet2D.tsx', path.join(remotionSrc, 'character', 'Puppet2D.tsx')],
   ['three/ThreeActionStage.tsx', path.join(remotionSrc, 'three', 'ThreeActionStage.tsx')],

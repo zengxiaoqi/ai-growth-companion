@@ -1,38 +1,269 @@
 /**
- * 场地渲染（WorldLayer）
+ * 场地渲染（WorldLayer）：**只负责"每一层怎么画"，不管"这个场地有什么"**。
  *
- * 这是"同一处公园"的可见部分：天空、远山、草地、围栏、树、长椅、沙坑、
- * 远处的摩天轮，以及**作为一整个结构的滑梯**（平台 + 立柱 + 滑道 + 爬梯）。
+ * 场地内容全在 `venue-recipes.ts`（数据），装饰细节全在 `venue-assets.tsx`
+ * （组件）。这里是一台很笨的放映机：按配方给的顺序，逐层调对应分支画出来。
  *
- * 与上一版背景的区别不是"画得更多"，而是**坐标系统一**：
- *  - 所有东西都在世界坐标里，跟着同一个 camera 的 ppu 与 originX 投影；
- *  - 所以镜头一变焦，树、滑梯、熊一起变大；角色走过去，树不会"贴着他平移"；
- *  - 滑梯在每一幕都在同一个位置——爬梯子的那一幕，梯子后面就是平台和滑道，
- *    因为梯子本来就是滑梯的一部分，不是这一幕临时摆出来的道具。
+ * 为什么这么分——加一处场地、加一件装饰都不该改这个文件。以前这里既有"层"
+ * 又有"具体场地"（摩天轮只在 playground），于是每加一处场地都要改 4 个文件，
+ * 而且没有任何东西会提醒你"漏了一层"。
  *
- * 上一版把这些画在屏幕像素上（背景一张屏保、梯子一段独立 SVG），于是
- * "梯子"和"熊"从来没有共处过同一个空间，比例自然对不上。
+ * 与上一版背景的区别仍然成立，而且现在由配方结构保证：
+ *  - `sky` 是屏幕空间（云不跟着镜头跑，那是"天"）；
+ *  - 其余全部是世界坐标，跟角色同一把尺（camera 的 ppu / originX）；
+ *  - 所以镜头一变焦，树、滑梯、熊一起变大；角色走过去，树不会"贴着他平移"。
+ *
+ * 绘制顺序 = 配方 `layers` 的顺序 = 遮挡关系。`decor` 允许出现多次，
+ * 因为"摩天轮在围栏之前、树在围栏之后"这件事没法在一个 decor 层里表达。
  */
 
 import React from 'react';
 import { LADDER, SLIDE, ladderRungYs, slideDeckAngle } from './setpiece';
+import { slideLadderTop, worldLadderX, type WorldCamera, type WorldView } from './world';
+import { DECOR_RENDERERS } from './venue-assets';
 import {
-  VENUE_THEMES,
-  WHEEL,
-  slideLadderTop,
-  venueDecor,
-  venueHasFence,
-  worldLadderX,
+  venueRecipe,
+  type DecorLayer,
+  type FenceLayer,
+  type GroundLayer,
+  type HorizonLayer,
+  type LayerSpec,
+  type SkyLayer,
   type VenueTheme,
-  type WorldCamera,
-  type WorldView,
-} from './world';
+  type WaterLayer,
+} from './venue-recipes';
 
 /** 滑梯配色与三维 SlideRig 同一组：切换渲染器时道具不能"换了个颜色" */
 const SLIDE_DECK = '#ffb347';
 const SLIDE_RAIL = '#ff8f4d';
 const SLIDE_POST = '#cf9a63';
 
+type RenderCtx = {
+  frame: number;
+  theme: VenueTheme;
+  world: WorldView;
+  px: (x: number) => number;
+  py: (y: number) => number;
+  u: (n: number) => number;
+};
+
+/* ------------------------------------------------------------------ *
+ * 六个稳定分支。**以后不会再长**：新场地是数据，新装饰是资产组件。
+ * ------------------------------------------------------------------ */
+
+function renderLayer(layer: LayerSpec, ctx: RenderCtx): React.ReactNode {
+  switch (layer.kind) {
+    case 'sky':
+      return renderSky(layer, ctx);
+    case 'horizon':
+      return renderHorizon(layer, ctx);
+    case 'ground':
+      return renderGround(layer, ctx);
+    case 'water':
+      return renderWater(layer, ctx);
+    case 'fence':
+      return renderFence(layer, ctx);
+    case 'decor':
+      return renderDecor(layer, ctx);
+    default:
+      return null;
+  }
+}
+
+/**
+ * 天空：屏幕空间，永不随平移移动——它们是"天"，不属于地面世界。
+ *
+ * `fill: 'solid'` 是室内用的：没有太阳云，这一层就是一块纯色背景。
+ * 所以它叫 sky 只是一种历史命名，实际语义是"背景层"。
+ */
+function renderSky(layer: SkyLayer, { frame, theme }: RenderCtx) {
+  const drift = Math.sin(frame / 220) * 18;
+  const sun = layer.sun;
+  return (
+    <>
+      <rect
+        x={0}
+        y={0}
+        width={1920}
+        height={1080}
+        fill={layer.fill === 'solid' ? theme.skyTop : 'url(#world-sky)'}
+      />
+      {sun ? (
+        <>
+          <circle cx={sun.x + drift * 0.3} cy={sun.y} r={sun.glowR} fill="url(#world-sun-glow)" />
+          <circle cx={sun.x + drift * 0.3} cy={sun.y} r={sun.r} fill={theme.sun} />
+        </>
+      ) : null}
+      {(layer.clouds ?? []).map((c, i) => (
+        <g key={`cloud-${i}`} transform={`translate(${c.x + drift * (0.6 + i * 0.2)} ${c.y}) scale(${c.s})`}>
+          <ellipse cx={0} cy={0} rx={96} ry={44} fill={theme.cloud} opacity={0.92} />
+          <ellipse cx={78} cy={10} rx={70} ry={34} fill={theme.cloud} opacity={0.92} />
+          <ellipse cx={-72} cy={14} rx={58} ry={28} fill={theme.cloud} opacity={0.92} />
+        </g>
+      ))}
+    </>
+  );
+}
+
+/** 远山：世界坐标，落在同一个地平线上。用大圆挖出弧顶 */
+function renderHorizon(layer: HorizonLayer, { theme, px, py, u }: RenderCtx) {
+  return (
+    <>
+      {layer.hills.map((h, i) => (
+        <circle
+          key={`hill-${i}`}
+          cx={px(h.x)}
+          cy={py(0) + u(h.r) * 0.86}
+          r={u(h.r)}
+          fill={h.tone === 'far' ? theme.hillFar : theme.hillNear}
+          opacity={0.75}
+        />
+      ))}
+    </>
+  );
+}
+
+/**
+ * 地面：从地平线铺到底。上沿一条浅色边，把"地面"和"空气"分开。
+ *
+ * 层内顺序有意义：铺面 → 滑梯脚下的沙地椭圆 → 草簇。草簇贴在地上、沙地压在地面
+ * 上，顺序反了草就"浮在沙上"。
+ */
+function renderGround(layer: GroundLayer, { frame, theme, world, px, py, u }: RenderCtx) {
+  const slide = world.slide;
+  const sway = Math.sin(frame / 46) * u(0.02);
+  return (
+    <>
+      <rect x={0} y={py(0)} width={1920} height={1080 - py(0)} fill={theme.ground} />
+      {layer.topBand > 0 ? (
+        <rect x={0} y={py(0)} width={1920} height={u(layer.topBand)} fill={theme.groundTop} />
+      ) : null}
+      {(layer.patches ?? []).map((patch, i) => {
+        if (patch.asset === 'dirtPatch') {
+          // 沙地属于滑梯，不属于场地：没有滑梯就没人踩出这块地
+          if (!slide) return null;
+          return (
+            <ellipse
+              key={`patch-${i}`}
+              cx={px((slide.start[0] + slide.end[0]) / 2)}
+              cy={py(0)}
+              rx={u(patch.rx)}
+              ry={u(patch.ry)}
+              fill={theme.path}
+              opacity={patch.opacity}
+            />
+          );
+        }
+        // 草簇：确定性地按索引摆，重渲逐像素一致
+        return (
+          <React.Fragment key={`tuft-${i}`}>
+            {Array.from({ length: patch.count }).map((_, j) => {
+              const x = patch.from + j * patch.step;
+              const h = 0.12 + ((j * 7) % 5) * 0.02;
+              return (
+                <path
+                  key={`tuft-${i}-${j}`}
+                  d={`M ${px(x)} ${py(0)} q ${u(0.04) + sway * 0.2} ${-u(h) * 0.6} ${u(0.02)} ${-u(h)}`}
+                  stroke={theme.leafDark}
+                  strokeWidth={Math.max(1.5, u(0.014))}
+                  fill="none"
+                  opacity={0.35}
+                  strokeLinecap="round"
+                />
+              );
+            })}
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * 水面：世界坐标的一条水带。
+ *
+ * 这是**新的渲染原语**，不是新场地：今后"湖""水池""海边"都复用它，只改
+ * `from/to/surfaceY/depth`。这正是"原语可枚举、内容不可枚举"的收益。
+ */
+function renderWater(layer: WaterLayer, { theme, px, py, u }: RenderCtx) {
+  const fill = theme.water ?? theme.hillNear;
+  return (
+    <>
+      <rect
+        x={px(layer.from)}
+        y={py(layer.surfaceY)}
+        width={u(layer.to - layer.from)}
+        height={u(layer.depth)}
+        fill={fill}
+        opacity={layer.opacity ?? 0.85}
+      />
+      {/* 水面上沿一道亮边：没有它，水带和草地只是两块颜色不同的矩形 */}
+      <rect
+        x={px(layer.from)}
+        y={py(layer.surfaceY)}
+        width={u(layer.to - layer.from)}
+        height={Math.max(1.5, u(0.03))}
+        fill={theme.cloud}
+        opacity={0.55}
+      />
+    </>
+  );
+}
+
+/**
+ * 围栏：**按场地给**。它是游乐园/牧场的语汇，森林里画一条横贯全画面的
+ * 木栅栏就变成了"一个有围栏的空地"。
+ */
+function renderFence(layer: FenceLayer, { theme, px, py, u }: RenderCtx) {
+  return (
+    <g opacity={0.9}>
+      {Array.from({ length: layer.posts }).map((_, i) => {
+        const x = layer.from + i * layer.spacing;
+        return (
+          <rect
+            key={`fence-post-${i}`}
+            x={px(x) - u(layer.postWidth / 2)}
+            y={py(layer.postHeight)}
+            width={u(layer.postWidth)}
+            height={u(layer.postHeight)}
+            rx={u(0.03)}
+            fill={theme.wood}
+          />
+        );
+      })}
+      {layer.railYs.map((y) => (
+        <rect
+          key={`fence-rail-${y}`}
+          x={px(layer.from)}
+          y={py(y)}
+          width={u(layer.railSpan)}
+          height={u(layer.railHeight)}
+          fill={theme.woodDark}
+          opacity={0.85}
+        />
+      ))}
+    </g>
+  );
+}
+
+/** 装饰：数组顺序即绘制顺序，资产自己知道怎么画 */
+function renderDecor(layer: DecorLayer, { frame, theme, px, py, u }: RenderCtx) {
+  return (
+    <>
+      {layer.items.map((item, i) => {
+        const Asset = DECOR_RENDERERS[item.asset];
+        if (!Asset) return null;
+        return (
+          <Asset key={`${item.asset}-${i}`} item={item} theme={theme} frame={frame} px={px} py={py} u={u} />
+        );
+      })}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * 世界层
+ * ------------------------------------------------------------------ */
 
 export const WorldLayer: React.FC<{
   world: WorldView;
@@ -44,21 +275,18 @@ export const WorldLayer: React.FC<{
    */
   withSlide?: boolean;
 }> = ({ world, camera, frame, withSlide = true }) => {
-  const theme = VENUE_THEMES[world.venue];
+  const recipe = venueRecipe(world.venue);
+  const theme = recipe.theme;
   const { ppu, originX, groundY } = camera;
   /** 世界 → 屏幕 */
   const px = (x: number) => originX + x * ppu;
   const py = (y: number) => groundY - y * ppu;
   const u = (n: number) => n * ppu;
 
-  // 缓慢的确定性动画：云飘、轮子转、草摇。都用 frame 推，不用随机/时钟。
-  const drift = Math.sin(frame / 220) * 18;
-  const wheelSpin = (frame / 360) * Math.PI * 2;
-  const sway = Math.sin(frame / 46) * u(0.02);
-
   const slide = withSlide ? world.slide : undefined;
   const ladderX = slide ? worldLadderX(world) : null;
-  const decor = venueDecor(world);
+
+  const ctx: RenderCtx = { frame, theme, world, px, py, u };
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
@@ -74,173 +302,11 @@ export const WorldLayer: React.FC<{
           </radialGradient>
         </defs>
 
-        {/* 天空与太阳：屏幕空间，永不随平移移动——它们是"天"，不属于地面世界 */}
-        <rect x={0} y={0} width={1920} height={1080} fill="url(#world-sky)" />
-        <circle cx={1560 + drift * 0.3} cy={230} r={210} fill="url(#world-sun-glow)" />
-        <circle cx={1560 + drift * 0.3} cy={230} r={78} fill={theme.sun} />
-
-        {/* 云：屏幕空间，轻微漂移。画在世界里会被镜头平移拉成"追着跑" */}
-        {[
-          { x: 320, y: 200, s: 1 },
-          { x: 980, y: 150, s: 0.75 },
-          { x: 1420, y: 300, s: 0.55 },
-        ].map((c, i) => (
-          <g key={`cloud-${i}`} transform={`translate(${c.x + drift * (0.6 + i * 0.2)} ${c.y}) scale(${c.s})`}>
-            <ellipse cx={0} cy={0} rx={96} ry={44} fill={theme.cloud} opacity={0.92} />
-            <ellipse cx={78} cy={10} rx={70} ry={34} fill={theme.cloud} opacity={0.92} />
-            <ellipse cx={-72} cy={14} rx={58} ry={28} fill={theme.cloud} opacity={0.92} />
-          </g>
+        {recipe.layers.map((layer, i) => (
+          <React.Fragment key={i}>{renderLayer(layer, ctx)}</React.Fragment>
         ))}
 
-        {/* 远山：世界坐标，落在同一个地平线上。用大圆挖出弧顶 */}
-        {[
-          { x: -1.5, r: 6.2, color: theme.hillFar },
-          { x: 6.5, r: 5.4, color: theme.hillFar },
-          { x: 2.4, r: 4.4, color: theme.hillNear },
-        ].map((h, i) => (
-          <circle
-            key={`hill-${i}`}
-            cx={px(h.x)}
-            cy={py(0) + u(h.r) * 0.86}
-            r={u(h.r)}
-            fill={h.color}
-            opacity={0.75}
-          />
-        ))}
-
-        {/* 地面：从地平线铺到底。上沿一条浅色草边，把"地面"和"空气"分开 */}
-        <rect x={0} y={py(0)} width={1920} height={1080 - py(0)} fill={theme.ground} />
-        <rect x={0} y={py(0)} width={1920} height={u(0.055)} fill={theme.groundTop} />
-
-        {/* 滑梯脚下的土地：给这组装置一个"被踩出来的地面"，不然它会像贴上去的 */}
-        {slide ? (
-          <ellipse
-            cx={px((slide.start[0] + slide.end[0]) / 2)}
-            cy={py(0)}
-            rx={u(2.9)}
-            ry={u(0.3)}
-            fill={theme.path}
-            opacity={0.55}
-          />
-        ) : null}
-
-        {/* 草簇：确定性地按索引摆，重渲逐像素一致 */}
-        {Array.from({ length: 34 }).map((_, i) => {
-          const x = -3.4 + i * 0.42;
-          const h = 0.12 + ((i * 7) % 5) * 0.02;
-          return (
-            <path
-              key={`tuft-${i}`}
-              d={`M ${px(x)} ${py(0)} q ${u(0.04) + sway * 0.2} ${-u(h) * 0.6} ${u(0.02)} ${-u(h)}`}
-              stroke={theme.leafDark}
-              strokeWidth={Math.max(1.5, u(0.014))}
-              fill="none"
-              opacity={0.35}
-              strokeLinecap="round"
-            />
-          );
-        })}
-
-        {/* 摩天轮：画在滑梯正后方，低透明度压暗——读作"公园的另一头"，
-            而不是前景道具。轮子转得很慢，但它是确定性的（frame 推）。
-            注意它画在**围栏之前**：围栏要挡住轮子的底座，否则两根斜撑会
-            横在草地上像脚手架，把"远景"读成"前景障碍物"。 */}
-        {decor
-          .filter((d) => d.kind === 'wheel')
-          .map((d) => (
-            <g key="wheel" opacity={0.42}>
-              <circle cx={px(d.x)} cy={py(WHEEL.centerY)} r={u(WHEEL.radius)} fill="none" stroke={theme.metal} strokeWidth={u(0.07)} />
-              <circle cx={px(d.x)} cy={py(WHEEL.centerY)} r={u(WHEEL.radius * 0.78)} fill="none" stroke={theme.metal} strokeWidth={u(0.03)} opacity={0.7} />
-              {Array.from({ length: 8 }).map((_, i) => {
-                const a = wheelSpin + (Math.PI * 2 * i) / 8;
-                const cx = px(d.x) + Math.cos(a) * u(WHEEL.radius);
-                const cy = py(WHEEL.centerY) + Math.sin(a) * u(WHEEL.radius);
-                return (
-                  <g key={`spoke-${i}`}>
-                    <line
-                      x1={px(d.x)}
-                      y1={py(WHEEL.centerY)}
-                      x2={cx}
-                      y2={cy}
-                      stroke={theme.metal}
-                      strokeWidth={u(0.025)}
-                      opacity={0.7}
-                    />
-                    <rect
-                      x={cx - u(0.12)}
-                      y={cy - u(0.1)}
-                      width={u(0.24)}
-                      height={u(0.2)}
-                      rx={u(0.06)}
-                      fill={theme.metal}
-                      opacity={0.85}
-                    />
-                  </g>
-                );
-              })}
-              {/* 支架：两根斜柱落地，轮子才不会悬空 */}
-              <line x1={px(d.x) - u(0.9)} y1={py(0)} x2={px(d.x)} y2={py(WHEEL.centerY)} stroke={theme.metal} strokeWidth={u(0.06)} />
-              <line x1={px(d.x) + u(0.9)} y1={py(0)} x2={px(d.x)} y2={py(WHEEL.centerY)} stroke={theme.metal} strokeWidth={u(0.06)} />
-            </g>
-          ))}
-
-        {/* 围栏：**按场地给**。它是游乐园/牧场的语汇，森林里画一条横贯全画面的
-            木栅栏就变成了"一个有围栏的空地"。没有围栏的场地由树和灌木填两侧。 */}
-        {venueHasFence(world.venue) ? (
-          <g opacity={0.9}>
-            {Array.from({ length: 34 }).map((_, i) => {
-              const x = -9 + i * 0.62;
-              return (
-                <rect
-                  key={`fence-post-${i}`}
-                  x={px(x) - u(0.045)}
-                  y={py(0.58)}
-                  width={u(0.09)}
-                  height={u(0.58)}
-                  rx={u(0.03)}
-                  fill={theme.wood}
-                />
-              );
-            })}
-            {[0.24, 0.46].map((y) => (
-              <rect
-                key={`fence-rail-${y}`}
-                x={px(-9)}
-                y={py(y)}
-                width={u(20)}
-                height={u(0.07)}
-                fill={theme.woodDark}
-                opacity={0.85}
-              />
-            ))}
-          </g>
-        ) : null}
-
-        {decor
-          .filter((d) => d.kind === 'bush')
-          .map((d) => (
-            <Bush key={`bush-${d.x}`} x={d.x} px={px} py={py} u={u} theme={theme} sway={sway} />
-          ))}
-
-        {decor
-          .filter((d) => d.kind === 'tree')
-          .map((d) => (
-            <Tree key={`tree-${d.x}`} x={d.x} px={px} py={py} u={u} theme={theme} sway={sway} />
-          ))}
-
-        {decor
-          .filter((d) => d.kind === 'bench')
-          .map((d) => (
-            <Bench key={`bench-${d.x}`} x={d.x} px={px} py={py} u={u} theme={theme} />
-          ))}
-
-        {decor
-          .filter((d) => d.kind === 'sandbox')
-          .map((d) => (
-            <Sandbox key={`sandbox-${d.x}`} x={d.x} px={px} py={py} u={u} theme={theme} />
-          ))}
-
-        {/* 滑梯：平台 + 立柱 + 滑道 + 爬梯，一个整体 */}
+        {/* 滑梯：平台 + 立柱 + 滑道 + 爬梯，一个整体。它是装置槽，不进入配方 */}
         {slide ? (
           <Slide2D
             start={slide.start}
@@ -258,7 +324,7 @@ export const WorldLayer: React.FC<{
 };
 
 /* ------------------------------------------------------------------ *
- * 装置
+ * 滑梯（装置槽）
  * ------------------------------------------------------------------ */
 
 type Proj = {
@@ -266,63 +332,6 @@ type Proj = {
   py: (y: number) => number;
   u: (n: number) => number;
 };
-
-const Tree: React.FC<Proj & { x: number; theme: VenueTheme; sway: number }> = ({ x, px, py, u, theme, sway }) => (
-  <g>
-    <rect x={px(x) - u(0.075)} y={py(1.45)} width={u(0.15)} height={u(1.45)} rx={u(0.05)} fill={theme.woodDark} />
-    <circle cx={px(x) - u(0.42) + sway} cy={py(1.9)} r={u(0.56)} fill={theme.leaf} />
-    <circle cx={px(x) + u(0.44) + sway} cy={py(1.98)} r={u(0.5)} fill={theme.leaf} />
-    <circle cx={px(x) + sway} cy={py(2.32)} r={u(0.62)} fill={theme.leaf} />
-    <circle cx={px(x) - u(0.16) + sway} cy={py(2.16)} r={u(0.4)} fill={theme.leafDark} opacity={0.55} />
-  </g>
-);
-
-/**
- * 灌木：没有围栏的场地（森林、夜）用它填两侧。
- * 尺寸比树小一档、贴地，作用是"视线尽头不是一块空草地"。
- */
-const Bush: React.FC<Proj & { x: number; theme: VenueTheme; sway: number }> = ({ x, px, py, u, theme, sway }) => (
-  <g>
-    <ellipse cx={px(x) - u(0.22) + sway} cy={py(0.2)} rx={u(0.32)} ry={u(0.24)} fill={theme.leafDark} />
-    <ellipse cx={px(x) + u(0.24) + sway} cy={py(0.18)} rx={u(0.3)} ry={u(0.22)} fill={theme.leaf} />
-    <ellipse cx={px(x) + sway} cy={py(0.26)} rx={u(0.34)} ry={u(0.26)} fill={theme.leaf} />
-  </g>
-);
-
-const Bench: React.FC<Proj & { x: number; theme: VenueTheme }> = ({ x, px, py, u, theme }) => (
-  <g>
-    {/* 靠背 */}
-    <rect x={px(x) - u(0.8)} y={py(0.86)} width={u(1.6)} height={u(0.12)} rx={u(0.05)} fill={theme.wood} />
-    <rect x={px(x) - u(0.8)} y={py(0.72)} width={u(1.6)} height={u(0.1)} rx={u(0.04)} fill={theme.wood} />
-    {/* 座面 */}
-    <rect x={px(x) - u(0.84)} y={py(0.46)} width={u(1.68)} height={u(0.1)} rx={u(0.04)} fill={theme.woodDark} />
-    {/* 腿 */}
-    {[-0.66, 0.66].map((dx) => (
-      <rect key={dx} x={px(x) + u(dx) - u(0.05)} y={py(0.46)} width={u(0.1)} height={u(0.46)} fill={theme.woodDark} />
-    ))}
-  </g>
-);
-
-const Sandbox: React.FC<Proj & { x: number; theme: VenueTheme }> = ({ x, px, py, u, theme }) => (
-  <g>
-    <rect x={px(x) - u(0.85)} y={py(0.3)} width={u(1.7)} height={u(0.3)} rx={u(0.06)} fill={theme.wood} />
-    <rect x={px(x) - u(0.74)} y={py(0.3)} width={u(1.48)} height={u(0.22)} fill={theme.path} opacity={0.9} />
-    {/* 小桶与铲子：告诉孩子"这里可以玩沙"，比一块空沙子更可读 */}
-    <path
-      d={`M ${px(x) + u(0.12)} ${py(0.28)} l ${u(0.16)} 0 l ${-u(0.02)} ${u(0.2)} l ${-u(0.12)} 0 Z`}
-      fill="#ef5f58"
-    />
-    <line
-      x1={px(x) - u(0.2)}
-      y1={py(0.28)}
-      x2={px(x) - u(0.34)}
-      y2={py(0.5)}
-      stroke="#5b8ba6"
-      strokeWidth={u(0.035)}
-      strokeLinecap="round"
-    />
-  </g>
-);
 
 /**
  * 滑梯（二维侧视）。

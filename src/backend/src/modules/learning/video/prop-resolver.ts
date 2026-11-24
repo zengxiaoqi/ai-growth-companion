@@ -20,13 +20,27 @@ import { PROP_LABELS } from './prop-lexicon';
 import { PROP_PLACES, propIdOf, type DeclaredProp, type PropPlace } from './prop-contract';
 
 /**
- * 生成产物里"内容高度 / 画布高度"的近似值。
+ * 量不出真实占位时的兜底高度占比。
  *
- * `drawSvgOnce` 的提示词要求"主体占画面 60%~85%"，取中值 0.75。这个数只影响
- * **大小**（±15%），不影响位置与内容，所以先用固定值；要精确需要解 PNG 的
- * alpha 包围盒（当前依赖里没有解码库），列为后续项（见文档 §5.4）。
+ * 正常路径**不用这个数**：`loadSubjectSvg` 会把生成物光栅化后量 alpha 包围盒，
+ * 拿真实的内容高度比（实测 12 个样本落在 0.55~0.95，没有一个正好是 0.75）。
+ * 这个常量只服务两种边角：光栅化失败（依赖缺失/渲染器不认某个属性），
+ * 以及占位件——占位件是代码画的，它的几何是确定的，见 `placeholderArt`。
  */
 export const PROP_GEN_FILL = 0.75;
+
+/**
+ * 占位件的内容高度占比。
+ *
+ * 不是估的：`PlaceholderGlyph` 画的是 `side = canvas × 0.66` 的正方形，
+ * 所以它的真实占位就是 0.66。以前沿用 0.75，占位件会被画成目标高度的 88%，
+ * 六个占位并排时大小还不一致——占位件本来就该是"缺东西"的信号，
+ * 尺寸再乱就变成噪声了。
+ */
+const PLACEHOLDER_FILL = 0.66;
+
+/** 导出给测试与画廊用：占位件的实际占位比例 */
+export const PROP_PLACEHOLDER_FILL = PLACEHOLDER_FILL;
 
 /** 装配期算出的绘图参数：渲染层拿它和尺寸算出最终变换 */
 export interface PropArtPayload {
@@ -34,14 +48,27 @@ export interface PropArtPayload {
   markup?: string;
   /** 绘图盒边长（内置 160 / 生成按 viewBox） */
   canvas: number;
-  /** 内容占盒高的比例（内置 1 / 生成 0.75） */
+  /** 内容占盒高的比例（内置 1 / 生成实测 / 占位 0.66） */
   fill: number;
+  /**
+   * 内容水平中心在画布里的 x。
+   *
+   * 缺省（内置道具）表示"画布正中"——内置几何约定成 0..canvas 且居中，
+   * 与渲染层的默认值一致，所以老道具一个字节都不会变。
+   */
+  anchorX?: number;
+  /** 内容底边在画布里的 y。缺省表示"按垂直居中推算"（内置道具的老假设） */
+  anchorY?: number;
   source: 'builtin' | 'library' | 'generated' | 'placeholder';
 }
 
 /** 生成通道的抽象：单测传假实现，生产传视觉素材服务 */
 export interface PropSvgSource {
-  loadSvg(name: string): Promise<{ markup: string; canvas: number } | null>;
+  loadSvg(name: string): Promise<{
+    markup: string;
+    canvas: number;
+    box?: { fill: number; anchorX: number; anchorY: number };
+  } | null>;
 }
 
 /**
@@ -73,7 +100,7 @@ const BUILTIN_IDS = new Set(Object.keys(PROP_LABELS));
 
 /** 占位件：画不出来时用它，至少让人看见"这里差一个东西" */
 export function placeholderArt(): PropArtPayload {
-  return { canvas: 256, fill: PROP_GEN_FILL, source: 'placeholder', markup: undefined };
+  return { canvas: 256, fill: PLACEHOLDER_FILL, source: 'placeholder', markup: undefined };
 }
 
 /**
@@ -110,10 +137,20 @@ export async function resolveLessonPropArt(
       try {
         const svg = await source.loadSvg(name);
         if (!svg || !svg.markup) return [id, placeholderArt()] as const;
-        return [
-          id,
-          { markup: svg.markup, canvas: svg.canvas, fill: PROP_GEN_FILL, source: 'generated' } as PropArtPayload,
-        ] as const;
+        const box = svg.box;
+        const art: PropArtPayload = {
+          markup: svg.markup,
+          canvas: svg.canvas,
+          fill: box && box.fill > 0 ? box.fill : PROP_GEN_FILL,
+          source: 'generated',
+        };
+        // 只有量到了才写下锚点：缺省让渲染层走"居中"的老假设，
+        // 而不是把 0 当成合法坐标（0 会把道具整个顶出画面）。
+        if (box) {
+          art.anchorX = box.anchorX;
+          art.anchorY = box.anchorY;
+        }
+        return [id, art] as const;
       } catch {
         return [id, placeholderArt()] as const;
       }

@@ -1382,6 +1382,9 @@ type GeneratedScene = {
       markup?: string;
       canvas: number;
       fill: number;
+      /** 实测的内容底边/水平中心；缺省 = 内容居中（内置道具的老约定） */
+      anchorX?: number;
+      anchorY?: number;
       source: "builtin" | "library" | "generated" | "placeholder";
     };
   }>;
@@ -2079,6 +2082,8 @@ const propGlyphOf = (scene: GeneratedScene, id: string, label?: string) => {
       size: PROP_BOX,
       canvas: declared.art.canvas,
       fill: declared.art.fill,
+      anchorX: declared.art.anchorX,
+      anchorY: declared.art.anchorY,
       markup: declared.art.markup,
       source: declared.art.source,
     } as ScenePropGlyph;

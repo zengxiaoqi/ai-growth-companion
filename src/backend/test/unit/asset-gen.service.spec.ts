@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import {
   AssetGenService,
   extractSvg,
+  measureContentBox,
   validateGeneratedSvg,
 } from '../../src/modules/learning/asset-gen.service';
 import { VisualAssetService } from '../../src/modules/learning/visual-asset.service';
@@ -52,6 +53,67 @@ describe('validateGeneratedSvg', () => {
     const many =
       '<svg viewBox="0 0 256 256">' + '<circle cx="1" cy="1" r="2"/>'.repeat(70) + '</svg>';
     expect(validateGeneratedSvg(many).ok).toBe(false);
+  });
+});
+
+/**
+ * 包围盒测量：用合成像素测，不依赖 resvg。
+ *
+ * 为什么值得单独测：这个函数决定了"道具多大、底边落在哪"，算错不会有任何
+ * 报错——只会让成片里所有生成道具统一偏大/偏小/悬空。而像素→画布坐标的
+ * 换算有一处极易写错的地方：像素行 r 覆盖 [r, r+1)，底边要 +1。
+ */
+describe('measureContentBox', () => {
+  /** 造一张 RGBA 图，把 (x0..x1, y0..y1) 涂成不透明 */
+  const paint = (w: number, h: number, box: { x0: number; y0: number; x1: number; y1: number }) => {
+    const buf = Buffer.alloc(w * h * 4);
+    for (let y = box.y0; y <= box.y1; y++) {
+      for (let x = box.x0; x <= box.x1; x++) {
+        buf[(y * w + x) * 4 + 3] = 255;
+      }
+    }
+    return buf;
+  };
+
+  it('矩形：高度占比与底边/中心换算到画布坐标', () => {
+    // 256 见方画布，内容占 y 32..191（160px 高）、x 64..191
+    const box = measureContentBox(paint(256, 256, { x0: 64, y0: 32, x1: 191, y1: 191 }), 256, 256, 256);
+    expect(box).not.toBeNull();
+    expect(box!.fill).toBeCloseTo(160 / 256, 5);
+    expect(box!.anchorY).toBe(192); // 底边 = 最后一行的下沿，不是行号 191
+    expect(box!.anchorX).toBe(128); // (64 + 191 + 1) / 2
+  });
+
+  it('渲染分辨率与画布不同时按比例换算', () => {
+    // 光栅化到 128px，画布仍是 256：坐标要乘 2
+    const box = measureContentBox(paint(128, 128, { x0: 32, y0: 16, x1: 95, y1: 95 }), 128, 128, 256);
+    expect(box!.fill).toBeCloseTo(80 / 128, 5);
+    expect(box!.anchorY).toBe(192);
+    expect(box!.anchorX).toBe(128);
+  });
+
+  it('内容极小：高度占比夹到下限，但底边仍是真实位置', () => {
+    const box = measureContentBox(paint(256, 256, { x0: 120, y0: 240, x1: 128, y1: 248 }), 256, 256, 256);
+    expect(box!.fill).toBeGreaterThanOrEqual(0.15);
+    expect(box!.anchorY).toBe(249); // 夹紧只影响大小，不影响落点
+  });
+
+  it('全透明 → null（调用方据此当失败处理）', () => {
+    expect(measureContentBox(Buffer.alloc(256 * 256 * 4), 256, 256, 256)).toBeNull();
+  });
+
+  it('像素缓冲长度不足 → null（不越界读）', () => {
+    expect(measureContentBox(Buffer.alloc(16), 256, 256, 256)).toBeNull();
+  });
+
+  it('低 alpha 的抗锯齿毛边不计入包围盒', () => {
+    const buf = Buffer.alloc(256 * 256 * 4);
+    // 一圈 alpha=4 的毛边铺满上半屏，真内容只有 100..150
+    for (let y = 0; y < 128; y++) for (let x = 0; x < 256; x++) buf[(y * 256 + x) * 4 + 3] = 4;
+    for (let y = 100; y <= 150; y++) for (let x = 100; x <= 150; x++) buf[(y * 256 + x) * 4 + 3] = 255;
+    const box = measureContentBox(buf, 256, 256, 256);
+    expect(box!.fill).toBeCloseTo(51 / 256, 5);
+    expect(box!.anchorY).toBe(151);
   });
 });
 

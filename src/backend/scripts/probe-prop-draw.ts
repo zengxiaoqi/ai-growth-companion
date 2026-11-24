@@ -62,6 +62,10 @@ type Row = {
   ms: number;
   cached: boolean;
   bytes: number;
+  fill: number;
+  anchorX: number;
+  anchorY: number;
+  measured: boolean;
   markup?: string;
 };
 
@@ -95,6 +99,7 @@ async function main() {
     const t0 = Date.now();
     const svg = await assetGen.loadSubjectSvg(name);
     const ms = Date.now() - t0;
+    const fill = svg?.box?.fill ?? 0;
     rows.push({
       name,
       ok: !!svg,
@@ -102,11 +107,24 @@ async function main() {
       ms,
       cached,
       bytes: svg ? Buffer.byteLength(svg.markup, 'utf-8') : 0,
+      fill,
+      anchorX: svg?.box?.anchorX ?? 0,
+      anchorY: svg?.box?.anchorY ?? 0,
+      measured: !!svg?.box,
       markup: svg?.markup,
     });
     const flag = svg ? '✓' : '✗';
+    // 旧实现假定"内容占 0.75、垂直居中"，这里把两处误差都算出来：
+    // 尺寸误差直接是 fill/0.75−1；落点误差是旧假定的底边与实际底边之差。
+    const sizeErr = fill > 0 ? (fill / PROP_GEN_FILL - 1) * 100 : 0;
+    const oldBottom = svg ? svg.canvas * (0.5 + PROP_GEN_FILL / 2) : 0;
+    const dropErr = fill > 0 ? ((oldBottom - (svg?.box?.anchorY ?? 0)) / (svg.canvas * fill)) * 100 : 0;
     console.log(
-      `  ${flag} ${name.padEnd(4)} ${svg ? `canvas=${svg.canvas} bytes=${Buffer.byteLength(svg.markup, 'utf-8')}` : '占位件'} ${ms}ms${cached ? ' (缓存)' : ''}`,
+      `  ${flag} ${name.padEnd(4)} ${
+        svg
+          ? `canvas=${svg.canvas} fill=${fill.toFixed(3)} 旧尺寸误差=${sizeErr >= 0 ? '+' : ''}${sizeErr.toFixed(0)}% 落点误差=${dropErr >= 0 ? '+' : ''}${dropErr.toFixed(0)}% bytes=${Buffer.byteLength(svg.markup, 'utf-8')}`
+          : '占位件'
+      } ${ms}ms${cached ? ' (缓存)' : ''}`,
     );
   }
 
@@ -117,7 +135,10 @@ async function main() {
   const CELL = 260;
   const PAD = 24;
   const W = Math.max(1, rows.length) * CELL + PAD * 2 + 220;
-  const H = CELL + PAD * 2 + 60;
+  // 标尺熊必须整只进画：它比道具格子高得多（1.67 × 220 ≈ 367px），
+  // 按 CELL 定高会把熊头切掉，尺寸对比就失去了参照。
+  const bearH = STAND_HEIGHT * 220;
+  const H = Math.max(CELL, bearH + 60) + PAD * 2 + 60;
   const groundY = H - 70;
 
   const cells = rows
@@ -127,10 +148,11 @@ async function main() {
         return `<rect x="${x - 70}" y="${groundY - 140}" width="140" height="140" rx="18" fill="#ffe9b8" stroke="#c9a227" stroke-width="4" stroke-dasharray="12 8"/><text x="${x}" y="${groundY - 55}" text-anchor="middle" font-size="56" font-weight="900" fill="#8a6a12">${row.name.slice(0, 1)}</text>`;
       }
       // 与 PropGlyph 同一行换算：内容高 = ratio × standHeight，画布为 canvas，
-      // 内容占盒高 fill —— 反解出缩放系数
+      // 内容占盒高 fill（实测），锚点是内容的真实底边/水平中心
       const targetH = ratio * STAND_HEIGHT * 220; // 220 px / 世界单位，仅画廊用
-      const k = targetH / (row.canvas * PROP_GEN_FILL);
-      return `<g transform="translate(${x} ${groundY}) scale(${k}) translate(${-row.canvas / 2} ${-row.canvas * (0.5 + PROP_GEN_FILL / 2)})">${row.markup}</g>`;
+      const fill = row.fill > 0 ? row.fill : PROP_GEN_FILL;
+      const k = targetH / (row.canvas * fill);
+      return `<g transform="translate(${x} ${groundY}) scale(${k}) translate(${-row.anchorX} ${-row.anchorY})">${row.markup}</g>`;
     })
     .join('\n');
 
@@ -143,7 +165,6 @@ async function main() {
     .join('\n');
 
   const bearX = W - PAD - 90;
-  const bearH = STAND_HEIGHT * 220;
   const bear = `<g transform="translate(${bearX} ${groundY})">
     <ellipse cx="0" cy="-${bearH * 0.46}" rx="${bearH * 0.22}" ry="${bearH * 0.42}" fill="#a9744f"/>
     <circle cx="0" cy="-${bearH * 0.88}" r="${bearH * 0.17}" fill="#a9744f"/>

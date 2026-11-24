@@ -79,12 +79,15 @@ export const PropGlyph: React.FC<{ glyph: ScenePropGlyph; height: number }> = ({
   const half = glyph.canvas / 2;
   const fill = glyph.fill > 0 ? glyph.fill : 1;
   const k = height / (glyph.canvas * fill);
-  // 内容垂直居中：底边在 canvas/2 + canvas/2*fill 处
-  const bottom = half + half * fill;
+  // 落点：生成物用实测的底边/中心；内置道具没有实测值，退回"内容居中"的
+  // 老假设（底边在 canvas/2 + canvas/2*fill 处）——这两个默认值与原实现逐字
+  // 相同，所以老道具的渲染输出一个字节都不会变。
+  const anchorX = typeof glyph.anchorX === 'number' ? glyph.anchorX : half;
+  const anchorY = typeof glyph.anchorY === 'number' ? glyph.anchorY : half + half * fill;
   const body = glyph.markup ? (
     <Markup markup={glyph.markup} />
   ) : (
     <PlaceholderGlyph label={glyph.label} canvas={glyph.canvas} />
   );
-  return <g transform={`scale(${k}) translate(${-half} ${-bottom})`}>{body}</g>;
+  return <g transform={`scale(${k}) translate(${-anchorX} ${-anchorY})`}>{body}</g>;
 };

@@ -182,6 +182,79 @@ export function stripSvgOuter(svg: string): { markup: string; canvas: number } |
   return { markup, canvas };
 }
 
+/**
+ * 生成物在画布里的实际占位，用像素量出来而不是按提示词猜。
+ *
+ * 三个字段都是**画布坐标**（与 markup 同一套单位），所以调用方不需要知道
+ * 光栅化到了多少像素：
+ *  - `fill`：内容高度 ÷ 画布高度。PropGlyph 用它把"要高多少"换算成缩放系数；
+ *  - `anchorX`：内容水平中心在画布里的 x（道具要"挂"在手上的点）；
+ *  - `anchorY`：内容底边在画布里的 y（道具要"站"在地上的点）。
+ *
+ * 为什么必须有后两个：早先的版本假设"内容在 viewBox 里垂直居中"，于是把底边
+ * 算成 `画布/2 + 画布/2 × fill`。模型画的图十张里没有一张是真居中的——留白
+ * 全在一边的图会让道具悬空或陷进地里，误差是 `(下留白 − 上留白)/2`，道具越大
+ * 越明显。既然为了 fill 已经要量包围盒，顺手把底边和中心一起量出来是零成本。
+ */
+export type SvgContentBox = {
+  fill: number;
+  anchorX: number;
+  anchorY: number;
+};
+
+/** 低于这个 alpha 视为全透明：抗锯齿边缘会带一圈 alpha=1~5 的毛边，算进去会虚大 */
+const ALPHA_THRESHOLD = 8;
+/**
+ * 量出来的高度占比下限。
+ *
+ * 用来挡"画了一个 3px 的小点"这种退化产物：那样的图画到画面里会被放大成
+ * 一团糊。低于 0.15 时按 0.15 算，宁可偏小也不要糊满屏——但要注意这只会
+ * 影响大小，底边锚点仍然是真的。
+ */
+const MIN_MEASURED_FILL = 0.15;
+
+/**
+ * 从 RGBA 像素里量内容包围盒（纯函数，单测直接喂合成像素）。
+ *
+ * 坐标换算：像素行 `r` 覆盖 `[r, r+1)`，所以底边是 `bot + 1` 而不是 `bot`；
+ * 少这 1 像素在 256 画布上是 0.4% 的高度误差，量级虽小但会在 gallery 里
+ * 表现为"每个道具都往下沉半像素"。
+ */
+export function measureContentBox(
+  pixels: Buffer,
+  width: number,
+  height: number,
+  canvas: number,
+): SvgContentBox | null {
+  if (!pixels || !pixels.length || width <= 0 || height <= 0 || canvas <= 0) return null;
+  if (pixels.length < width * height * 4) return null;
+  let top = height;
+  let bottom = -1;
+  let left = width;
+  let right = -1;
+  for (let y = 0; y < height; y++) {
+    const row = y * width;
+    for (let x = 0; x < width; x++) {
+      if (pixels[(row + x) * 4 + 3] > ALPHA_THRESHOLD) {
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+        if (x < left) left = x;
+        if (x > right) right = x;
+      }
+    }
+  }
+  // 全透明 = 这张图什么都看不见，交给调用方当失败处理（占位件比空气好）
+  if (bottom < 0) return null;
+  const kx = canvas / width;
+  const ky = canvas / height;
+  const rawFill = (bottom - top + 1) / height;
+  return {
+    fill: Math.min(1, Math.max(MIN_MEASURED_FILL, rawFill)),
+    anchorX: ((left + right + 1) / 2) * kx,
+    anchorY: (bottom + 1) * ky,
+  };
+}
+
 @Injectable()
 export class AssetGenService {
   private readonly logger = new Logger(AssetGenService.name);
@@ -273,10 +346,14 @@ export class AssetGenService {
    * 返回的 `canvas` 取原 viewBox 的边长：PropGlyph 只需要"盒子多大、内容居中"，
    * 不需要知道这是 256 还是别的尺寸——模型偶尔不按 256 画，按实际值走即可，
    * 强行当 256 会把图形按比例缩小（看起来像"这个道具特别小"）。
+   *
+   * `box` 是光栅化后量出来的实际占位（见 `measureContentBox`）。量不出来时
+   * 返回 undefined，调用方退回"内容居中、占七成"的老假设——宁可尺寸差一点，
+   * 也不要因为测量失败让整个道具消失。
    */
   async loadSubjectSvg(
     subjectRaw: string,
-  ): Promise<{ markup: string; canvas: number } | null> {
+  ): Promise<{ markup: string; canvas: number; box?: SvgContentBox } | null> {
     const subject = String(subjectRaw || '').trim().slice(0, 12);
     if (!subject) return null;
     const icon = await this.generateSubjectIcon(subject, { svgOnly: true });
@@ -301,7 +378,18 @@ export class AssetGenService {
       this.logger.warn(`[AssetGen] svg for "${subject}" has no measurable viewBox`);
       return null;
     }
-    return inner;
+    const box = this.measureSvgContent(raw, inner.canvas);
+    if (!box) {
+      this.logger.warn(`[AssetGen] svg for "${subject}" has no visible content — caller falls back to default box`);
+    }
+    return { ...inner, box: box || undefined };
+  }
+
+  /** 光栅化后量内容包围盒；渲染/测量任一步失败都返回 null 而不是抛错 */
+  measureSvgContent(svg: string, canvas: number): SvgContentBox | null {
+    const rendered = this.renderSvg(svg);
+    if (!rendered) return null;
+    return measureContentBox(rendered.pixels, rendered.width, rendered.height, canvas);
   }
 
   private async generate(
@@ -488,17 +576,29 @@ export class AssetGenService {
     return lines.join('\n');
   }
 
-  private rasterize(svg: string): Buffer | null {
+  /**
+   * 渲一次图，同时给出 PNG 与原始 RGBA。
+   *
+   * 两个产物各有用途：PNG 给 vision 验收（它要的是图片），RGBA 给包围盒测量
+   * （它要的是 alpha 通道）。渲两次会白白多花一倍 CPU，所以一次拿全。
+   */
+  private renderSvg(svg: string): { png: Buffer; pixels: Buffer; width: number; height: number } | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { Resvg } = require('@resvg/resvg-js');
       const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: ICON_CANVAS } });
-      const png: Buffer = resvg.render().asPng();
-      return png.length > 0 ? png : null;
+      const image = resvg.render();
+      const png: Buffer = image.asPng();
+      if (!png || !png.length) return null;
+      return { png, pixels: image.pixels, width: image.width, height: image.height };
     } catch (error: any) {
       this.logger.warn(`[AssetGen] rasterize failed: ${error?.message || 'unknown'}`);
       return null;
     }
+  }
+
+  private rasterize(svg: string): Buffer | null {
+    return this.renderSvg(svg)?.png || null;
   }
 
   private async generateImage(subject: string): Promise<Buffer | null> {

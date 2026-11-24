@@ -9,7 +9,7 @@ import {
 } from './animal-subjects.config';
 import type { SceneGraph } from './video/scene-graph';
 import type { FigureSpec } from './video/figure-spec';
-import { AssetGenService } from './asset-gen.service';
+import { AssetGenService, type SvgContentBox } from './asset-gen.service';
 
 export type VisualAssetKind = 'character' | 'background' | 'overlay';
 
@@ -501,11 +501,14 @@ export class VisualAssetService {
    * 就是一块白方块；返回内联 markup——道具画在 `Puppet2D` 的 `<svg>` 里，
    * 世界坐标中塞不进 HTML `<Img>`，也没有异步加载的余地。
    *
+   * 返回的 `box` 是光栅化后量出来的真实占位（内容高度/底边/水平中心），
+   * 渲染层据此定尺寸与落点；缺省时渲染层退回"居中占七成"的老假设。
+   *
    * 与 `resolveSubjectIcon` 一样：生成不可用/失败返回 null，调用方回退占位件。
    */
   async loadPropSvg(
     subject: string,
-  ): Promise<{ markup: string; canvas: number } | null> {
+  ): Promise<{ markup: string; canvas: number; box?: SvgContentBox } | null> {
     if (!this.assetGen?.isEnabled) return null;
     return this.assetGen.loadSubjectSvg(subject);
   }

@@ -41,6 +41,14 @@ export interface ScenePropGlyph {
   markup?: string;
   canvas: number;
   fill: number;
+  /**
+   * 内容水平中心 / 底边在画布坐标里的位置（生成物光栅化后量出来的真实值）。
+   *
+   * 缺省表示"内容垂直居中、水平居中"——内置道具的几何本来就按这个约定写，
+   * 所以它们不传这两个字段，渲染结果与加这个字段之前完全一致。
+   */
+  anchorX?: number;
+  anchorY?: number;
   fallback?: 'placeholder';
   source: ScenePropSource;
 }

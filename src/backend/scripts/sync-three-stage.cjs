@@ -60,7 +60,14 @@ for (const [taskPath, sourcePath] of SOURCES) {
     console.warn(`[sync-stage] skip (missing): ${path.relative(repoRoot, sourcePath)}`);
     continue;
   }
-  files.push({ path: taskPath, content: fs.readFileSync(sourcePath, 'utf-8') });
+  // 换行统一成 LF 再嵌入：源文件在磁盘上是什么换行取决于谁用什么编辑器存过
+  // （Windows 上是 CRLF），而生成物是要提交的。不统一的话，某个文件被编辑器
+  // 存一次就会让这里多出"整行都变了"的 diff——实际内容一个字没改，review 时
+  // 只能靠人眼分辨，最后没人敢看。
+  files.push({
+    path: taskPath,
+    content: fs.readFileSync(sourcePath, 'utf-8').replace(/\r\n/g, '\n'),
+  });
 }
 
 if (files.length === 0) {

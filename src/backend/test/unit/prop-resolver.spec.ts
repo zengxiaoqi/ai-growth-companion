@@ -14,6 +14,7 @@
  */
 import {
   PROP_GEN_FILL,
+  PROP_PLACEHOLDER_FILL,
   attachPropArt,
   placeholderArt,
   resolveLessonPropArt,
@@ -82,7 +83,8 @@ describe('失败要看得见：占位件而不是空白', () => {
     expect(payload.source).toBe('placeholder');
     expect(payload.markup).toBeUndefined();
     expect(payload.canvas).toBe(256);
-    expect(payload.fill).toBe(PROP_GEN_FILL);
+    // 占位件是代码画的方盒，占位比例是确定的 0.66，不是生成物那个估出来的 0.75
+    expect(payload.fill).toBe(PROP_PLACEHOLDER_FILL);
   });
 
   it('生成通道抛异常也降级，不把出片带崩', async () => {
@@ -103,7 +105,7 @@ describe('失败要看得见：占位件而不是空白', () => {
   it('placeholderArt 的形状稳定（渲染层靠 canvas/fill 算尺寸）', () => {
     expect(placeholderArt()).toEqual({
       canvas: 256,
-      fill: PROP_GEN_FILL,
+      fill: PROP_PLACEHOLDER_FILL,
       source: 'placeholder',
       markup: undefined,
     });
@@ -119,5 +121,46 @@ describe('老分镜：没有声明就没有开销', () => {
     );
     expect(source.calls).toEqual([]);
     expect(art.size).toBe(0);
+  });
+});
+
+/**
+ * 尺寸与落点来自光栅化实测，不是"内容占七成、垂直居中"的假设。
+ *
+ * 这几条守的是"测量结果真的传到了渲染层"：一旦某处又把 fill 写回常量，
+ * 或者把没量到的锚点写成 0（0 会把道具整个顶出画面），这里会红。
+ */
+describe('几何取自实测', () => {
+  const sourceWith = (box?: { fill: number; anchorX: number; anchorY: number }): PropSvgSource => ({
+    async loadSvg() {
+      return { markup: '<path d="M0 0"/>', canvas: 256, box };
+    },
+  });
+
+  it('box 的三个值原样透传', async () => {
+    const art = await resolveLessonPropArt(
+      [{ props: [{ id: '洒水壶', label: '洒水壶' }] }],
+      sourceWith({ fill: 0.645, anchorX: 120, anchorY: 232 }),
+    );
+    expect(art.get('洒水壶')).toMatchObject({ fill: 0.645, anchorX: 120, anchorY: 232 });
+  });
+
+  it('量不到 box → 退回 0.75，且不写锚点（让渲染层走居中假设）', async () => {
+    const art = await resolveLessonPropArt(
+      [{ props: [{ id: '风筝', label: '风筝' }] }],
+      sourceWith(undefined),
+    );
+    const payload = art.get('风筝')!;
+    expect(payload.fill).toBe(PROP_GEN_FILL);
+    expect(payload.anchorX).toBeUndefined();
+    expect(payload.anchorY).toBeUndefined();
+  });
+
+  it('box.fill 为 0（量出空图）不当成合法尺寸', async () => {
+    const art = await resolveLessonPropArt(
+      [{ props: [{ id: '毛巾', label: '毛巾' }] }],
+      sourceWith({ fill: 0, anchorX: 0, anchorY: 0 }),
+    );
+    expect(art.get('毛巾')!.fill).toBe(PROP_GEN_FILL);
   });
 });

@@ -1243,9 +1243,14 @@ import { Puppet2D } from "./character/Puppet2D";
 import { WorldLayer } from "./character/WorldLayer";
 import { cameraForWorld, normalizeWorld } from "./character/world";
 import type { MotionOp } from "./character/pose";
-import { portraitFraming, propSlot } from "./character/stage-layout";
+import { portraitFraming, propSlotForSize } from "./character/stage-layout";
 import { PropGlyph } from "./character/prop-glyph";
-import { builtinPropGlyph, type ScenePropGlyph } from "./character/prop-art";
+import {
+  builtinPropGlyph,
+  propHeightRatio,
+  propSizeFor,
+  type ScenePropGlyph,
+} from "./character/prop-art";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
 const VECTOR_ANIMAL_IDS: string[] = ${JSON.stringify(VECTOR_ANIMAL_IDS)};
@@ -2040,6 +2045,19 @@ const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
  * （256 盒）会比内置道具大 1.6 倍。
  */
 const PROP_BOX = 160;
+
+/**
+ * 这一幕某个道具的身高比（道具高 ÷ 角色身高）。
+ *
+ * 优先级：分镜声明 > 内置标定表 > 0.57（旧常量）。
+ * 声明必须压过标定表——模型明确写了"这个水桶占 0.22"，就该按 0.22 画；
+ * 标定表只是"没人说的时候"的默认值，不是规则。
+ */
+const propRatioOf = (scene: GeneratedScene, id?: string): number => {
+  const declared = id ? (scene.props || []).find((item) => item.id === id) : undefined;
+  if (declared && declared.heightRatio) return declared.heightRatio;
+  return propHeightRatio(id);
+};
 
 /**
  * 这一幕某个道具的几何。
@@ -4445,8 +4463,19 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
   // 不算世界坐标，但它同样不能侵入标题带——位置与缩放都从这里来。
   const portrait = portraitFraming();
   // 指认幕的道具槽位：站哪边就把道具放另一边，别挡住角色。坐标与尺寸都不再手写
-  const pointSlot = propSlot(
-    puppet && puppet.start && puppet.end && puppet.end[0] < puppet.start[0] ? -1 : 1,
+  /**
+   * 指认幕的槽位：站哪边就摆另一边，别挡住角色。
+   *
+   * 尺寸不再取"统一道具高"（standHeight × 0.57），而是按这个道具自己的
+   * 身高比算——苹果 0.1、桌子 0.55。它们以前一样高，孩子看到的是"苹果和
+   * 桌子一样大"。间距也必须跟着尺寸走（propSlotForSize），否则小道具会
+   * 飘在离角色半个身位的地方。
+   */
+  const pointSide: 1 | -1 =
+    puppet && puppet.start && puppet.end && puppet.end[0] < puppet.start[0] ? -1 : 1;
+  const pointSlot = propSlotForSize(
+    pointSide,
+    propSizeFor(propRatioOf(scene, scene.interaction ? scene.interaction.propId : undefined)),
   );
 
   /** 声明为"拿在手里"的道具：单人手持时跟着手走，不占地面槽位 */
@@ -4495,13 +4524,15 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
       if (!item.place || item.place === "hand" || item.place === "worn") continue;
       if (used.has(item.id)) continue;
       used.add(item.id);
-      const side = slot % 2 === 0 ? -1 : 1;
+      const side: 1 | -1 = slot % 2 === 0 ? -1 : 1;
       const step = Math.floor(slot / 2);
-      const base = propSlot(side as 1 | -1);
+      // 尺寸按这个道具自己的身高比；同侧第二个往外让"一格道具宽 + 一点缝"
+      const size = propSizeFor(propRatioOf(scene, item.id));
+      const base = propSlotForSize(side, size);
       list.push({
-        x: side * (Math.abs(base.x) + step * base.size * 1.15),
+        x: side * (Math.abs(base.x) + step * (size + 0.12)),
         y: base.y,
-        size: base.size,
+        size,
         label: item.label || PROP_LABELS[item.id] || "",
         node: <PropArt glyph={propGlyphOf(scene, item.id, item.label)} frame={stageFrame} />,
       });
@@ -4607,7 +4638,9 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
                     node: (
                       <PropArt glyph={propGlyphOf(scene, scene.interaction!.propId)} frame={stageFrame} />
                     ),
-                    size: 0.36,
+                    // 手里的东西与地上的是同一个尺寸协议：道具高 = 身高 × 比例。
+                    // 以前这里硬编码 0.36，同一个苹果拿在手里和放在地上是两种大小。
+                    size: propSizeFor(propRatioOf(scene, scene.interaction!.propId)),
                     by: puppet.carryBy,
                   }
                 : sceneHandProp
@@ -4615,7 +4648,7 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
                       // 单人手持："小熊拿着苹果走过来"。以前这类幕只在 point 时摆道具，
                       // 于是"拿着"两个字在画面上什么都没发生——苹果根本没出现。
                       node: <PropArt glyph={propGlyphOf(scene, sceneHandProp.id, sceneHandProp.label)} frame={stageFrame} />,
-                      size: 0.36,
+                      size: propSizeFor(propRatioOf(scene, sceneHandProp.id)),
                       by: "self" as const,
                     }
                   : undefined,

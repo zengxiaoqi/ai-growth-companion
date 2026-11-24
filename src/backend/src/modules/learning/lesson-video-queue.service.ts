@@ -52,8 +52,12 @@ type RemotionFailureKind = 'environment' | 'generated-code' | 'unknown';
  *   venue-v2 —— 装饰摆位按"镜头真的看得到"重算：forest/night 从"一棵树都没有"
  *              改成两侧树簇，meadow/riverside 的树收进可拍范围，夜晚另配天空层。
  *              playground 逐字节未变（`Tree` 的 scale 默认 1），但同样整体升一版。
+ *   prop-v1 —— 道具改为"按名字现画"（docs/lesson-video-prop-protocol.md），尺寸也从
+ *              "统一 0.57 身高"改成"每个道具自己的比例"：苹果不再和桌子一样高。
+ *              这一版**画面确实会变**（道具变小、指认幕构图随之变化），必须让旧缓存
+ *              失效——否则同一节课里新旧两种苹果会同时存在。
  */
-const RENDERER_SCHEMA_VERSION = String(process.env.VIDEO_RENDERER_SCHEMA_VERSION ?? 'venue-v2').trim();
+const RENDERER_SCHEMA_VERSION = String(process.env.VIDEO_RENDERER_SCHEMA_VERSION ?? 'prop-v1').trim();
 
 const FALLBACK_RENDER_ENGINES: RenderAttemptEngine[] = [
   'agent-remotion',

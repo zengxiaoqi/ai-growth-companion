@@ -234,14 +234,27 @@ export function shotForMotion(motion: string): Shot {
  * 空隙，于是无论角色多大，道具都不会糊到脸上。
  */
 const PROP_SIZE = ACTOR.standHeight * 0.57;
-const PROP_GAP = ACTOR.bodyWidth / 2 + PROP_SIZE / 2 + ACTOR.bodyWidth * 0.8;
 
 /**
  * side: -1 放左侧，+1 放右侧。调用方按"角色走/站的方向"决定，别把道具摆在
  * 角色脸前。y 是道具**中心**离地高度（= 半个高，底边正好贴地）。
  */
 export function propSlot(side: 1 | -1): { x: number; y: number; size: number } {
-  return { x: side * PROP_GAP, y: PROP_SIZE / 2, size: PROP_SIZE };
+  return propSlotForSize(side, PROP_SIZE);
+}
+
+/**
+ * 按道具**自身大小**算槽位：底边贴地、水平让开角色身体。
+ *
+ * 为什么不能只给一个 size：间距公式里含 PROP_SIZE/2，道具变小了还按老间距摆，
+ * 画面上就是"苹果离熊半个身位、像飘着"。x 与 y 都必须随 size 一起变。
+ */
+export function propSlotForSize(
+  side: 1 | -1,
+  size: number,
+): { x: number; y: number; size: number } {
+  const gap = ACTOR.bodyWidth / 2 + size / 2 + ACTOR.bodyWidth * 0.8;
+  return { x: side * gap, y: size / 2, size };
 }
 
 /** 道具的包围盒：底边贴地，宽度等于绘制尺寸 */

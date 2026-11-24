@@ -11,6 +11,7 @@
  *  - 现画的产物是 SVG 文本（asset-gen 的输出），只有字符串能同时容纳两者；
  *  - 组件形式要靠 `if (id === ...)` 分派，字符串形式不需要——加道具就是加一条数据。
  */
+import { ACTOR } from './pose';
 
 /**
  * 道具几何的来源。
@@ -78,6 +79,50 @@ export const PROP_BUILTIN_MARKUP: Record<string, string> = {
 export const PROP_BUILTIN_IDS = Object.keys(PROP_BUILTIN_MARKUP);
 
 /**
+ * 内置道具的"身高比"：道具高度 ÷ 角色身高。
+ *
+ * 这是一张**尺寸标定表**，不是内容清单——它回答的是"苹果该多大"，
+ * 不回答"能不能有苹果"。表里只有自带的 10 个；新道具的尺寸由分镜声明
+ * （`props[].heightRatio`）或调用方的缺省值决定。
+ *
+ * 以前所有道具共用一个 `PROP_SIZE = standHeight × 0.57`，于是苹果和桌子
+ * 一样高（都到熊胸口），"水桶比熊掌还大"。尺寸错了，画得再对也不像。
+ */
+export const PROP_BUILTIN_RATIO: Record<string, number> = {
+  apple: 0.1,
+  cookie: 0.12,
+  book: 0.12,
+  star: 0.14,
+  heart: 0.14,
+  banana: 0.18,
+  block: 0.2,
+  ball: 0.22,
+  table: 0.55,
+  slide: 0.9,
+};
+
+/** 没有尺寸线索时的兜底比例：与旧常量 PROP_SIZE（standHeight × 0.57）等价 */
+export const PROP_DEFAULT_RATIO = 0.57;
+
+/** 道具的身高比：先查标定表，再退到调用方给的缺省值 */
+export function propHeightRatio(id: string | undefined, fallback = PROP_DEFAULT_RATIO): number {
+  const key = String(id || '').trim().toLowerCase();
+  const ratio = PROP_BUILTIN_RATIO[key];
+  if (typeof ratio === 'number' && ratio > 0) return ratio;
+  return fallback;
+}
+
+/**
+ * 身高比 → 世界单位高度。
+ *
+ * 唯一一处把"比例"换成"世界单位"的地方：渲染层与后端都用它，避免两边
+ * 各自乘一遍 1.67（乘错一次就是"道具大一倍"，而画面上看起来只是"有点怪"）。
+ */
+export function propSizeFor(heightRatio: number): number {
+  return ACTOR.standHeight * heightRatio;
+}
+
+/**
  * 取一个内置道具的 glyph。
  *
  * 未登记返回 `null` —— **由调用方决定**是画占位件还是什么都不画。这里不做兜底，
@@ -87,7 +132,7 @@ export const PROP_BUILTIN_IDS = Object.keys(PROP_BUILTIN_MARKUP);
 export function builtinPropGlyph(
   id: string,
   label = '',
-  size = PROP_BUILTIN_CANVAS,
+  size = propSizeFor(PROP_DEFAULT_RATIO),
 ): ScenePropGlyph | null {
   const key = String(id || '').trim().toLowerCase();
   const art = PROP_BUILTIN_MARKUP[key];

@@ -13,7 +13,7 @@ import {
   MOTION_DEFAULTS,
   resolveAction3D,
   resolveActorRig,
-  resolvePropKind,
+  resolvePropMesh,
   resolvePuppetSequence,
 } from '../../src/modules/learning/video/action3d-registry';
 
@@ -29,12 +29,12 @@ describe('resolveActorRig', () => {
   });
 });
 
-describe('resolvePropKind', () => {
+describe('resolvePropMesh', () => {
   it('只认登记过的道具', () => {
-    expect(resolvePropKind('slide')).toBe('slide');
-    expect(resolvePropKind('BALL')).toBe('ball');
-    expect(resolvePropKind('cookie')).toBeNull();
-    expect(resolvePropKind(undefined)).toBeNull();
+    expect(resolvePropMesh('slide')).toBe('slide');
+    expect(resolvePropMesh('BALL')).toBe('ball');
+    expect(resolvePropMesh('cookie')).toBeNull();
+    expect(resolvePropMesh(undefined)).toBeNull();
   });
 });
 

@@ -494,11 +494,6 @@ export class VisualAssetService {
   }
 
   /**
-   * 单个具体主体的图标查找：先矢量库（character/overlay 两栏精确命中），
-   * miss 再走生成层。budget 限制单次场景解析里的生成次数——素材生成是
-   * 加分项，不能让一张 20 节点的图把出片拖进分钟级等待。
-   */
-  /**
    * 道具用的内联几何（不是文件路径）。
    *
    * 走的是和关系图节点同一条生成链（矢量库→LLM 现画→验收→磁盘缓存），
@@ -515,6 +510,11 @@ export class VisualAssetService {
     return this.assetGen.loadSubjectSvg(subject);
   }
 
+  /**
+   * 单个具体主体的图标查找：先矢量库（character/overlay 两栏精确命中），
+   * miss 再走生成层。budget 限制单次场景解析里的生成次数——素材生成是
+   * 加分项，不能让一张 20 节点的图把出片拖进分钟级等待。
+   */
   private async resolveSubjectIcon(
     subject: string,
     topic: string,

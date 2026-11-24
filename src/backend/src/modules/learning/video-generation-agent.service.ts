@@ -54,6 +54,12 @@ import {
   resolvePuppetSequence,
 } from './video/action3d-registry';
 import { PROP_LABELS, matchLegacyProps } from './video/prop-lexicon';
+import { isPropDeclarationEnabled, normalizeDeclaredProps } from './video/prop-contract';
+import {
+  attachPropArt,
+  resolveLessonPropArt,
+  type ScenePropEntry,
+} from './video/prop-resolver';
 import { STAGE_TEMPLATE_FILES } from './video/stage-template';
 import {
   ageMotionProfile,
@@ -651,7 +657,17 @@ export class VideoGenerationAgentService {
       const assetKey = animalResult?.id || 'topic';
       // 台词/视觉描述里点名的实物（皮球、饼干…）也进画面，
       // 否则孩子听到"看看小熊手里的皮球"时画面只有一只动物站着。
-      const props = this.inferSceneProps(`${visualDescription} ${narration} ${onScreenText}`);
+      //
+      // 两条来源，优先级固定：
+      //  1. **分镜声明**（`props[]`，自由字符串）——名字由写分镜的模型给，
+      //     我们只约束数量/字符/落在哪里。这是唯一开放的路：加一个道具
+      //     不需要改代码、不需要发版。
+      //  2. 词表兜底（`inferSceneProps`）——只服务没有 `props` 字段的历史分镜，
+      //     随老任务淘汰。开关关掉时连声明也不读，等于完全回到旧行为。
+      const declaredProps = isPropDeclarationEnabled() ? normalizeDeclaredProps(scene?.props) : [];
+      const props: ScenePropEntry[] = declaredProps.length
+        ? declaredProps
+        : this.inferSceneProps(`${visualDescription} ${narration} ${onScreenText}`);
       // 角色交互层：把"小熊把皮球递给小兔"这类关系变成结构化动作，
       // 让画面演出"谁对谁做什么"而不是只把角色和道具并排摆出来。
       // 分镜若已带 interaction（LLM 新输出）优先用校验后的版本，否则从文案确定性提取。
@@ -998,6 +1014,23 @@ export class VideoGenerationAgentService {
       };
     });
 
+    /**
+     * 道具的几何：整课一起解析，再贴回每一幕。
+     *
+     * 必须整课一起做（而不是逐幕）：同一个名字一节课里只该画一次、只该有
+     * 一份 markup，否则第 1 幕的"水桶"和第 3 幕的"水桶"会长得不一样。
+     *
+     * 老分镜没有声明，`pending` 为空，这里零调用零时延——所以这段放在
+     * 装配期不会拖慢任何现有课程。
+     */
+    const propArt = await resolveLessonPropArt(
+      builtScenes,
+      this.visualAssetService
+        ? { loadSvg: (name: string) => this.visualAssetService!.loadPropSvg(name) }
+        : undefined,
+    );
+    attachPropArt(builtScenes, propArt);
+
     if (!this.visualAssetService) {
       this.logger.warn('[buildDynamicSceneProps] visualAssetService 不可用，场景将没有素材解析');
       return builtScenes;
@@ -1211,7 +1244,8 @@ import { WorldLayer } from "./character/WorldLayer";
 import { cameraForWorld, normalizeWorld } from "./character/world";
 import type { MotionOp } from "./character/pose";
 import { portraitFraming, propSlot } from "./character/stage-layout";
-import { PropGlyph, builtinPropGlyph } from "./character/prop-glyph";
+import { PropGlyph } from "./character/prop-glyph";
+import { builtinPropGlyph, type ScenePropGlyph } from "./character/prop-art";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
 const VECTOR_ANIMAL_IDS: string[] = ${JSON.stringify(VECTOR_ANIMAL_IDS)};
@@ -1327,7 +1361,25 @@ type GeneratedScene = {
   visualDescription: string;
   assetKey: string;
   assetTags: string[];
-  props?: Array<{ id: string; label: string }>;
+  /**
+   * 这一幕的实物。两条来源（见 buildDynamicSceneProps）：
+   *  - 新分镜声明：{ id, label, heightRatio, place, holder } —— 名字是自由字符串；
+   *  - 老分镜兜底：只有 { id, label }，尺寸统一（历史行为）。
+   * art 是装配期算好的几何（内置道具留空，由渲染层用自带 markup）。
+   */
+  props?: Array<{
+    id: string;
+    label: string;
+    heightRatio?: number;
+    place?: "hand" | "floor" | "worn";
+    holder?: string;
+    art?: {
+      markup?: string;
+      canvas: number;
+      fill: number;
+      source: "builtin" | "library" | "generated" | "placeholder";
+    };
+  }>;
   /** 角色间的结构化动作关系；有它就按关系演出画面，见 scene-interaction.ts */
   interaction?: SceneInteractionView;
   action: string;
@@ -1980,27 +2032,55 @@ const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
 };
 
 /**
- * 台词里点名的实物：画在角色两侧，让"看小熊手里的皮球"真的有皮球可看。
+ * 道具的画布：所有道具调用点都画在同一个 160 单位的盒子里。
  *
- * 这里只剩"摆在哪儿、晃多少"，**画什么由 character/prop-glyph.tsx 决定**。
- * 以前是十连 if (id === "ball") 的判断，兜底 return null——画不出的道具静默消失，
- * 而且新增一个道具要改这个 5000 行的模板字符串，既不能类型检查也不能在 Studio 单看。
- *
- * 为什么是 <g translate(0 半盒+wobble)> 而不是直接给坐标：这些调用点都包在
- * <svg viewBox="-80 -80 160 160"> 里（内置道具的旧绘图盒）。PropGlyph 的输出
- * 底边中点在原点，平移半个盒子正好把两者对齐——于是不管外层 svg 是 150px 还是
- * 300px，道具都落在原来的位置，改渲染层时不用重算任何调用点的宽高。
- *
- * 返回 null 只对"旧词表推出了一个不存在的 id"生效（老课兜底）。新契约里道具由
- * 分镜声明，画不出来要出占位件而不是消失——那条路不经过这里，见 prop-resolver。
+ * 这个数字不是"道具的大小"，是**调用点约定的坐标系**（外层 svg 都是
+ * viewBox="-80 -80 160 160"，Puppet2D 按 sizePx/160 缩放）。道具真正的尺寸由
+ * 外层缩放决定，所以这里固定 160 而不是用 glyph.canvas——否则生成道具
+ * （256 盒）会比内置道具大 1.6 倍。
  */
-const PropArt: React.FC<{ id: string; x: number; y: number; frame: number }> = ({ id, x, y, frame }) => {
-  const glyph = builtinPropGlyph(id, PROP_LABELS[id] || "");
+const PROP_BOX = 160;
+
+/**
+ * 这一幕某个道具的几何。
+ *
+ * 优先级：分镜声明的 art（装配期现画）→ 内置 markup（自带）。
+ * 两条都走到同一个 PropGlyph，所以"内置"和"现画"没有两套绘制代码。
+ *
+ * 都没有时返回 null：老课的词表可能推出一个不存在的 id，这时什么都不画
+ * 才是对的（凭空画个占位方块，等于把一个词表 bug 变成画面 bug）。
+ * 而"声明了却画不出来"在装配期就变成了占位件（prop-resolver），到不了这里。
+ */
+const propGlyphOf = (scene: GeneratedScene, id: string, label?: string) => {
+  const declared = (scene.props || []).find((item) => item.id === id);
+  const text = label || (declared ? declared.label : "") || PROP_LABELS[id] || id;
+  if (declared && declared.art) {
+    return {
+      id,
+      label: text,
+      size: PROP_BOX,
+      canvas: declared.art.canvas,
+      fill: declared.art.fill,
+      markup: declared.art.markup,
+      source: declared.art.source,
+    } as ScenePropGlyph;
+  }
+  return builtinPropGlyph(id, text);
+};
+
+/**
+ * 把道具画到当前坐标系里：只负责"晃多少"。
+ *
+ * 为什么是 <g translate(0 半盒+wobble)>：这些调用点都包在 -80..80 的盒子里，
+ * 而 PropGlyph 的输出底边中点在原点，平移半个盒子正好对齐——于是不管外层
+ * svg 是 150px 还是 300px，道具都落在原来的位置，改渲染层不用重算调用点宽高。
+ */
+const PropArt: React.FC<{ glyph: ScenePropGlyph | null; frame: number }> = ({ glyph, frame }) => {
   if (!glyph) return null;
-  const wobble = Math.sin(frame / 9 + x) * 6;
+  const wobble = Math.sin(frame / 9) * 6;
   return (
-    <g transform={"translate(" + x + " " + (y + glyph.canvas / 2 + wobble) + ")"}>
-      <PropGlyph glyph={glyph} height={glyph.canvas} />
+    <g transform={"translate(0 " + (PROP_BOX / 2 + wobble) + ")"}>
+      <PropGlyph glyph={glyph} height={PROP_BOX} />
     </g>
   );
 };
@@ -2277,7 +2357,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
             </svg>
             <div style={{ position: "absolute", left: propX - 90, top: propY - 90 }}>
               <svg width={180} height={180} viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 14px 16px rgba(0,0,0,0.2))" }}>
-                <PropArt id={it.propId} x={0} y={0} frame={frame} />
+                <PropArt glyph={propGlyphOf(scene, it.propId)} frame={frame} />
               </svg>
             </div>
           </>
@@ -2298,7 +2378,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
         {it.propId ? (
           <div style={{ position: "absolute", left: 810, top: 540 + lift }}>
             <svg width={300} height={300} viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 18px 20px rgba(0,0,0,0.2))" }}>
-              <PropArt id={it.propId} x={0} y={0} frame={frame} />
+              <PropArt glyph={propGlyphOf(scene, it.propId)} frame={frame} />
             </svg>
           </div>
         ) : null}
@@ -2330,7 +2410,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
         {it.propId ? (
           <div style={{ position: "absolute", left: 1300, top: 480 }}>
             <svg width={260} height={260} viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 14px 16px rgba(0,0,0,0.2))" }}>
-              <PropArt id={it.propId} x={0} y={0} frame={frame} />
+              <PropArt glyph={propGlyphOf(scene, it.propId)} frame={frame} />
             </svg>
             <div style={{ textAlign: "center", fontSize: 34, fontWeight: 900, color: accent }}>{PROP_LABELS[it.propId] || ""}</div>
           </div>
@@ -4369,6 +4449,67 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
     puppet && puppet.start && puppet.end && puppet.end[0] < puppet.start[0] ? -1 : 1,
   );
 
+  /** 声明为"拿在手里"的道具：单人手持时跟着手走，不占地面槽位 */
+  const sceneHandProp = (scene.props || []).find((item) => item.place === "hand");
+
+  /**
+   * 场地里的道具（世界坐标）。三处合并，同一个 id 只摆一次：
+   *  - 指认幕的被指物：站在哪边就摆另一边（pointSlot），别挡住角色；
+   *  - 分镜声明的 floor 道具：左右交替排开，同侧第二个往外让一格；
+   *  - 声明为 hand 的道具不在这里——它跟着手走（见下面的 carry）。
+   *
+   * 为什么用 place 判断"是不是声明的"：老分镜的 props 只有 {id,label}，
+   * 没有 place 字段，于是这个循环一个都不会收，画面与改动前逐字节一致。
+   */
+  const stageProps = (() => {
+    const list: Array<{ x: number; y: number; size: number; label?: string; node: React.ReactNode }> = [];
+    const used = new Set<string>();
+    const propId = scene.interaction ? scene.interaction.propId : undefined;
+    // 幕级变量在这里读不出来：puppet 可能不存在（徽章/关系图/纯静态幕），
+    // 直接 puppet.motion 会让"没有全身角色"的幕整片渲染失败。
+    const motion = puppet ? puppet.motion : undefined;
+    const sequence = (puppet && puppet.sequence) || [];
+    const isPointing = motion === "point" || sequence.some((step) => step.motion === "point");
+    const placeOf = (id?: string) => {
+      if (!id) return undefined;
+      const hit = (scene.props || []).find((item) => item.id === id);
+      return hit ? hit.place : undefined;
+    };
+    // 指认幕：被指的东西必须画出来，否则"指着空气"比不指更差。
+    // 串演幕同理——point 可能不在第一段，光看 puppet.motion 会漏掉道具。
+    if (
+      propId &&
+      scene.setpiece !== "slide" &&
+      placeOf(propId) !== "hand" &&
+      isPointing
+    ) {
+      used.add(propId);
+      list.push({
+        ...pointSlot,
+        label: PROP_LABELS[propId] || "",
+        node: <PropArt glyph={propGlyphOf(scene, propId)} frame={stageFrame} />,
+      });
+    }
+    let slot = 0;
+    for (const item of scene.props || []) {
+      if (!item.place || item.place === "hand" || item.place === "worn") continue;
+      if (used.has(item.id)) continue;
+      used.add(item.id);
+      const side = slot % 2 === 0 ? -1 : 1;
+      const step = Math.floor(slot / 2);
+      const base = propSlot(side as 1 | -1);
+      list.push({
+        x: side * (Math.abs(base.x) + step * base.size * 1.15),
+        y: base.y,
+        size: base.size,
+        label: item.label || PROP_LABELS[item.id] || "",
+        node: <PropArt glyph={propGlyphOf(scene, item.id, item.label)} frame={stageFrame} />,
+      });
+      slot += 1;
+    }
+    return list.length ? list : undefined;
+  })();
+
   return (
     // 冻结在"子组件开始收尾淡出"之前（各组件都在 duration 前 ~12 帧起淡出）。
     // 钉在最后一帧反而会停在淡出的末态上，画面是半透明的。
@@ -4464,29 +4605,21 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
               puppet.partner && puppet.carryBy && scene.interaction!.propId
                 ? {
                     node: (
-                      <PropArt id={scene.interaction!.propId} x={0} y={0} frame={stageFrame} />
+                      <PropArt glyph={propGlyphOf(scene, scene.interaction!.propId)} frame={stageFrame} />
                     ),
                     size: 0.36,
                     by: puppet.carryBy,
                   }
-                : undefined,
-            props:
-              scene.interaction!.propId &&
-              // 用滑梯的幕不摆滑梯图标：公园里已经有一座真的了，
-              // 再摆一张小图标就是"同一画面两个滑梯"，孩子会以为有两座。
-              scene.setpiece !== "slide" &&
-              (puppet.motion === "point" ||
-                (puppet.sequence || []).some((step) => step.motion === "point"))
-                ? [
-                    {
-                      ...pointSlot,
-                      label: PROP_LABELS[scene.interaction!.propId] || "",
-                      node: (
-                        <PropArt id={scene.interaction!.propId} x={0} y={0} frame={stageFrame} />
-                      ),
-                    },
-                  ]
-                : undefined,
+                : sceneHandProp
+                  ? {
+                      // 单人手持："小熊拿着苹果走过来"。以前这类幕只在 point 时摆道具，
+                      // 于是"拿着"两个字在画面上什么都没发生——苹果根本没出现。
+                      node: <PropArt glyph={propGlyphOf(scene, sceneHandProp.id, sceneHandProp.label)} frame={stageFrame} />,
+                      size: 0.36,
+                      by: "self" as const,
+                    }
+                  : undefined,
+            props: stageProps,
             overlay: scene.interaction!.speech ? (
               <SpeechBubble
                 text={scene.interaction!.speech}
@@ -4550,7 +4683,7 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
                 return (
                   <div key={prop.id + i} style={{ position: "absolute", left: side < 0 ? 8 + slot * 116 : 596 - slot * 116, top: 168 + slot * 34 }}>
                     <svg width="150" height="150" viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 12px 14px rgba(0,0,0,0.18))" }}>
-                      <PropArt id={prop.id} x={0} y={0} frame={frame} />
+                      <PropArt glyph={propGlyphOf(scene, prop.id, prop.label)} frame={frame} />
                     </svg>
                     <div style={{ marginTop: -4, textAlign: "center", fontSize: 28, fontWeight: 900, color: scene.accentColor }}>
                       {PROP_LABELS[prop.id] || prop.label}

@@ -498,6 +498,23 @@ export class VisualAssetService {
    * miss 再走生成层。budget 限制单次场景解析里的生成次数——素材生成是
    * 加分项，不能让一张 20 节点的图把出片拖进分钟级等待。
    */
+  /**
+   * 道具用的内联几何（不是文件路径）。
+   *
+   * 走的是和关系图节点同一条生成链（矢量库→LLM 现画→验收→磁盘缓存），
+   * 区别只有两点：只接受层1（矢量）——文生图产物是白底位图，贴到草地上
+   * 就是一块白方块；返回内联 markup——道具画在 `Puppet2D` 的 `<svg>` 里，
+   * 世界坐标中塞不进 HTML `<Img>`，也没有异步加载的余地。
+   *
+   * 与 `resolveSubjectIcon` 一样：生成不可用/失败返回 null，调用方回退占位件。
+   */
+  async loadPropSvg(
+    subject: string,
+  ): Promise<{ markup: string; canvas: number } | null> {
+    if (!this.assetGen?.isEnabled) return null;
+    return this.assetGen.loadSubjectSvg(subject);
+  }
+
   private async resolveSubjectIcon(
     subject: string,
     topic: string,

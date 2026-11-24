@@ -79,6 +79,45 @@ export function extractSvg(content: string): string | null {
   return body.slice(start, end + '</svg>'.length).trim();
 }
 
+/**
+ * 去掉外层 `<svg>`，只留可内联的几何；同时读出绘图盒边长。
+ *
+ * 为什么需要它：道具要画进 `Puppet2D` 的 `<svg>` 世界坐标里，外面不能再套一层
+ * `<svg>`（嵌套 viewBox 会把坐标重新解释一遍，位置和大小全乱）。
+ *
+ * `canvas` 取 viewBox 的宽：PropGlyph 只需要"盒子多大、内容居中"。
+ * 非正方形直接放弃——居中的假设不成立，画出来会偏心，而这种偏移
+ * 在成片里表现为"这个道具飘在半空"，很难归因。
+ */
+export function stripSvgOuter(svg: string): { markup: string; canvas: number } | null {
+  if (!svg) return null;
+  const open = svg.match(/<svg[^>]*>/i);
+  if (!open) return null;
+  const attrs = open[0];
+  const viewBox = attrs.match(/viewBox\s*=\s*["']\s*([-\d.]+)[\s,]+([-\d.]+)[\s,]+([-\d.]+)[\s,]+([-\d.]+)\s*["']/i);
+  let canvas = 0;
+  if (viewBox) {
+    const w = Number(viewBox[3]);
+    const h = Number(viewBox[4]);
+    if (!(w > 0) || !(h > 0) || Math.abs(w - h) > 0.5) return null;
+    canvas = w;
+  } else {
+    // 没有 viewBox 时退回 width/height（两者都是纯数字才算数）
+    const w = attrs.match(/width\s*=\s*["']([\d.]+)["']/i);
+    const h = attrs.match(/height\s*=\s*["']([\d.]+)["']/i);
+    const wv = w ? Number(w[1]) : 0;
+    const hv = h ? Number(h[1]) : 0;
+    if (!(wv > 0) || !(hv > 0) || Math.abs(wv - hv) > 0.5) return null;
+    canvas = wv;
+  }
+  const bodyStart = svg.indexOf('>', svg.search(/<svg[\s>]/i)) + 1;
+  const bodyEnd = svg.lastIndexOf('</svg>');
+  if (bodyStart <= 0 || bodyEnd <= bodyStart) return null;
+  const markup = svg.slice(bodyStart, bodyEnd).trim();
+  if (!markup) return null;
+  return { markup, canvas };
+}
+
 @Injectable()
 export class AssetGenService {
   private readonly logger = new Logger(AssetGenService.name);
@@ -125,8 +164,15 @@ export class AssetGenService {
   /**
    * 为一个具体主体生成图标。命中缓存直接返回；未命中走 层1→层2。
    * 任何一层失败都日志记因并继续下一层，全部失败返回 null（调用方回退）。
+   *
+   * `svgOnly`：只用层1（矢量）。道具必须用它——层2 是文生图，提示词要求
+   * "pure white background"，贴到草地/地板上就是一块白方块；去背又会引入
+   * 不确定性，比"没有这个道具"更糟（见 docs/lesson-video-prop-protocol.md §5.3）。
    */
-  async generateSubjectIcon(subjectRaw: string): Promise<GeneratedIcon | null> {
+  async generateSubjectIcon(
+    subjectRaw: string,
+    opts: { svgOnly?: boolean } = {},
+  ): Promise<GeneratedIcon | null> {
     const subject = String(subjectRaw || '').trim().slice(0, 12);
     if (!subject) return null;
     if (!this.isEnabled) {
@@ -135,22 +181,70 @@ export class AssetGenService {
     }
 
     const key = this.cacheKey(subject);
-    const cached = await this.readCache(key, subject);
+    const cached = await this.readCache(key, subject, opts.svgOnly);
     if (cached) return cached;
 
-    const existing = this.inFlight.get(key);
+    // 并发去重按模式分开：svgOnly 的任务不会产出位图，让"允许位图"的请求
+    // 共用它，会在层1 失败时把本可成功的位图也一起丢掉。
+    const flightKey = opts.svgOnly ? `${key}:svg` : key;
+    const existing = this.inFlight.get(flightKey);
     if (existing) return existing;
 
-    const job = this.withSlot(() => this.generate(key, subject));
-    this.inFlight.set(key, job);
+    const job = this.withSlot(() => this.generate(key, subject, opts));
+    this.inFlight.set(flightKey, job);
     try {
       return await job;
     } finally {
-      this.inFlight.delete(key);
+      this.inFlight.delete(flightKey);
     }
   }
 
-  private async generate(key: string, subject: string): Promise<GeneratedIcon | null> {
+  /**
+   * 取一个主体的**内联 SVG 几何**（道具渲染用）。
+   *
+   * 为什么不返回路径：道具画在 `Puppet2D` 的 `<svg>` 里、世界坐标中，HTML `<Img>`
+   * 塞不进去；`<image href>` 要 delayRender，文件一缺就是白图且不报错。所以只要
+   * 层1 的矢量内容，去掉外层 `<svg>` 后内联。
+   *
+   * 返回的 `canvas` 取原 viewBox 的边长：PropGlyph 只需要"盒子多大、内容居中"，
+   * 不需要知道这是 256 还是别的尺寸——模型偶尔不按 256 画，按实际值走即可，
+   * 强行当 256 会把图形按比例缩小（看起来像"这个道具特别小"）。
+   */
+  async loadSubjectSvg(
+    subjectRaw: string,
+  ): Promise<{ markup: string; canvas: number } | null> {
+    const subject = String(subjectRaw || '').trim().slice(0, 12);
+    if (!subject) return null;
+    const icon = await this.generateSubjectIcon(subject, { svgOnly: true });
+    if (!icon || icon.layer !== 'svg') return null;
+    let raw: string;
+    try {
+      raw = await fs.readFile(icon.filePath, 'utf-8');
+    } catch (error: any) {
+      this.logger.warn(`[AssetGen] read svg failed for "${subject}": ${error?.message || 'unknown'}`);
+      return null;
+    }
+    // 缓存里的文件可能早于当前校验规则（STYLE_VERSION 变更前生成的），再验一次
+    const validation = validateGeneratedSvg(raw);
+    if (!validation.ok) {
+      this.logger.warn(
+        `[AssetGen] cached svg for "${subject}" no longer valid: ${(validation as { reason?: string }).reason || 'invalid'}`,
+      );
+      return null;
+    }
+    const inner = stripSvgOuter(raw);
+    if (!inner) {
+      this.logger.warn(`[AssetGen] svg for "${subject}" has no measurable viewBox`);
+      return null;
+    }
+    return inner;
+  }
+
+  private async generate(
+    key: string,
+    subject: string,
+    opts: { svgOnly?: boolean } = {},
+  ): Promise<GeneratedIcon | null> {
     // 层1：LLM 现画 SVG
     const svg = await this.drawSvg(subject);
     if (svg) {
@@ -164,6 +258,11 @@ export class AssetGenService {
           this.logger.warn(`[AssetGen] "${subject}" layer1 SVG rejected by vision: ${verdict.reason}`);
         }
       }
+    }
+
+    if (opts.svgOnly) {
+      this.logger.warn(`[AssetGen] "${subject}" svg-only layer failed — caller falls back to placeholder`);
+      return null;
     }
 
     // 层2：文生图（未配置则整层关闭）
@@ -211,7 +310,10 @@ export class AssetGenService {
       );
       const svg = extractSvg(response.content ?? '');
       if (!svg) {
-        this.logger.warn(`[AssetGen] "${subject}" layer1 returned no SVG`);
+        // 把回包开头记下来：模型"不按格式返回"是最常见的失败，没有这段样本
+        // 只能反复重跑猜它到底写了什么（实测见过整段说明文、也见过空串）。
+        const sample = (response.content ?? '').replace(/\s+/g, ' ').slice(0, 160);
+        this.logger.warn(`[AssetGen] "${subject}" layer1 returned no SVG (sample: "${sample}")`);
         return null;
       }
       const validation = validateGeneratedSvg(svg);
@@ -368,8 +470,13 @@ export class AssetGenService {
     }
   }
 
-  private async readCache(key: string, subject: string): Promise<GeneratedIcon | null> {
-    for (const layer of ['svg', 'image'] as const) {
+  private async readCache(
+    key: string,
+    subject: string,
+    svgOnly = false,
+  ): Promise<GeneratedIcon | null> {
+    const layers = svgOnly ? (['svg'] as const) : (['svg', 'image'] as const);
+    for (const layer of layers) {
       const ext = layer === 'svg' ? '.svg' : '.png';
       const filePath = path.join(this.generatedDir, `${key}${ext}`);
       try {

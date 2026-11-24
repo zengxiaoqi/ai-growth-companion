@@ -111,6 +111,13 @@ describe('内置道具与标签表不漂移', () => {
       expect(PROP_LABELS[id]).toBeTruthy();
     }
   });
+
+  it('后端"不走生成"的集合与渲染层自带几何的集合完全一致', () => {
+    // prop-resolver 用 PROP_LABELS 的键判断"这个道具自带几何、不用生成"。
+    // 两边一旦漂移，表现是"苹果也被重新生成一遍"——画面会换成另一个苹果，
+    // 而且每次清缓存都可能不同。这种漂移没有报错，只能靠断言。
+    expect(Object.keys(PROP_LABELS).sort()).toEqual([...PROP_BUILTIN_IDS].sort());
+  });
 });
 
 describe('模板不再枚举道具', () => {

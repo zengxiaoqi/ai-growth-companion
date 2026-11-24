@@ -466,11 +466,28 @@ export const MOTION_PROP: Record<Action3DMotion, string> = { slide: 'slide', dri
 - **开关开，端到端跑通一例**：分镜写 `props:[{name:"水桶",place:"hand"}]` → 出片里
   水桶握在熊手里（生成物 464B，vision 通过）；同一幕声明但未生成的"向日葵"显示
   带首字的虚线占位件，没有静默消失。
-- **单测 98 项**：新增 `prop-art`(11) / `prop-lexicon`(10) / `prop-contract`(17) /
-  `prop-resolver`(10)；其中两条是防回退的——模板里不许再出现 `if (id === "...")`、
-  后端"不走生成"的集合必须与渲染层自带几何的集合完全相等。
+- **单测 125 项**（含收尾的两个 spec 修复）：新增 `prop-art`(12) /
+  `prop-lexicon`(10) / `prop-contract`(17) / `prop-resolver`(10)；其中两条是防回退的
+  ——模板里不许再出现 `if (id === "...")`、后端"不走生成"的集合必须与渲染层自带
+  几何的集合完全相等。
 - **尺寸**（第 4 步，画面会变）：`cross-venue` 第 1 幕的苹果从"和熊上身一样高"
   变成真正一颗苹果大小，底边仍贴地；双人抬积木没有穿模。
+
+### 14.2.1 踩到的坑：矢量库清单是 gitignore 的
+
+`npm run assets:vector` 下载的 `public/assets/vector/manifest.json` 被
+`.gitignore:30`（`src/video-remotion/public/assets/*`）覆盖。跑过这个脚本的机器上，
+**角色解析会先命中矢量库**（`provider:'vector'`、`assets/vector/animals/<id>.svg`），
+而 CI 是干净检出，走的是 `assets/lesson/animals/*.svg`（`provider:'local'`）。
+
+后果是 `video-generation-agent.service.spec.ts` 和 `visual-asset.service.spec.ts`
+共 6 条用例一红一绿，与本机装没装矢量库绑定。对照实验（同一份代码，只切 manifest
+存废）：有清单 → 2+4 红；无清单 → 全绿。已改成"断言只关心自己真正关心的事"
+（provider 用 `local|vector` 匹配、路径用 `/animals/.+\.svg$/`；只测本地/外部顺序的
+用例直接把 `resolveVectorAsset` 打桩成 null）。
+
+顺带记一条判断方法：遇到素材相关断言变红，**先看 `public/assets/` 下有没有
+未跟踪的生成物**，再怀疑代码。
 
 ### 14.3 实测发现的问题（下一步）
 

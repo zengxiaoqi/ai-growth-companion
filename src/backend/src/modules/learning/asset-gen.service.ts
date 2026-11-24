@@ -18,6 +18,7 @@ import * as path from 'path';
 import { createHash } from 'crypto';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 import { extractJsonObject } from '../../agent-framework/core';
+import { stripThinking } from '../../agent-framework/core/utils/thinking-parser';
 
 export type GeneratedIcon = {
   /** public 相对路径，Remotion staticFile 可直接解析 */
@@ -308,7 +309,10 @@ export class AssetGenService {
         LLM_TIMEOUT_MS,
         'svg draw',
       );
-      const svg = extractSvg(response.content ?? '');
+      // 思考型模型会把正文放在 think 块里（或干脆只在 reasoning 通道里）。
+      // chatCompletion 不做剥离，这里必须先剥再找 <svg>，否则"画得很好但全在
+      // 思考块里"会被当成"没画"——实测见过 content 整段是思考、样本为空串。
+      const svg = extractSvg(stripThinking(response.content ?? ''));
       if (!svg) {
         // 把回包开头记下来：模型"不按格式返回"是最常见的失败，没有这段样本
         // 只能反复重跑猜它到底写了什么（实测见过整段说明文、也见过空串）。

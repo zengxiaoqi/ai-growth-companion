@@ -25,6 +25,7 @@ import {
   PROP_BUILTIN_CANVAS,
   PROP_BUILTIN_IDS,
   PROP_BUILTIN_MARKUP,
+  PROP_BUILTIN_RATIO,
   builtinPropGlyph,
 } from '../../../video-remotion/src/character/prop-art';
 import { PROP_LABELS } from '../../src/modules/learning/video/prop-lexicon';
@@ -100,7 +101,9 @@ describe('builtinPropGlyph：规范化与失败语义', () => {
   });
 
   it('尺寸可下发：size 由调用方给，不写死在数据里', () => {
-    expect(builtinPropGlyph('apple', '苹果')!.size).toBe(PROP_BUILTIN_CANVAS);
+    // 缺省 size 是"旧常量"（身高 × 0.57），供不走声明路径的老课用；
+    // 新路径一律显式传 propSizeFor(比例)。
+    expect(builtinPropGlyph('apple', '苹果')!.size).toBeCloseTo(1.67 * 0.57, 3);
     expect(builtinPropGlyph('apple', '苹果', 0.168)!.size).toBe(0.168);
   });
 });
@@ -117,6 +120,20 @@ describe('内置道具与标签表不漂移', () => {
     // 两边一旦漂移，表现是"苹果也被重新生成一遍"——画面会换成另一个苹果，
     // 而且每次清缓存都可能不同。这种漂移没有报错，只能靠断言。
     expect(Object.keys(PROP_LABELS).sort()).toEqual([...PROP_BUILTIN_IDS].sort());
+  });
+
+  it('每个内置道具都有尺寸标定（否则它又会退回"统一半人高"）', () => {
+    for (const id of PROP_BUILTIN_IDS) {
+      const ratio = PROP_BUILTIN_RATIO[id];
+      expect({ id, ok: typeof ratio === 'number' && ratio > 0 }).toEqual({ id, ok: true });
+    }
+    // 标定值本身要讲得通：苹果比桌子小得多，滑梯最高
+    expect(PROP_BUILTIN_RATIO.apple).toBeLessThan(PROP_BUILTIN_RATIO.table);
+    expect(PROP_BUILTIN_RATIO.ball).toBeGreaterThan(PROP_BUILTIN_RATIO.apple);
+    for (const id of PROP_BUILTIN_IDS) {
+      expect(PROP_BUILTIN_RATIO[id]).toBeGreaterThan(0.05);
+      expect(PROP_BUILTIN_RATIO[id]).toBeLessThanOrEqual(1);
+    }
   });
 });
 

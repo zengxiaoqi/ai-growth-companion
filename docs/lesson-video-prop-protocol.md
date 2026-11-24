@@ -648,3 +648,41 @@ resolver 三条覆盖透传与回退）。
 6. **本机 LLM 免费额度已用尽**（`403 Free quota exhausted`，2026-11-24 深夜实测）：
    分镜重写与现画道具都会失败并各自降级（分镜退回旧内容、道具退回占位件）。
    下一次验证前先确认额度，否则会把"额度没了"误判成"链路坏了"。
+
+### 14.7 换 sensenova 后重跑（2026-11-25）
+
+额度问题通过换成 `sensenova-6.8-flash` 解决；端点（`/v1/chat/completions`）与
+OpenAI 兼容，文本和 `image_url` 输入都实测 200。**但它是思考型模型**，两处预算
+必须跟着换，否则同一套代码会静默降级：
+
+1. **vision 预算 2048 → 8192**（`asset-gen.service.ts` 的 `VISION_MAX_TOKENS`）。
+   实测只给 2048 时 26s 后 `finishReason=length`、`completionTokens` 顶格、
+   `content` 空串；`visionAccept` 解析不到 JSON 就判不通过，好图被误杀成占位件。
+   和 §14.3 的层1 截断是同一类病，只是这次发生在验收通道。
+2. **模板类型漏抄 `partner` / `carryBy`**（`video-generation-agent.service.ts`
+   的 `PuppetView`）。队列首跑（taskId=14）里分镜写了双人递道具动作，
+   agent 把后端下发的 `interaction.puppet` 原样写进 `GeneratedLesson.tsx`，
+   触发 7 个 TS2339 → dynamic-remotion 整条引擎放弃 → 回退 `TopicVideo`
+   模板动画（不画 `scene.props`，成片里一个道具都没有）。
+   这与文件里已记录的"漏抄 point 导致出片卡死"是同一类事故，修法是让模板类型
+   跟着下发的字段走，而不是让 agent 少写字段。
+
+修完后重测：清掉 12 个旧缓存，12/12 画出、vision 全通过、零重画，单次 9~58s
+（sensenova 视觉比之前慢，中位约 27s）；人眼扫画廊，主体可辨、风格统一。
+
+**队列验证的引擎名陷阱**：`run-one-lesson.ts` 原先传 `dynamic-remotion`，
+但 `normalizeRenderEngine` 只认 `auto/hyperframes/remotion/dsh/agent-remotion`，
+非法值静默回落 `auto` → 默认先跑 agent-remotion。这就是上一轮日志里
+"同一批任务引擎不稳定"的真相。要优先验 dynamic-remotion，传 `remotion`
+（`baseEngineOrder` 会把它排到首位）。脚本默认值已改并注明原因。
+
+重跑结果（taskId=15）：`engineOrder=[dynamic-remotion,remotion]`、
+`compositionId=GeneratedLesson-…`、类型检查通过、`engine=dynamic-remotion
+succeeded`、62.2s / 13.9MB 成片。**但抽帧里道具没有出现在可见区域**
+（左下角那块浅色方盒是场景固定装饰，各幕都在；分镜里只有第 3~5 幕声明
+「洒水壶」`place:hand`、`heightRatio:0.22`），QA 只给了 43 分 / 20 issues。
+
+即：**模型侧和装配侧已经通了，断的是 agent 写代码时有没有把 `scene.props`
+真正画进组件**。模板里 `scene.props` 只参与了镜头框选（`focusBox`），
+`PropArt` 的绘制要靠 agent 自己写；这一层还没验证通过，是下一步要修的。
+不要把这误报成"道具生成失败"——资产已生成、缓存命中、几何正确。

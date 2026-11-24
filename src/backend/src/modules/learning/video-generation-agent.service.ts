@@ -1343,6 +1343,21 @@ type PuppetView = {
     end?: [number, number, number];
     steps?: number;
   }>;
+  /**
+   * 双人幕的第二个角色，以及道具在两人之间怎么移动。
+   *
+   * 这两个字段由装配层展开进 interaction.puppet（见 scene-interaction.ts），
+   * 2026-11-25 实测 sensenova 会把它们原样写进 GeneratedLesson.tsx：
+   * 模板类型漏抄 → 7 处 TS2339 → dynamic-remotion 整条引擎放弃 →
+   * 回退 TopicVideo → 成片里一个道具都没有。和上面漏抄 point 是同一类事故。
+   */
+  partner?: {
+    motion: MotionOp;
+    actorId: string;
+    label?: string;
+    rig?: Action3DView["rig"];
+  };
+  carryBy?: "self" | "coStar" | "shared" | "handover";
 };
 type SceneInteractionView = {
   verb: string;

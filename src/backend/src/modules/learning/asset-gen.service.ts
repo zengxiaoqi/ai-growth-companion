@@ -68,6 +68,16 @@ const FEEDBACK_SVG_LIMIT = 4000;
  * 复杂主体留余量——上限只是天花板，模型不会因为上限高就思考得更久。
  */
 const SVG_MAX_TOKENS = 16384;
+/**
+ * vision 验收的输出预算。
+ *
+ * 和层1 是同一类病：2026-11-25 切到 sensenova-6.8-flash 后实测，只给 2048
+ * 时模型思考 26s 把预算顶满，`finishReason=length`、`content` 空串；
+ * visionAccept 解析不到 JSON 就判不通过，好图被误杀成占位件。
+ * 一句 JSON 的正文很短，但思考型模型的 reasoning 不受正文长度影响，
+ * 所以这里要和绘制预算同一量级。
+ */
+const VISION_MAX_TOKENS = 8192;
 
 /**
  * 结构校验的 reason → 模型能照着改的话。
@@ -672,10 +682,9 @@ export class AssetGenService {
             },
           ],
           undefined,
-          // 期望输出只有一句 JSON，但同一条链路上可能挂着思考型模型：
-          // 给 1024 时思考一长就截断，解析不到 JSON 会被当成"素材不合格"，
-          // 把好图误杀掉。2048 对一句 JSON 仍是很小的预算。
-          2048,
+          // 正文只有一句 JSON，但思考型模型的 reasoning 会先吃掉预算：
+          // 2048 在 sensenova 上实测必截断（见 VISION_MAX_TOKENS）。
+          VISION_MAX_TOKENS,
           undefined,
           model,
           { temperature: 0 },

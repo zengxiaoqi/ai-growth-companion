@@ -375,7 +375,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
   },
   "visualStory": {
     "style": "string",
-    "scenes": [{"scene":"string","imagePrompt":"string","narration":"string","onScreenText":"string","durationSec":12,"animationTemplate":"template-id (optional, from the template list above)","animationParams":{}}]
+    "scenes": [{"scene":"string","imagePrompt":"string","narration":"string","onScreenText":"string","durationSec":12,"animationTemplate":"template-id (optional, from the template list above)","animationParams":{},"props":[{"name":"水桶","place":"floor","heightRatio":0.22}]}]
   },
   "videoLesson": {
     "title": "string",
@@ -424,6 +424,11 @@ ${this.outputModuleSchemaBlock(args.domain)}
       '  - durationSec: 8-18 seconds',
       '  - animationTemplate: chosen from template list below',
       '  - animationParams: appropriate parameters for the chosen template',
+      '  - props: optional 0-3 real objects this scene puts in the character\'s hands or on the ground. Each item is {"name","place","heightRatio"}:',
+      '    · name: 2-8 Chinese characters, a single object a child could point at (水桶/洒水壶/向日葵). Never a character, weather, or abstract idea.',
+      '    · place: "hand" (held by the character), "floor" (standing on the ground), or "worn" (on the body).',
+      '    · heightRatio: object height ÷ character height, 0.08~0.9. Calibration for reference: 苹果 0.1, 杯子 0.12, 书 0.12, 皮球 0.22, 水桶 0.22, 椅子 0.35, 桌子 0.55.',
+      '    · Only declare what the narration actually acts on ("提着洒水壶" → 洒水壶). An empty array is correct when the scene needs nothing.',
       '- The animationTemplate MUST visually illustrate what the narration teaches (same objects, colors, process). For science/math domains NEVER use language.* word-card or stroke templates.',
       '- Narration must be natural, complete sentences. Never repeat the subject twice (e.g. "X是X…") and never end with doubled punctuation.',
       '',

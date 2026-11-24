@@ -1,0 +1,79 @@
+{
+  "title": "小熊浇花",
+  "topic": "小熊浇花",
+  "domain": "nature",
+  "totalDurationSec": 20,
+  "sceneCount": 4,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "sequence": 1,
+      "title": "提来洒水壶",
+      "concept": "浇花要先提水。",
+      "narration": "小熊提着洒水壶，慢慢走向花坛。",
+      "onScreenText": "提着洒水壶",
+      "visualDescription": "小熊提着一个绿色的洒水壶走向花坛",
+      "durationSec": 5,
+      "transitionToNext": "fade",
+      "emphasis": "intro",
+      "props": [{ "name": "洒水壶", "place": "hand", "heightRatio": 0.22 }],
+      "interaction": {
+        "verb": "walk",
+        "actors": [{ "id": "bear", "label": "小熊", "role": "helper" }],
+        "caption": "小熊提着洒水壶走"
+      }
+    },
+    {
+      "id": "scene-2",
+      "sequence": 2,
+      "title": "水桶放在地上",
+      "concept": "水桶比洒水壶大。",
+      "narration": "水桶就放在地上，里面有满满的水。",
+      "onScreenText": "地上的水桶",
+      "visualDescription": "草地上放着一个装满水的水桶",
+      "durationSec": 5,
+      "transitionToNext": "fade",
+      "emphasis": "explain",
+      "props": [{ "name": "水桶", "place": "floor", "heightRatio": 0.22 }],
+      "interaction": {
+        "verb": "point",
+        "actors": [{ "id": "bear", "label": "小熊", "role": "helper" }],
+        "caption": "小熊指着水桶"
+      }
+    },
+    {
+      "id": "scene-3",
+      "sequence": 3,
+      "title": "给花浇水",
+      "concept": "水浇到花上。",
+      "narration": "小熊举起洒水壶，把水浇在向日葵上。",
+      "onScreenText": "浇花",
+      "visualDescription": "小熊举着洒水壶给向日葵浇水",
+      "durationSec": 5,
+      "transitionToNext": "fade",
+      "emphasis": "explain",
+      "props": [{ "name": "洒水壶", "place": "hand", "heightRatio": 0.22 }],
+      "interaction": {
+        "verb": "lift",
+        "actors": [{ "id": "bear", "label": "小熊", "role": "helper" }],
+        "caption": "小熊举起洒水壶"
+      }
+    },
+    {
+      "id": "scene-4",
+      "sequence": 4,
+      "title": "复习一遍",
+      "concept": "提水、放桶、浇水。",
+      "narration": "先提洒水壶，再把水桶放好，最后给花浇水。",
+      "onScreenText": "小熊浇花",
+      "visualDescription": "草地上小熊、水桶和向日葵在一起",
+      "durationSec": 5,
+      "transitionToNext": "fade",
+      "emphasis": "summary",
+      "props": [
+        { "name": "水桶", "place": "floor", "heightRatio": 0.22 },
+        { "name": "向日葵", "place": "floor", "heightRatio": 0.35 }
+      ]
+    }
+  ]
+}

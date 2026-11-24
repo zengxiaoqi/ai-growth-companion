@@ -76,7 +76,16 @@ export class QuickVideoService {
   后面再接别的动作会瞬移）。
 - actors 只在 performance 层写一次，后续动作省略并自动继承；不要每个动作都重抄一遍。
 - actors 的 id 用英文小写名词（bear / rabbit / tiger），label 用旁白里的中文叫法（小熊 / 小兔）。
-- 有具体道具就写 propId：ball / cookie / apple / banana / book / block / table / slide / star / heart。
+- 道具分两件事：**先声明，再引用**。
+  · 声明写在 visualStory.scenes 的 props 数组里，名字用中文自由字符串，最多 3 个：
+    {"name":"洒水壶","place":"hand","heightRatio":0.22}
+    -place 只能是 hand（拿在手里）/ floor（放在地上）/ worn（穿在身上）；
+    -heightRatio 是这个东西相对角色的高度（0.08~0.9），参考：苹果 0.1、杯子 0.12、
+     皮球 0.22、水桶 0.22、椅子 0.35、桌子 0.55；
+    -只声明旁白里真的用到的实物（"提着洒水壶" → 洒水壶），不要列角色、天气、抽象概念。
+  · 动作要指向某个道具时，propId 写 props 里那个名字（propId 用 "洒水壶"），
+    或者内置道具 id：ball / cookie / apple / banana / book / block / table / slide / star / heart。
+    指向声明过的名字时，画面会画出那个道具并挂到手上/摆在地上；指向内置 id 用现成图形。
 - 只写意图，不要写坐标、高度、帧数、时长——画面几何与动作时长由渲染层决定，写了也会被忽略。
 - 这一幕没有明显动作（纯讲知识）就省略 performance，不要硬凑。
 
@@ -105,6 +114,7 @@ export class QuickVideoService {
         "visualDescription": "visual description for animation",
         "onScreenText": "屏幕文字",
         "durationSec": 8,
+        "props": [{ "name": "洒水壶", "place": "hand", "heightRatio": 0.22 }],
         "animationTemplate": { "id": "dynamic.story-scene" },
         "performance": {
           "actors": [{ "id": "bear", "label": "小熊", "role": "helper" }],

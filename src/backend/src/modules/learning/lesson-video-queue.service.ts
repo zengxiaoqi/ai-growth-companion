@@ -860,6 +860,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         // performance 是同一类字段的新契约（一幕多动作），漏透传的后果一模一样。
         ...(raw?.performance ? { performance: raw.performance } : {}),
         ...(raw?.interaction ? { interaction: raw.interaction } : {}),
+        // 道具声明同理：上面两行已经把"漏透传"这件事踩过两次。分镜在
+        // visualStory.scenes 里写了 props，装配层也接了（resolveLessonPropArt），
+        // 中间这一环不断，孩子手里的洒水壶才画得出来。
+        ...(raw?.props ? { props: raw.props } : {}),
       };
     });
 

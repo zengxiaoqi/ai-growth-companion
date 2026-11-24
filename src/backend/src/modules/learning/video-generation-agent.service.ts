@@ -2092,6 +2092,20 @@ const propGlyphOf = (scene: GeneratedScene, id: string, label?: string) => {
 };
 
 /**
+ * 道具在画面上显示的名字。
+ *
+ * 三种来源按优先级：分镜声明的 label（现画道具只有这个）→ 内置词表 → 空。
+ * 只查 PROP_LABELS 的写法在"道具可以随便起名"之后就漏了：水桶、洒水壶这类
+ * 现画道具在词表里没有条目，于是画出来了却没有名字——同一个画面上，内置的
+ * 皮球有名字、现画的洒水壶没有，这是最容易被当成"标签功能坏了"的那种不一致。
+ */
+const propLabelOf = (scene: GeneratedScene, id?: string): string => {
+  if (!id) return "";
+  const declared = (scene.props || []).find((item) => item.id === id);
+  return (declared ? declared.label : "") || PROP_LABELS[id] || "";
+};
+
+/**
  * 把道具画到当前坐标系里：只负责"晃多少"。
  *
  * 为什么是 <g translate(0 半盒+wobble)>：这些调用点都包在 -80..80 的盒子里，
@@ -2435,7 +2449,7 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
             <svg width={260} height={260} viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 14px 16px rgba(0,0,0,0.2))" }}>
               <PropArt glyph={propGlyphOf(scene, it.propId)} frame={frame} />
             </svg>
-            <div style={{ textAlign: "center", fontSize: 34, fontWeight: 900, color: accent }}>{PROP_LABELS[it.propId] || ""}</div>
+            <div style={{ textAlign: "center", fontSize: 34, fontWeight: 900, color: accent }}>{propLabelOf(scene, it.propId)}</div>
           </div>
         ) : null}
         {it.speech ? <SpeechBubble text={it.speech} side="left" accent={accent} frame={frame} /> : null}
@@ -4520,7 +4534,7 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
       used.add(propId);
       list.push({
         ...pointSlot,
-        label: PROP_LABELS[propId] || "",
+        label: propLabelOf(scene, propId),
         node: <PropArt glyph={propGlyphOf(scene, propId)} frame={stageFrame} />,
       });
     }

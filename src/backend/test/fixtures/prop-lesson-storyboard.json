@@ -1,0 +1,291 @@
+{
+  "title": "小熊浇花",
+  "topic": "小熊浇花",
+  "domain": "language",
+  "totalDurationSec": 56,
+  "sceneCount": 7,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "sequence": 1,
+      "title": "小花渴了",
+      "concept": "小花渴了",
+      "narration": "小熊来到花园，看见小花低下了头。他轻轻地说：‘小花，你是不是渴了？我们来浇水吧！’",
+      "onScreenText": "小花渴了",
+      "visualDescription": "A bright cartoon garden with a wilting flower in a small pot. A cute bear walks over, points at the flower, and looks concerned. Sunny, playful colors.",
+      "durationSec": 8,
+      "transitionToNext": "fade",
+      "emphasis": "intro",
+      "props": [
+        {
+          "name": "小花",
+          "place": "floor",
+          "heightRatio": 0.35
+        }
+      ],
+      "performance": {
+        "actors": [
+          {
+            "id": "bear",
+            "label": "小熊",
+            "role": "helper"
+          }
+        ],
+        "actions": [
+          {
+            "verb": "walk"
+          },
+          {
+            "verb": "point",
+            "propId": "小花"
+          },
+          {
+            "verb": "speak",
+            "speech": "小花，你是不是渴了？"
+          }
+        ]
+      },
+      "animationTemplate": {
+        "id": "dynamic.story-scene"
+      }
+    },
+    {
+      "id": "scene-2",
+      "sequence": 2,
+      "title": "拿来洒水壶",
+      "concept": "洒水壶",
+      "narration": "小熊拿来洒水壶，笑着说：‘我会慢慢浇水，不会把小花冲疼。小水珠，快来帮忙吧！’",
+      "onScreenText": "洒水壶",
+      "visualDescription": "A cute bear holding a small watering can in a sunny cartoon garden, smiling warmly. Bright flowers and soft grass, playful children’s animation style.",
+      "durationSec": 8,
+      "transitionToNext": "fade",
+      "emphasis": "core-concept",
+      "props": [
+        {
+          "name": "洒水壶",
+          "place": "hand",
+          "heightRatio": 0.22
+        }
+      ],
+      "performance": {
+        "actors": [
+          {
+            "id": "bear",
+            "label": "小熊",
+            "role": "helper"
+          }
+        ],
+        "actions": [
+          {
+            "verb": "hold",
+            "propId": "洒水壶"
+          },
+          {
+            "verb": "speak",
+            "speech": "我会慢慢浇水"
+          }
+        ]
+      },
+      "animationTemplate": {
+        "id": "dynamic.story-scene"
+      }
+    },
+    {
+      "id": "scene-3",
+      "sequence": 3,
+      "title": "慢慢浇水",
+      "concept": "慢慢浇",
+      "narration": "小熊把水轻轻洒在泥土上。水珠亮晶晶的，小花大口大口喝水，叶子也慢慢抬起来了。",
+      "onScreenText": "慢慢浇",
+      "visualDescription": "A cute bear holding a watering can and gently watering a flower in a cartoon garden, sparkling water drops, cheerful and colorful.",
+      "durationSec": 8,
+      "transitionToNext": "fade",
+      "emphasis": "core-concept",
+      "props": [
+        {
+          "name": "洒水壶",
+          "place": "hand",
+          "heightRatio": 0.22
+        }
+      ],
+      "performance": {
+        "actors": [
+          {
+            "id": "bear",
+            "label": "小熊",
+            "role": "helper"
+          }
+        ],
+        "actions": [
+          {
+            "verb": "hold",
+            "propId": "洒水壶"
+          },
+          {
+            "verb": "speak",
+            "speech": "小花喝水啦"
+          }
+        ]
+      },
+      "animationTemplate": {
+        "id": "dynamic.story-scene"
+      }
+    },
+    {
+      "id": "scene-4",
+      "sequence": 4,
+      "title": "小兔来帮忙",
+      "concept": "一起帮忙",
+      "narration": "小兔跑过来，说：‘小熊，你浇得真仔细。我帮你把水桶装满水，我们一起照顾小花。’",
+      "onScreenText": "一起帮忙",
+      "visualDescription": "A cheerful rabbit walking into a cartoon garden carrying a small bucket, talking to a friendly bear. Sunny, playful colors.",
+      "durationSec": 8,
+      "transitionToNext": "fade",
+      "emphasis": "core-concept",
+      "props": [
+        {
+          "name": "水桶",
+          "place": "hand",
+          "heightRatio": 0.22
+        }
+      ],
+      "performance": {
+        "actors": [
+          {
+            "id": "rabbit",
+            "label": "小兔",
+            "role": "helper"
+          }
+        ],
+        "actions": [
+          {
+            "verb": "walk"
+          },
+          {
+            "verb": "hold",
+            "propId": "水桶"
+          },
+          {
+            "verb": "speak",
+            "speech": "我们一起照顾小花"
+          }
+        ]
+      },
+      "animationTemplate": {
+        "id": "dynamic.story-scene"
+      }
+    },
+    {
+      "id": "scene-5",
+      "sequence": 5,
+      "title": "小花喝饱了",
+      "concept": "小花喝饱了",
+      "narration": "小花喝饱了，花瓣开得真漂亮。小熊开心地欢呼：‘太好啦，小花抬起头，对我们笑呢！’",
+      "onScreenText": "小花喝饱了",
+      "visualDescription": "A happy bear cheering beside a blooming flower in a cartoon garden, bright petals and green leaves, joyful atmosphere.",
+      "durationSec": 8,
+      "transitionToNext": "fade",
+      "emphasis": "core-concept",
+      "props": [],
+      "performance": {
+        "actors": [
+          {
+            "id": "bear",
+            "label": "小熊",
+            "role": "helper"
+          }
+        ],
+        "actions": [
+          {
+            "verb": "cheer"
+          },
+          {
+            "verb": "speak",
+            "speech": "小花抬起头啦"
+          }
+        ]
+      },
+      "animationTemplate": {
+        "id": "dynamic.story-scene"
+      }
+    },
+    {
+      "id": "scene-6",
+      "sequence": 6,
+      "title": "放回原处",
+      "concept": "放回原处",
+      "narration": "浇完花，小熊把洒水壶放好，拍拍小手说：‘用完东西要放回原处，下次使用更方便。’",
+      "onScreenText": "放回原处",
+      "visualDescription": "A tidy cartoon garden corner with a watering can placed on the ground. A cute bear points at it and smiles, sunny playful style.",
+      "durationSec": 8,
+      "transitionToNext": "fade",
+      "emphasis": "core-concept",
+      "props": [
+        {
+          "name": "洒水壶",
+          "place": "floor",
+          "heightRatio": 0.22
+        }
+      ],
+      "performance": {
+        "actors": [
+          {
+            "id": "bear",
+            "label": "小熊",
+            "role": "helper"
+          }
+        ],
+        "actions": [
+          {
+            "verb": "walk"
+          },
+          {
+            "verb": "point",
+            "propId": "洒水壶"
+          },
+          {
+            "verb": "speak",
+            "speech": "用完要放回原处"
+          }
+        ]
+      },
+      "animationTemplate": {
+        "id": "dynamic.story-scene"
+      }
+    },
+    {
+      "id": "scene-7",
+      "sequence": 7,
+      "title": "一起说一说",
+      "concept": "浇花 慢慢 谢谢",
+      "narration": "小朋友，今天我们和小熊一起浇花。请你也来说一说：浇花、慢慢、谢谢小花，再见！",
+      "onScreenText": "浇花 慢慢 谢谢",
+      "visualDescription": "A cute bear facing the camera in a sunny cartoon garden, speech bubbles with words, cheerful and inviting style.",
+      "durationSec": 8,
+      "transitionToNext": "fade",
+      "emphasis": "summary",
+      "props": [],
+      "performance": {
+        "actors": [
+          {
+            "id": "bear",
+            "label": "小熊",
+            "role": "helper"
+          }
+        ],
+        "actions": [
+          {
+            "verb": "speak",
+            "speech": "请你说一说"
+          },
+          {
+            "verb": "cheer"
+          }
+        ]
+      },
+      "animationTemplate": {
+        "id": "dynamic.story-scene"
+      }
+    }
+  ]
+}

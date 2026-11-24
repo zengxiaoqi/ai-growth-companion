@@ -21,8 +21,15 @@
  */
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+import { LlmClientService } from '../src/agent-framework/llm/llm-client.service';
+import { AssetGenService } from '../src/modules/learning/asset-gen.service';
 import { VideoGenerationAgentService } from '../src/modules/learning/video-generation-agent.service';
 import { VisualAssetService } from '../src/modules/learning/visual-asset.service';
+import { isPropDeclarationEnabled } from '../src/modules/learning/video/prop-contract';
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -31,30 +38,57 @@ function arg(name: string, fallback?: string): string | undefined {
     : fallback;
 }
 
-/** 与 video-generation-agent.service.spec.ts 同一套桩：只装配，不跑 agent 循环 */
-function createService(): VideoGenerationAgentService {
+/**
+ * 与 video-generation-agent.service.spec.ts 同一套桩：只装配，不跑 agent 循环。
+ *
+ * `--gen` 才接生成链路：道具的"现画"发生在装配期，不接这条线就只会量到
+ * 占位件——渲染出来是一排虚线框，看起来像"道具功能坏了"，其实只是没接电。
+ * 不默认接，是因为它会让一次装配从"毫秒级"变成"每个名字几十秒 + 走网络"。
+ */
+async function createService(withGen: boolean): Promise<VideoGenerationAgentService> {
+  let visual: VisualAssetService;
+  if (withGen) {
+    const configStub = { get: (key: string, def?: any) => process.env[key] ?? def } as any;
+    const llm = new LlmClientService(configStub);
+    await (llm as any).onModuleInit();
+    visual = new VisualAssetService(new AssetGenService(llm));
+    console.log(
+      `[props] 生成链路已接：assetGen=${(visual as any).assetGen?.isEnabled ? 'on' : 'off'} PROP_GEN=${
+        isPropDeclarationEnabled() ? 'on' : 'off'
+      }`,
+    );
+  } else {
+    visual = new VisualAssetService();
+  }
   return new VideoGenerationAgentService(
     { getToolDefinitions: () => [] } as any,
     {} as any,
     { runLoop: async () => undefined } as any,
     { getSkillsForAgent: () => [] } as any,
-    new VisualAssetService(),
+    visual,
   );
 }
 
 async function main() {
   const file = arg('file');
   const out = arg('out');
-  if (!file || !out) throw new Error('用法：--file <storyboard.json> --out <props.json>');
+  if (!file || !out) throw new Error('用法：--file <storyboard.json> --out <props.json> [--gen]');
 
   const storyboard = JSON.parse(await fs.readFile(path.resolve(process.cwd(), file), 'utf8'));
-  const service = createService();
+  const service = await createService(process.argv.includes('--gen'));
   const manifest = await service.generateRemotionComposition(storyboard as any, {});
 
   const props = manifest.props as any;
   const absOut = path.resolve(process.cwd(), out);
   await fs.mkdir(path.dirname(absOut), { recursive: true });
   await fs.writeFile(absOut, JSON.stringify(props), 'utf8');
+
+  // 道具是否真的拿到了几何：占位件与生成物的区别只在 markup/source 上，
+  // 渲染出来都"有个东西"，不打这一行就只能靠肉眼猜是不是虚线框。
+  const propRows = props.scenes.flatMap((s: any, i: number) =>
+    (s.props || []).map((p: any) => `${i + 1}:${p.label}[${p.art ? p.art.source : 'none'}]`),
+  );
+  console.log(`[props] 道具：${propRows.length ? propRows.join(', ') : '（无）'}`);
 
   // 把"这一份分镜实际落到哪些分支、拿了哪份场地"打出来——答案是给人看的，
   // 不是给断言看的：跑一次就知道这个主题有没有被世界层覆盖。

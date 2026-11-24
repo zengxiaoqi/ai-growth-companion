@@ -12,6 +12,12 @@ const VALID_SVG =
   '<circle cx="100" cy="110" r="12" fill="#334155"/>' +
   '</svg>';
 
+const VALID_SVG2 =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">' +
+  '<rect x="70" y="70" width="116" height="140" rx="18" fill="#7DD3FC" stroke="#334155" stroke-width="8"/>' +
+  '<ellipse cx="128" cy="72" rx="58" ry="14" fill="#BAE6FD" stroke="#334155" stroke-width="8"/>' +
+  '</svg>';
+
 const makeLlm = (overrides: Record<string, any> = {}) =>
   ({
     isConfigured: true,
@@ -138,26 +144,30 @@ describe('AssetGenService.generateSubjectIcon', () => {
     expect(llm.chatCompletion).not.toHaveBeenCalled();
   });
 
-  it('LLM 交回带文字的 SVG → 层1 拒绝；层2 未配置 → null（不静默）', async () => {
+  it('LLM 两轮都交回带文字的 SVG → 层1 放弃；层2 未配置 → null（不静默）', async () => {
     const bad = VALID_SVG.replace('</svg>', '<text x="1" y="1">字</text></svg>');
     const llm = makeLlm({ chatCompletion: jest.fn(async () => ({ content: bad })) });
     const service = new AssetGenService(llm);
     expect(await service.generateSubjectIcon('小蝌蚪')).toBeNull();
     expect(writeFileSpy).not.toHaveBeenCalled();
+    // 首画一次 + 重画一次，不多不少
+    expect(llm.chatCompletion).toHaveBeenCalledTimes(2);
   });
 
-  it('vision 验收不通过 → 不落盘', async () => {
+  it('vision 两轮都不认 → 不落盘（首画 + 重画各验收一次）', async () => {
     const llm = makeLlm({
       visionModel: 'vision-test',
       chatCompletion: jest
         .fn()
         .mockResolvedValueOnce({ content: VALID_SVG })
-        .mockResolvedValueOnce({ content: '{"pass":false,"reason":"主体不可辨认"}' }),
+        .mockResolvedValueOnce({ content: '{"pass":false,"reason":"主体不可辨认"}' })
+        .mockResolvedValueOnce({ content: VALID_SVG })
+        .mockResolvedValueOnce({ content: '{"pass":false,"reason":"还是不像"}' }),
     });
     const service = new AssetGenService(llm);
     expect(await service.generateSubjectIcon('小蝌蚪')).toBeNull();
     expect(writeFileSpy).not.toHaveBeenCalled();
-    expect(llm.chatCompletion).toHaveBeenCalledTimes(2);
+    expect(llm.chatCompletion).toHaveBeenCalledTimes(4);
   });
 
   it('vision 通过 → visionPassed=true 进 manifest', async () => {
@@ -178,6 +188,147 @@ describe('AssetGenService.generateSubjectIcon', () => {
     const service = new AssetGenService(llm);
     expect(await service.generateSubjectIcon('   ')).toBeNull();
     expect(llm.chatCompletion).not.toHaveBeenCalled();
+  });
+});
+
+describe('AssetGenService 层1 重画（带拒绝原因）', () => {
+  const envBackup = { ...process.env };
+  let writeFileSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    process.env.ASSET_GEN = 'on';
+    delete process.env.IMAGE_GEN_API_URL;
+    delete process.env.IMAGE_GEN_API_KEY;
+    jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
+    writeFileSpy = jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined as any);
+    jest.spyOn(fs, 'readFile').mockRejectedValue(new Error('no manifest'));
+    jest.spyOn(fs, 'access').mockRejectedValue(new Error('no cache'));
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    process.env = { ...envBackup };
+  });
+
+  /** 第 n 次 chatCompletion 收到的用户提示词（0 起） */
+  const promptAt = (llm: any, n: number): string =>
+    String(llm.chatCompletion.mock.calls[n]?.[0]?.[0]?.content ?? '');
+
+  it('首画交回说明文 → 把样本喂回去重画一次就成功', async () => {
+    const llm = makeLlm({
+      chatCompletion: jest
+        .fn()
+        .mockResolvedValueOnce({ content: '水桶图标如下：一个圆柱形……抱歉我没法直接输出 SVG。' })
+        .mockResolvedValueOnce({ content: VALID_SVG }),
+    });
+    const service = new AssetGenService(llm);
+
+    const result = await service.generateSubjectIcon('水桶');
+
+    expect(result).not.toBeNull();
+    expect(result!.layer).toBe('svg');
+    expect(llm.chatCompletion).toHaveBeenCalledTimes(2);
+    const second = promptAt(llm, 1);
+    expect(second).toContain('上一版被拒');
+    expect(second).toContain('没有 <svg> 标签');
+    // 把模型自己写的那段说明文贴回去，它才知道"我刚才在写说明文"
+    expect(second).toContain('水桶图标如下');
+    // 首画不该带这段（只有失败后才加）
+    expect(promptAt(llm, 0)).not.toContain('上一版被拒');
+  });
+
+  it('结构违规的原因被翻成"照着改"的话，而不是原样丢失败码', async () => {
+    const bad = VALID_SVG.replace('</svg>', '<text x="1" y="1">字</text></svg>');
+    const llm = makeLlm({
+      chatCompletion: jest
+        .fn()
+        .mockResolvedValueOnce({ content: bad })
+        .mockResolvedValueOnce({ content: VALID_SVG }),
+    });
+    const service = new AssetGenService(llm);
+
+    expect(await service.generateSubjectIcon('水桶')).not.toBeNull();
+    const second = promptAt(llm, 1);
+    // 原样失败码是 'forbidden tag (text/script/external ref/filter)'，模型看不懂
+    expect(second).not.toContain('forbidden tag');
+    expect(second).toContain('不允许 text/tspan/script');
+    expect(second).toContain('上一版内容');
+  });
+
+  it('两轮都失败就放弃，不会无限重试', async () => {
+    const llm = makeLlm({
+      chatCompletion: jest.fn(async () => ({ content: '好的，我这就画！' })),
+    });
+    const service = new AssetGenService(llm);
+
+    expect(await service.generateSubjectIcon('水桶')).toBeNull();
+    expect(llm.chatCompletion).toHaveBeenCalledTimes(2);
+    expect(writeFileSpy).not.toHaveBeenCalled();
+  });
+
+  it('vision 拒绝 → 把它自己画的整段回灌，第二轮通过则落盘', async () => {
+    const llm = makeLlm({
+      visionModel: 'vision-test',
+      chatCompletion: jest
+        .fn()
+        .mockResolvedValueOnce({ content: VALID_SVG })
+        .mockResolvedValueOnce({ content: '{"pass":false,"reason":"不像水桶，像个苹果"}' })
+        .mockResolvedValueOnce({ content: VALID_SVG2 })
+        .mockResolvedValueOnce({ content: '{"pass":true,"reason":"ok"}' }),
+    });
+    const service = new AssetGenService(llm);
+
+    const result = await service.generateSubjectIcon('水桶');
+
+    expect(result!.visionPassed).toBe(true);
+    expect(llm.chatCompletion).toHaveBeenCalledTimes(4);
+    const secondDraw = promptAt(llm, 2);
+    expect(secondDraw).toContain('画面验收没通过');
+    expect(secondDraw).toContain('不像水桶');
+    // 回灌的是它自己上一次画的 SVG，而不只是一句"不像"
+    expect(secondDraw).toContain('<circle cx="128" cy="128" r="90"');
+  });
+
+  it('绘制调用抛错（超时）也会重画一次', async () => {
+    const llm = makeLlm({
+      chatCompletion: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('svg draw timed out after 90000ms'))
+        .mockResolvedValueOnce({ content: VALID_SVG }),
+    });
+    const service = new AssetGenService(llm);
+
+    expect(await service.generateSubjectIcon('水桶')).not.toBeNull();
+    const second = promptAt(llm, 1);
+    expect(second).toContain('绘制调用失败');
+    expect(second).toContain('timed out');
+  });
+
+  it('输出预算被思考吃光（finishReason=length、正文空）→ 不重画', async () => {
+    // 实测过的真实回包：completionTokens 正好顶到上限，content 是空串
+    const llm = makeLlm({
+      chatCompletion: jest.fn(async () => ({
+        content: '',
+        finishReason: 'length',
+        usage: { promptTokens: 118, completionTokens: 4096 },
+      })),
+    });
+    const service = new AssetGenService(llm);
+
+    expect(await service.generateSubjectIcon('水桶')).toBeNull();
+    // 重画只会同样被截断，白等一次 30s
+    expect(llm.chatCompletion).toHaveBeenCalledTimes(1);
+    expect(writeFileSpy).not.toHaveBeenCalled();
+  });
+
+  it('finishReason=length 但正文已画完整 → 照常接受，不因截断标记误杀', async () => {
+    const llm = makeLlm({
+      chatCompletion: jest.fn(async () => ({ content: VALID_SVG, finishReason: 'length' })),
+    });
+    const service = new AssetGenService(llm);
+
+    expect(await service.generateSubjectIcon('水桶')).not.toBeNull();
+    expect(llm.chatCompletion).toHaveBeenCalledTimes(1);
   });
 });
 

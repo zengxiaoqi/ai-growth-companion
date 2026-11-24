@@ -44,6 +44,69 @@ const ICON_CANVAS = 256;
 const MAX_CONCURRENT = 3;
 const LLM_TIMEOUT_MS = 90_000;
 const IMAGE_TIMEOUT_MS = 120_000;
+/**
+ * 层1 最多画几轮。
+ *
+ * 2 = 首画 + 一轮带拒绝原因的重画。只加一轮是有代价的：单次 90s 超时，最坏
+ * 2 倍耗时。通过率的最大杀手其实不在模型"不听话"，而在输出预算（见
+ * SVG_MAX_TOKENS）——预算修好后，同一批 12 个名字一次重画都没触发。
+ * 保留它的价值是兜底"说清楚就能改对"的那类失败（多写了 text、元素超量、
+ * 画得不像主体）；第三轮起收益趋近于零，同一个提示词反复问只会得到同样的答案。
+ */
+const MAX_DRAW_ROUNDS = 2;
+/** 上次内容回灌给模型时的字数上限：够它认出自己画了啥，又不会把上下文撑爆 */
+const FEEDBACK_SVG_LIMIT = 4000;
+/**
+ * 单次绘制的输出预算。
+ *
+ * 这个数字是实测出来的，不是拍的：原来写 4096，思考型模型（deepseek-v4.1-flash）
+ * 把 4096 全用在 reasoning 上——`finishReason=length`、`completionTokens` 正好
+ * 4096、`content` 空串，正文一个字都没开始写。表现就是"6 个名字只画出 1 个"，
+ * 而日志里只能看到"没有 <svg>"，很容易误判成模型在写说明文。
+ *
+ * 换成 8192 后同一个词思考用 5845、正文约 300，正常出图；这里取 16384 是给
+ * 复杂主体留余量——上限只是天花板，模型不会因为上限高就思考得更久。
+ */
+const SVG_MAX_TOKENS = 16384;
+
+/**
+ * 结构校验的 reason → 模型能照着改的话。
+ *
+ * 直接把 `forbidden tag (text/script/...)` 喂回去，模型经常理解成"少用点"，
+ * 下一版照样带 text。所以逐条翻译成"要什么"而不是"禁什么"。
+ */
+const DRAW_REASON_HINTS: Record<string, string> = {
+  'empty or too large': '上一版内容为空或超过 32KB，只输出一个精简的 <svg>',
+  'no <svg> root': '上一次回复里没有 <svg> 标签——只输出 SVG 本体，不要任何说明文字',
+  'no viewBox/width': '必须带 viewBox="0 0 256 256"',
+  'forbidden tag (text/script/external ref/filter)':
+    '不允许 text/tspan/script/image/use/filter/style/animate 标签；需要"字"就用图形拼，或者干脆不画文字',
+  'forbidden attribute (href/on*/url()/data:)':
+    '不允许 href/xlink/on*/url()/data: 属性；填充写死色值如 fill="#FFB020"',
+  'fewer than 2 shape elements': '至少要有 2 个图形元素（path/circle/ellipse/rect/line/polygon）',
+  'too many elements': '元素总数压到 40 个以内，用更少的形状表达同样的东西',
+};
+
+/**
+ * 一次绘制的结论：`ok` 时给 `svg`，否则给"为什么不能用"（`reason` 已翻成人话，
+ * `sample` 是回灌给模型的上一版片段）。
+ *
+ * `fatal` 表示"重画也不会变好"——目前只有一种：输出预算被思考过程吃光
+ * （`finishReason=length`），第二轮只会同样截断，白等 30s。
+ *
+ * 写成可选字段而不是判别联合，是因为后端 `strictNullChecks` 关闭，
+ * `if (attempt.ok)` 不窄化到失败分支——判别联合在这里只是噪声。
+ */
+type DrawAttempt = {
+  ok: boolean;
+  svg?: string;
+  reason?: string;
+  sample?: string;
+  fatal?: boolean;
+};
+
+/** 回灌给模型的上一版信息 */
+type DrawFeedback = { reason: string; sample?: string };
 
 const FORBIDDEN_SVG_TAGS =
   /<\s*(script|foreignObject|image|use|text|tspan|textPath|animate|animateTransform|animateMotion|set|filter|style|iframe|embed|object)\b/i;
@@ -246,19 +309,17 @@ export class AssetGenService {
     subject: string,
     opts: { svgOnly?: boolean } = {},
   ): Promise<GeneratedIcon | null> {
-    // 层1：LLM 现画 SVG
-    const svg = await this.drawSvg(subject);
-    if (svg) {
-      const png = this.rasterize(svg);
-      if (png) {
-        const verdict = await this.visionAccept(png, subject);
-        if (verdict.pass) {
-          const saved = await this.save(key, subject, 'svg', Buffer.from(svg, 'utf-8'), verdict.passed);
-          if (saved) return saved;
-        } else {
-          this.logger.warn(`[AssetGen] "${subject}" layer1 SVG rejected by vision: ${verdict.reason}`);
-        }
-      }
+    // 层1：LLM 现画 SVG（首画 + 最多一轮带拒绝原因的重画）
+    const drawn = await this.drawAcceptedSvg(subject);
+    if (drawn) {
+      const saved = await this.save(
+        key,
+        subject,
+        'svg',
+        Buffer.from(drawn.svg, 'utf-8'),
+        drawn.visionPassed,
+      );
+      if (saved) return saved;
     }
 
     if (opts.svgOnly) {
@@ -266,7 +327,9 @@ export class AssetGenService {
       return null;
     }
 
-    // 层2：文生图（未配置则整层关闭）
+    // 层2：文生图（未配置则整层关闭）。
+    // 这一层不做重画：单次 120s、按张计费，且失败多是"提示词表达不到位"，
+    // 换一句话重来一遍也未必好——不如直接让调用方回退矢量库。
     if (this.imageGenConfigured) {
       const image = await this.generateImage(subject);
       if (image) {
@@ -284,7 +347,64 @@ export class AssetGenService {
     return null;
   }
 
-  private async drawSvg(subject: string): Promise<string | null> {
+  /**
+   * 画到"通过所有闸门"为止，最多 `MAX_DRAW_ROUNDS` 轮。
+   *
+   * 为什么重画而不是放宽校验：失败里有一类确实是"说清楚就能改对"的——多写了
+   * text、元素超量、画得不像主体。放宽结构校验只会让脏 SVG 进画面，而把上次的
+   * 拒绝原因连同它自己写的内容一起贴回去，比换提示词、加示例都直接。
+   *
+   * 另有一类重画无用：输出预算被思考过程吃光（`finishReason=length`）。这类已在
+   * drawSvgOnce 里标成 `fatal`，这里直接放弃，不做无谓的第二轮。
+   *
+   * 闸门顺序与原来一致：结构（便宜）→ 光栅化（验能不能渲染）→ vision（验像不像）。
+   * 每个闸门拒绝都转成一句可执行的话，而不是把失败码原样丢回去。
+   */
+  private async drawAcceptedSvg(
+    subject: string,
+  ): Promise<{ svg: string; visionPassed?: boolean } | null> {
+    let feedback: DrawFeedback | undefined;
+    for (let round = 1; round <= MAX_DRAW_ROUNDS; round += 1) {
+      const attempt = await this.drawSvgOnce(subject, feedback);
+      if (attempt.ok) {
+        const svg = attempt.svg || '';
+        const png = svg ? this.rasterize(svg) : null;
+        if (png) {
+          const verdict = await this.visionAccept(png, subject);
+          if (verdict.pass) return { svg, visionPassed: verdict.passed };
+          // 画面被拒时把它自己画的整段回灌——光说"不像水桶"，它会照着原样再画一遍
+          feedback = {
+            reason: `画面验收没通过：${verdict.reason || '看不出是这个主体'}`,
+            sample: svg,
+          };
+          this.logger.warn(`[AssetGen] "${subject}" layer1 SVG rejected by vision: ${verdict.reason}`);
+        } else {
+          // 渲不出图 = 路径/属性语法坏了，重画比留一张空白图强
+          feedback = { reason: '画出来的 SVG 渲染不出图像（路径或属性语法有问题）', sample: svg };
+        }
+      } else {
+        feedback = { reason: attempt.reason || '未知原因', sample: attempt.sample };
+        // 预算被吃光这类失败重画也不会变好，直接放弃，省掉一次 30s 的空转
+        if (attempt.fatal) {
+          this.logger.warn(
+            `[AssetGen] "${subject}" layer1 give up without redraw: ${feedback.reason}`,
+          );
+          return null;
+        }
+      }
+
+      const more = round < MAX_DRAW_ROUNDS;
+      this.logger.warn(
+        `[AssetGen] "${subject}" layer1 round ${round}/${MAX_DRAW_ROUNDS} rejected: ${feedback.reason}` +
+          (more ? ' — redrawing once with feedback' : ''),
+      );
+      if (!more) return null;
+    }
+    return null;
+  }
+
+  /** 单次绘制：组装提示词 → 调模型 → 抽 SVG → 结构校验。不碰缓存与落盘。 */
+  private async drawSvgOnce(subject: string, feedback?: DrawFeedback): Promise<DrawAttempt> {
     const prompt = [
       `为「${subject}」画一个单独的扁平矢量儿童插画图标。`,
       '要求：',
@@ -294,6 +414,7 @@ export class AssetGenService {
       '- 背景透明（不要画背景矩形）',
       '- 禁止：文字/字母/数字、渐变、滤镜、阴影、外部引用（image/use/href）、脚本、动画',
       '- 元素总数 ≤ 40，只用 path/circle/ellipse/rect/line/polygon/polyline/g',
+      ...(feedback ? ['', this.describeFeedback(feedback)] : []),
     ].join('\n');
     try {
       const model = process.env.LLM_AUTHOR_MODEL || undefined;
@@ -301,7 +422,7 @@ export class AssetGenService {
         this.llmClient.chatCompletion(
           [{ role: 'user', content: prompt }],
           undefined,
-          4096,
+          SVG_MAX_TOKENS,
           undefined,
           model,
           { temperature: 0.4 },
@@ -309,29 +430,62 @@ export class AssetGenService {
         LLM_TIMEOUT_MS,
         'svg draw',
       );
+      // 预算被思考吃光时 content 是空串，`finishReason` 是唯一线索。
+      // 不把它当"可修复"：第二轮只会同样截断，白等一次 30s。
+      const truncated = response.finishReason === 'length';
+      const budgetNote = truncated
+        ? '（输出预算全用在思考上、正文被截断；重画只会同样被截断）'
+        : '';
       // 思考型模型会把正文放在 think 块里（或干脆只在 reasoning 通道里）。
       // chatCompletion 不做剥离，这里必须先剥再找 <svg>，否则"画得很好但全在
       // 思考块里"会被当成"没画"——实测见过 content 整段是思考、样本为空串。
-      const svg = extractSvg(stripThinking(response.content ?? ''));
+      const text = stripThinking(response.content ?? '');
+      const svg = extractSvg(text);
       if (!svg) {
         // 把回包开头记下来：模型"不按格式返回"是最常见的失败，没有这段样本
         // 只能反复重跑猜它到底写了什么（实测见过整段说明文、也见过空串）。
-        const sample = (response.content ?? '').replace(/\s+/g, ' ').slice(0, 160);
-        this.logger.warn(`[AssetGen] "${subject}" layer1 returned no SVG (sample: "${sample}")`);
-        return null;
+        const sample = text.replace(/\s+/g, ' ').slice(0, 160);
+        this.logger.warn(
+          `[AssetGen] "${subject}" layer1 returned no SVG (sample: "${sample}", finish=${response.finishReason || '?'})`,
+        );
+        return {
+          ok: false,
+          reason: `上一次回复里没有 <svg> 标签——只输出 SVG 本体，不要任何说明文字${budgetNote}`,
+          sample,
+          fatal: truncated,
+        };
       }
       const validation = validateGeneratedSvg(svg);
       if (!validation.ok) {
-        this.logger.warn(
-          `[AssetGen] "${subject}" layer1 SVG invalid: ${(validation as { reason?: string }).reason || 'invalid'}`,
-        );
-        return null;
+        const code = (validation as { reason?: string }).reason || 'invalid';
+        this.logger.warn(`[AssetGen] "${subject}" layer1 SVG invalid: ${code}`);
+        return {
+          ok: false,
+          reason: (DRAW_REASON_HINTS[code] || `结构校验未通过：${code}`) + budgetNote,
+          sample: svg,
+          fatal: truncated,
+        };
       }
-      return svg;
+      return { ok: true, svg };
     } catch (error: any) {
-      this.logger.warn(`[AssetGen] "${subject}" layer1 draw failed: ${error?.message || 'unknown'}`);
-      return null;
+      const message = error?.message || 'unknown';
+      this.logger.warn(`[AssetGen] "${subject}" layer1 draw failed: ${message}`);
+      return { ok: false, reason: `上一次绘制调用失败（${message}）`, sample: '' };
     }
+  }
+
+  /** 把拒绝原因和上一版内容写成"照着改"的一段话；不含反引号，免得模型照着输出围栏。 */
+  private describeFeedback(feedback: DrawFeedback): string {
+    const lines = ['## 上一版被拒，请修正后重画', `拒绝原因：${feedback.reason}`];
+    if (feedback.sample) {
+      const clipped =
+        feedback.sample.length > FEEDBACK_SVG_LIMIT
+          ? `${feedback.sample.slice(0, FEEDBACK_SVG_LIMIT)}…（后略）`
+          : feedback.sample;
+      lines.push(`上一版内容：${clipped}`);
+    }
+    lines.push('只输出修正后的 <svg> 本体，不要解释。');
+    return lines.join('\n');
   }
 
   private rasterize(svg: string): Buffer | null {
@@ -418,7 +572,10 @@ export class AssetGenService {
             },
           ],
           undefined,
-          1024,
+          // 期望输出只有一句 JSON，但同一条链路上可能挂着思考型模型：
+          // 给 1024 时思考一长就截断，解析不到 JSON 会被当成"素材不合格"，
+          // 把好图误杀掉。2048 对一句 JSON 仍是很小的预算。
+          2048,
           undefined,
           model,
           { temperature: 0 },
@@ -428,7 +585,11 @@ export class AssetGenService {
       );
       const parsed = extractJsonObject<{ pass?: boolean; reason?: string }>(response.content ?? '');
       if (!parsed || typeof parsed.pass !== 'boolean') {
-        return { pass: false, passed: false, reason: 'vision returned no JSON verdict' };
+        return {
+          pass: false,
+          passed: false,
+          reason: `vision returned no JSON verdict (finish=${response.finishReason || '?'})`,
+        };
       }
       return { pass: parsed.pass, passed: parsed.pass, reason: String(parsed.reason || '').slice(0, 200) };
     } catch (error: any) {

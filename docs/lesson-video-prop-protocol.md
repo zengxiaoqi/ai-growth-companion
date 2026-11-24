@@ -632,9 +632,19 @@ resolver 三条覆盖透传与回退）。
 
 ### 14.6 还没做的
 
-1. `fill = 0.75` 未校准：只影响大小（±15%），gallery 一眼能看出偏大偏小。
-2. 指认幕的道具标签（`PROP_LABELS[propId]`）在成片里看不到——Puppet2D 把标签画在
-   `y = -sizePx/2 - 14`，道具变小后它落到地面线上。改动前就这样，不是本次引入的，
-   但尺寸一改更明显了。
-3. `PROP_GEN` 仍是默认关：能力已可用（通过率这条不挡了），但**开着会让成片变化**，
-   上线与否要拍板。开之前建议先跑一次 `probe-prop-draw` 看 gallery，确认风格与尺寸。
+1. ~~`fill` 未校准~~ —— 已改为实测包围盒，见 §14.4。
+2. **验道具要先确认走的是哪个引擎**。本轮用 `quick-generate` 连跑三个任务，同一份内容
+   有的出的是模板动画（土/太阳/水滴那套 `animationTemplate`），有的才是 `GeneratedLesson`
+   （日志里 `dynamicRemotion=true compositionId=GeneratedLesson-…`）。模板渲染器根本不画
+   `scene.props`，看到"开关打开了但画面没道具"时，先确认引擎，别先怀疑生成链路。
+   要稳定复现道具效果，用 `build-lesson-props.ts --gen` + `render-storyboard-lesson.cjs`
+   这条离线通道（不受队列引擎选择影响）。
+3. **道具标签**：`Puppet2D` 里指认幕的标签仍画在 `y = -sizePx/2 - 14`，道具变小后它落到
+   地面线上；`ActionStage` 的呼出式构图里标签已经能显示（本轮补的 `propLabelOf`）。
+4. **`hold` 目前是"角色卡 + 道具呼出"构图**，不是"拿在手里"。真正的手持要模型写
+   `walk`/`handover` 这类有 puppet 的动作，道具才会挂到手上（见 §14.6 上面的实测帧）。
+   这是引擎能力差异，不是道具链路的 bug。
+5. `PROP_GEN` 已在本机 `.env` 打开（`PROP_GEN=on`）；是否设为默认值仍要拍板。
+6. **本机 LLM 免费额度已用尽**（`403 Free quota exhausted`，2026-11-24 深夜实测）：
+   分镜重写与现画道具都会失败并各自降级（分镜退回旧内容、道具退回占位件）。
+   下一次验证前先确认额度，否则会把"额度没了"误判成"链路坏了"。

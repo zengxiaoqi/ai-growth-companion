@@ -4,6 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
+    "watchAssets": false,
     "assets": [
       {
         "include": "agent-framework/skills/definitions/**/*.md",

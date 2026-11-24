@@ -22,7 +22,7 @@ import { PROP_PLACES, propIdOf, type DeclaredProp, type PropPlace } from './prop
 /**
  * 生成产物里"内容高度 / 画布高度"的近似值。
  *
- * `drawSvg` 的提示词要求"主体占画面 60%~85%"，取中值 0.75。这个数只影响
+ * `drawSvgOnce` 的提示词要求"主体占画面 60%~85%"，取中值 0.75。这个数只影响
  * **大小**（±15%），不影响位置与内容，所以先用固定值；要精确需要解 PNG 的
  * alpha 包围盒（当前依赖里没有解码库），列为后续项（见文档 §5.4）。
  */

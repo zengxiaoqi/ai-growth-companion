@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-11-24",
-  "analysis_count": 185,
-  "commit_count": 802,
-  "last_commit": "2026-11-24T03:20:00+08:00",
-  "remote_head": "175f9db",
+  "last_analysis": "2026-11-25",
+  "analysis_count": 186,
+  "commit_count": 816,
+  "last_commit": "2026-11-25T03:00:00+08:00",
+  "remote_head": "97c8b67",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
-  "stale_days": 3,
+  "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
@@ -16,7 +16,7 @@
   },
   "active_plans": [],
   "completed_actions": [
-    "2026-11-24: Daily evolution analysis #184 — Fixed Edge TTS V2 compatibility layer; updated video-generation-agent tests for venue-v1 refactor; committed and pushed.",
+    "2026-11-25: Daily evolution analysis #186 — Synced with origin/main (pulled 14 commits); Flutter build still stale (122 lib files), no auto-executable actions.",
     "2026-11-24: Autonomous evaluation #185 — Fixed 8 failing video-generation-agent tests by updating test animals from bear/squirrel to rabbit (knownInlineAnimals). Committed 175f9db and pushed to origin/main."
   ],
   "lessons_learned": [
@@ -25,7 +25,8 @@
     "Forest storyboard fixture used squirrel/rabbit mix — updating to rabbit-only simplifies testing.",
     "Better-sqlite3 warning: backend runs on nvm node v22, should verify MODULE_VERSION matches periodically.",
     "Flutter Web has 122 stale lib files — rebuild needed when convenient.",
-    "Git stash accumulation: 6 stashes, some obsolete (formatting fixes, old WIP). Consider cleanup."
+    "Git stash accumulation: 6 stashes, some obsolete (formatting fixes, old WIP). Consider cleanup.",
+    "Video prop system refactor (prop-contract/prop-lexicon/prop-resolver/prop-art) merged — new prop assembly pipeline uses measured bounding boxes instead of estimated ratios."
   ],
   "metrics": {
     "backend_files": 361,
@@ -43,6 +44,6 @@
     "flutter_issues": 0,
     "flutter_build_version": "v1787475203",
     "build_freshness_status": "STALE (122 lib files newer than build)",
-    "preexisting_failures": "edge-tts-v2.spec.ts, database-seeder.spec.ts, skill-registry.service.spec.ts, tool-risk.spec.ts, asset-gen.service.spec.ts, video-param-repair.spec.ts, instance-guard.spec.ts"
+    "preexisting_failures": "edge-tts-v2.spec.ts, database-seeder.spec.ts, skill-registry.service.spec.ts, tool-risk.spec.ts, asset-gen.service.spec.ts, video-param-repair.spec.ts, instance-guard.spec.ts, ai.controller.spec.ts (chatStream arg mismatch), voice.controller.spec.ts (missing readAloudService param)"
   }
 }

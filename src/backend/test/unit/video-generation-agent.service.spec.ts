@@ -191,12 +191,16 @@ describe('VideoGenerationAgentService', () => {
     expect(generatedCode).toContain('Img');
     expect(generatedCode).toContain('TigerSvg');
     expect(generatedCode).toContain('SceneBackground');
+    // 角色来自矢量库还是本地课程素材，取决于这台机器跑没跑过
+    // `npm run assets:vector`（它下载的 manifest.json 是 gitignore 的）。
+    // 两者都是"真素材"，所以只断言拿到了一只 animals 目录下的 svg，
+    // 不把"矢量库装没装"写进预期——否则同一份代码在两台机器上一红一绿。
     expect(manifest.assets).toEqual(
       expect.arrayContaining([
-        // 矢量库命中后走 local 路径：library hit → local path returned
         expect.objectContaining({
-          provider: 'local',
           kind: 'character',
+          provider: expect.stringMatching(/^(local|vector)$/),
+          staticPath: expect.stringMatching(/animals\/.+\.svg$/),
         }),
       ]),
     );
@@ -209,15 +213,16 @@ describe('VideoGenerationAgentService', () => {
       ]),
     );
     expect(manifest.sceneAssetSummary[0]).toMatchObject({
-      assetProvider: 'local',
-      assetLicense: 'cc0',
+      assetProvider: expect.stringMatching(/^(local|vector)$/),
+      assetLicense: expect.stringMatching(/^(cc0|mit)$/),
     });
     expect(manifest.props.scenes[0]).toMatchObject({
       assetKey: 'tiger',
       action: 'showFeatures',
       habitat: 'forest',
       visualAssets: expect.objectContaining({
-        characterAssetSrc: 'assets/lesson/animals/tiger-standing.svg',
+        characterAssetSrc: expect.stringMatching(/^assets\/(lesson|vector)\/animals\/.+\.svg$/),
+        // 背景不走矢量库，永远是本地场景图，可以写死
         backgroundAssetSrc: 'assets/lesson/backgrounds/forest-day.svg',
       }),
     });
@@ -342,12 +347,14 @@ describe('VideoGenerationAgentService', () => {
       assetKey: 'rabbit',
       action: 'eat',
       visualAssets: expect.objectContaining({
-        characterAssetSrc: 'assets/lesson/animals/rabbit-eating.svg',
+        // 同上：装了矢量库拿到的是 rabbit.svg（不带姿态），没装才是
+        // rabbit-eating.svg。这里关心的是"吃萝卜这一幕有真角色图"。
+        characterAssetSrc: expect.stringMatching(/^assets\/(lesson|vector)\/animals\/.+\.svg$/),
       }),
     });
     expect(manifest.sceneAssetSummary[0]).toMatchObject({
-      assetProvider: 'local',
-      characterProvider: 'local',
+      assetProvider: expect.stringMatching(/^(local|vector)$/),
+      characterProvider: expect.stringMatching(/^(local|vector)$/),
       hasCharacterAsset: true,
     });
   });

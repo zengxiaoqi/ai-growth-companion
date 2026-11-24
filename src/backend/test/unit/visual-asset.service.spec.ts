@@ -1,6 +1,17 @@
 import { VisualAssetService } from '../../src/modules/learning/visual-asset.service';
 
 describe('VisualAssetService', () => {
+  // 这里的用例只覆盖「本地课程素材 → 外部素材」这条解析顺序。
+  // 矢量库是可选 provision（`npm run assets:vector` 下载的 manifest.json
+  // 被 gitignore），装了它角色会优先命中矢量库，provider/role/staticPath
+  // 全变——同一份代码在两台机器上一红一绿。所以这里显式摘掉矢量库，
+  // 让用例与本机装没装它无关。
+  beforeEach(() => {
+    jest
+      .spyOn(VisualAssetService.prototype as any, 'resolveVectorAsset')
+      .mockResolvedValue(null);
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });

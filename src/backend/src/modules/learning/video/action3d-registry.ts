@@ -73,13 +73,27 @@ export function resolveActorRig(actorId: string | undefined): ProceduralActorRig
   return ACTOR_RIGS[id] || DEFAULT_ACTOR_RIG;
 }
 
-/** 已登记的道具：滑梯、球。别的 id 不会进 3D 舞台 */
-export const PROP_KINDS = ['slide', 'ball'] as const;
-export type PropKind = (typeof PROP_KINDS)[number];
+/**
+ * 有三维 mesh 的道具。**这不是"道具清单"**，是"三维舞台认识哪几个模型"。
+ *
+ * 以前这个常量叫 `PROP_KINDS`，名字让人以为它是道具的全集，于是所有"加个道具"的
+ * 需求都往这里塞——而 2D 道具根本不需要 mesh。现在拆成两件事：
+ *  - `PROP_MESHES`：三维画面能建出来的实物；
+ *  - `MOTION_PROP`：每个三维动作需要哪个 mesh。
+ * 二维道具不在这两个表里，它们由分镜声明 + asset-gen 现画（docs/lesson-video-prop-protocol.md）。
+ */
+export const PROP_MESHES = ['slide', 'ball'] as const;
+export type PropMesh = (typeof PROP_MESHES)[number];
 
-export function resolvePropKind(propId: string | undefined): PropKind | null {
+/** 三维动作与它必须配的道具（滑梯只能配 slide，球只能配 dribble） */
+export const MOTION_PROP: Record<Action3DMotion, PropMesh> = {
+  slide: 'slide',
+  dribble: 'ball',
+};
+
+export function resolvePropMesh(propId: string | undefined): PropMesh | null {
   const id = String(propId || '').toLowerCase();
-  return (PROP_KINDS as readonly string[]).includes(id) ? (id as PropKind) : null;
+  return (PROP_MESHES as readonly string[]).includes(id) ? (id as PropMesh) : null;
 }
 
 /**
@@ -298,7 +312,7 @@ export interface ResolvedAction3D {
   renderer: Action3DRenderer;
   motion: Action3DMotion;
   actorId: string;
-  propId: PropKind;
+  propId: PropMesh;
   clip?: string;
   start: Vec3;
   end: Vec3;
@@ -329,10 +343,10 @@ export function resolveAction3D(
   const defaults = MOTION_DEFAULTS[motion];
   // 道具必须与动作匹配：滑梯只能配 slide，球只能配 dribble。
   // 分镜偶尔写成 slide+ball，硬渲染会出现"小熊骑着球滑滑梯"。
-  const expectedProp: PropKind = motion === 'slide' ? 'slide' : 'ball';
-  const declaredProp = resolvePropKind(raw?.propId || context.propId);
+  const expectedProp: PropMesh = MOTION_PROP[motion];
+  const declaredProp = resolvePropMesh(raw?.propId || context.propId);
   if (declaredProp && declaredProp !== expectedProp) return null;
-  const propId: PropKind = expectedProp;
+  const propId: PropMesh = expectedProp;
 
   const actorId = String(raw?.actorId || context.actorId || 'bear')
     .trim()

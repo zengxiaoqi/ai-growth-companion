@@ -34,6 +34,10 @@ const SOURCES = [
   ['character/world.ts', path.join(remotionSrc, 'character', 'world.ts')],
   ['character/venue-assets.tsx', path.join(remotionSrc, 'character', 'venue-assets.tsx')],
   ['character/WorldLayer.tsx', path.join(remotionSrc, 'character', 'WorldLayer.tsx')],
+  // 道具：几何数据（prop-art.ts）与渲染器（prop-glyph.tsx）分开同步。
+  // 数据层被后端单测直接 import，所以必须是 .ts；渲染器只有模板用。
+  ['character/prop-art.ts', path.join(remotionSrc, 'character', 'prop-art.ts')],
+  ['character/prop-glyph.tsx', path.join(remotionSrc, 'character', 'prop-glyph.tsx')],
   ['character/Puppet2D.tsx', path.join(remotionSrc, 'character', 'Puppet2D.tsx')],
   ['three/ThreeActionStage.tsx', path.join(remotionSrc, 'three', 'ThreeActionStage.tsx')],
 ];

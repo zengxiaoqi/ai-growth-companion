@@ -53,6 +53,7 @@ import {
   resolvePuppet,
   resolvePuppetSequence,
 } from './video/action3d-registry';
+import { PROP_LABELS, matchLegacyProps } from './video/prop-lexicon';
 import { STAGE_TEMPLATE_FILES } from './video/stage-template';
 import {
   ageMotionProfile,
@@ -85,32 +86,6 @@ function is3dStageEnabled(): boolean {
   return String(process.env.VIDEO_3D_STAGE ?? 'on').trim().toLowerCase() !== 'off';
 }
 
-/**
- * 场景里点名的实物 → 别名。与矢量库 assets/vector 下的素材一一对应。 */
-const SCENE_PROP_KEYWORDS: Record<string, string[]> = {
-  ball: ['皮球', '足球', '球', 'ball'],
-  cookie: ['饼干', 'cookie', '小饼干'],
-  apple: ['苹果', 'apple'],
-  banana: ['香蕉', 'banana'],
-  book: ['书', '绘本', 'book'],
-  block: ['积木', 'block'],
-  table: ['桌子', '桌', 'table'],
-  slide: ['滑梯', 'slide'],
-  star: ['星星', 'star'],
-  heart: ['爱心', 'heart'],
-};
-const SCENE_PROP_LABELS: Record<string, string> = {
-  ball: '皮球',
-  cookie: '饼干',
-  apple: '苹果',
-  banana: '香蕉',
-  book: '书',
-  block: '积木',
-  table: '桌子',
-  slide: '滑梯',
-  star: '星星',
-  heart: '爱心',
-};
 
 export interface AgentVideoRequest {
   topic: string;
@@ -1236,10 +1211,11 @@ import { WorldLayer } from "./character/WorldLayer";
 import { cameraForWorld, normalizeWorld } from "./character/world";
 import type { MotionOp } from "./character/pose";
 import { portraitFraming, propSlot } from "./character/stage-layout";
+import { PropGlyph, builtinPropGlyph } from "./character/prop-glyph";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
 const VECTOR_ANIMAL_IDS: string[] = ${JSON.stringify(VECTOR_ANIMAL_IDS)};
-const PROP_LABELS: Record<string, string> = ${JSON.stringify(SCENE_PROP_LABELS)};
+const PROP_LABELS: Record<string, string> = ${JSON.stringify(PROP_LABELS)};
 
 /**
  * 编排时间轴（后端 choreography.ts 编译产物）。
@@ -2003,95 +1979,30 @@ const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   );
 };
 
-/** 台词里点名的实物：画在角色两侧，让"看小熊手里的皮球"真的有皮球可看 */
+/**
+ * 台词里点名的实物：画在角色两侧，让"看小熊手里的皮球"真的有皮球可看。
+ *
+ * 这里只剩"摆在哪儿、晃多少"，**画什么由 character/prop-glyph.tsx 决定**。
+ * 以前是十连 if (id === "ball") 的判断，兜底 return null——画不出的道具静默消失，
+ * 而且新增一个道具要改这个 5000 行的模板字符串，既不能类型检查也不能在 Studio 单看。
+ *
+ * 为什么是 <g translate(0 半盒+wobble)> 而不是直接给坐标：这些调用点都包在
+ * <svg viewBox="-80 -80 160 160"> 里（内置道具的旧绘图盒）。PropGlyph 的输出
+ * 底边中点在原点，平移半个盒子正好把两者对齐——于是不管外层 svg 是 150px 还是
+ * 300px，道具都落在原来的位置，改渲染层时不用重算任何调用点的宽高。
+ *
+ * 返回 null 只对"旧词表推出了一个不存在的 id"生效（老课兜底）。新契约里道具由
+ * 分镜声明，画不出来要出占位件而不是消失——那条路不经过这里，见 prop-resolver。
+ */
 const PropArt: React.FC<{ id: string; x: number; y: number; frame: number }> = ({ id, x, y, frame }) => {
+  const glyph = builtinPropGlyph(id, PROP_LABELS[id] || "");
+  if (!glyph) return null;
   const wobble = Math.sin(frame / 9 + x) * 6;
-  const common = { transform: "translate(" + x + " " + (y + wobble) + ")" } as const;
-  if (id === "ball") {
-    return (
-      <g {...common}>
-        <circle cx="0" cy="0" r="58" fill="#ff5252" stroke="#b71c1c" strokeWidth="5" />
-        <path d="M-56 -16 Q0 8 56 -16 M-56 16 Q0 -8 56 16 M-16 -56 Q16 0 -16 56 M16 -56 Q-16 0 16 56" fill="none" stroke="#fff4e6" strokeWidth="5" />
-      </g>
-    );
-  }
-  if (id === "cookie") {
-    return (
-      <g {...common}>
-        <circle cx="0" cy="0" r="52" fill="#e6a23c" stroke="#a86a1e" strokeWidth="5" />
-        {[[-22,-14],[16,-24],[28,12],[-12,25],[2,2]].map(([cx,cy],i) => (
-          <circle key={i} cx={cx} cy={cy} r="6" fill="#6d3f12" />
-        ))}
-      </g>
-    );
-  }
-  if (id === "apple") {
-    return (
-      <g {...common}>
-        <path d="M0 -36 C30 -58 58 -30 48 10 C40 44 12 58 0 50 C-12 58 -40 44 -48 10 C-58 -30 -30 -58 0 -36 Z" fill="#f44336" stroke="#a82017" strokeWidth="5" />
-        <path d="M0 -38 Q6 -64 28 -66" fill="none" stroke="#5d4037" strokeWidth="7" strokeLinecap="round" />
-        <ellipse cx="22" cy="-56" rx="18" ry="9" fill="#4caf50" transform="rotate(-24 22 -56)" />
-      </g>
-    );
-  }
-  if (id === "banana") {
-    return (
-      <g {...common}>
-        <path d="M-46 -34 C-44 30 -6 58 42 40 C56 34 60 18 50 12 C18 34 -18 16 -20 -36 C-22 -52 -46 -50 -46 -34 Z" fill="#ffd54f" stroke="#c79a00" strokeWidth="5" />
-      </g>
-    );
-  }
-  if (id === "book") {
-    return (
-      <g {...common}>
-        <path d="M-58 -36 L-4 -28 L-4 42 L-58 34 Z" fill="#fff8e1" stroke="#8d6e63" strokeWidth="5" />
-        <path d="M58 -36 L4 -28 L4 42 L58 34 Z" fill="#fff8e1" stroke="#8d6e63" strokeWidth="5" />
-        <path d="M0 -28 L0 42" stroke="#8d6e63" strokeWidth="6" />
-      </g>
-    );
-  }
-  if (id === "block") {
-    return (
-      <g {...common}>
-        <rect x="-52" y="-28" width="48" height="48" rx="8" fill="#42a5f5" stroke="#1565c0" strokeWidth="5" />
-        <rect x="4" y="-18" width="48" height="48" rx="8" fill="#66bb6a" stroke="#2e7d32" strokeWidth="5" />
-        <rect x="-28" y="18" width="48" height="48" rx="8" fill="#ffca28" stroke="#ef6c00" strokeWidth="5" />
-      </g>
-    );
-  }
-  if (id === "table") {
-    return (
-      <g {...common}>
-        <rect x="-66" y="-30" width="132" height="22" rx="6" fill="#c98a4b" stroke="#8d5524" strokeWidth="5" />
-        <rect x="-54" y="-8" width="12" height="60" rx="4" fill="#a86a34" stroke="#8d5524" strokeWidth="4" />
-        <rect x="42" y="-8" width="12" height="60" rx="4" fill="#a86a34" stroke="#8d5524" strokeWidth="4" />
-      </g>
-    );
-  }
-  if (id === "slide") {
-    return (
-      <g {...common}>
-        <path d="M-58 -44 L-58 12 L44 56" fill="none" stroke="#ff8a65" strokeWidth="18" strokeLinecap="round" />
-        <path d="M-58 -44 L58 -44 M-58 12 L58 12" stroke="#4dd0e1" strokeWidth="12" strokeLinecap="round" />
-        <path d="M-58 12 L-58 56 M58 12 L58 56" stroke="#26a69a" strokeWidth="10" strokeLinecap="round" />
-      </g>
-    );
-  }
-  if (id === "star") {
-    return (
-      <g {...common}>
-        <path d="M0 -52 L15 -17 L53 -12 L26 15 L34 52 L0 33 L-34 52 L-26 15 L-53 -12 L-15 -17 Z" fill="#ffd54f" stroke="#f9a825" strokeWidth="5" />
-      </g>
-    );
-  }
-  if (id === "heart") {
-    return (
-      <g {...common}>
-        <path d="M0 46 C-56 12 -54 -34 -26 -38 C-10 -40 0 -28 0 -20 C0 -28 10 -40 26 -38 C54 -34 56 12 0 46 Z" fill="#ff6b81" stroke="#c2185b" strokeWidth="5" />
-      </g>
-    );
-  }
-  return null;
+  return (
+    <g transform={"translate(" + x + " " + (y + glyph.canvas / 2 + wobble) + ")"}>
+      <PropGlyph glyph={glyph} height={glyph.canvas} />
+    </g>
+  );
 };
 
 /**
@@ -4769,14 +4680,15 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   }
 
   /** 从视觉描述/旁白里识别点名的实物，交给模板画在角色身边 */
+  /**
+   * 从这一幕的文本推出道具（**老分镜兜底**，见 video/prop-lexicon.ts）。
+   *
+   * 新分镜直接声明 props[]，走的是另一条路：不猜、按名字现画。这里保留词表
+   * 只是为了历史任务不出空画面，所以「三个名额」的取舍也不变——旧实现按表顺序
+   * 取前 3 个，换顺序会让老课画面换道具。
+   */
   private inferSceneProps(source: string): Array<{ id: string; label: string }> {
-    const props: Array<{ id: string; label: string }> = [];
-    for (const [id, keywords] of Object.entries(SCENE_PROP_KEYWORDS)) {
-      if (keywords.some((kw) => source.toLowerCase().includes(kw.toLowerCase()))) {
-        props.push({ id, label: SCENE_PROP_LABELS[id] || id });
-      }
-    }
-    return props.slice(0, 3);
+    return matchLegacyProps(source).slice(0, 3);
   }
 
   private inferDynamicAssetTags(source: string): string[] {

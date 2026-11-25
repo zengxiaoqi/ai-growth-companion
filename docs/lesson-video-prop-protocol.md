@@ -641,9 +641,9 @@ resolver 三条覆盖透传与回退）。
    这条离线通道（不受队列引擎选择影响）。
 3. **道具标签**：`Puppet2D` 里指认幕的标签仍画在 `y = -sizePx/2 - 14`，道具变小后它落到
    地面线上；`ActionStage` 的呼出式构图里标签已经能显示（本轮补的 `propLabelOf`）。
-4. **`hold` 目前是"角色卡 + 道具呼出"构图**，不是"拿在手里"。真正的手持要模型写
-   `walk`/`handover` 这类有 puppet 的动作，道具才会挂到手上（见 §14.6 上面的实测帧）。
-   这是引擎能力差异，不是道具链路的 bug。
+4. ~~`hold` 目前是"角色卡 + 道具呼出"构图~~ —— 这个判断是错的，见 §14.8：
+   `hold` 本来就是合法的全身木偶姿态，只是能力映射表漏抄了一行，
+   导致手持幕掉进不画声明道具的分支。修完后道具就挂在手上了。
 5. `PROP_GEN` 已在本机 `.env` 打开（`PROP_GEN=on`）；是否设为默认值仍要拍板。
 6. **本机 LLM 免费额度已用尽**（`403 Free quota exhausted`，2026-11-24 深夜实测）：
    分镜重写与现画道具都会失败并各自降级（分镜退回旧内容、道具退回占位件）。
@@ -682,7 +682,66 @@ succeeded`、62.2s / 13.9MB 成片。**但抽帧里道具没有出现在可见�
 （左下角那块浅色方盒是场景固定装饰，各幕都在；分镜里只有第 3~5 幕声明
 「洒水壶」`place:hand`、`heightRatio:0.22`），QA 只给了 43 分 / 20 issues。
 
-即：**模型侧和装配侧已经通了，断的是 agent 写代码时有没有把 `scene.props`
-真正画进组件**。模板里 `scene.props` 只参与了镜头框选（`focusBox`），
-`PropArt` 的绘制要靠 agent 自己写；这一层还没验证通过，是下一步要修的。
+当时把这一段归因为"agent 写代码时没把 `scene.props` 画进组件"，**这个判断也是错的**：
+`generateRemotionComposition` 早就丢弃 agent 现写的 TSX，只用内置模板，
+而模板里 `scene.props` 和 `carry` 都有完整的绘制代码。真正的断链见 §14.8。
+
 不要把这误报成"道具生成失败"——资产已生成、缓存命中、几何正确。
+
+### 14.8 成片看不到道具的真根因：`hold` 漏了能力映射（2026-11-25）
+
+上面两轮都把问题归到"渲染层没画"，但链路其实断在**动作路由**：
+
+1. `PUPPET_MOTIONS` 里有 `hold`（双手在身前托东西，双人递道具也用它），
+   但 `VERB_AS_MOTION` 这张"动词 → 能不能由单角色骨架演"的能力表**漏了 `hold`**。
+2. `composePerformance` 把 `!motionOf(action)` 的动作判成"必须换舞台"，
+   于是第 3~5 幕的 `hold` 被挑成 `stageAction`、`motions=[]`、`puppet=null`。
+3. 模板的分支顺序是 `hasFigure → 3D → puppet → hasInteraction → 静态`。
+   `puppet` 为空后这三幕掉进 `hasInteraction`（ActionStage）。**只有 Puppet2D 分支
+   会把 `place:hand` 的声明贴成 `carry`**；ActionStage 的呼出式构图只认
+   `interaction.propId`，而串演幕的 propId 又挂在被丢掉的动作上——两头都不画。
+4. 结果：资产生成成功、缓存命中、`art` 几何正确、日志无报错，成片里角色空着手。
+
+诊断方法（不用等整课渲染）：把分镜的 `performance` 过一遍
+`normalizeScenePerformance → composePerformance`，打印 `primary.verb / motions / dropped`
+与按 `VERB_AS_MOTION` 推出的 `puppetMotion`。修复前第 3~5 幕是
+`hold / [] / [walk,speak] / null → ActionStage`，修复后是
+`walk|hold / [walk,hold,speak] / [] / walk|hold → Puppet2D`。
+
+修法：`VERB_AS_MOTION` 补 `hold: 'hold'`（`video/scene-interaction.ts`），
+并在 `motion-clip.spec.ts` / `scene-interaction.spec.ts` 各钉一条防回退断言。
+这同时修好了" declared hand 道具在串演幕不显示"——`sequencePropId` 现在能取到
+`hold` 段的 propId，`GeneratedLesson` 的 `sceneHandProp → carry` 分支才会执行。
+
+**教训**：`PUPPET_MOTIONS`（有哪些姿态）和 `VERB_AS_MOTION`（哪些动词能映射到姿态）
+是两张表，新增姿态时只改前者不会报错，只会让相关幕静默降级到另一种画法。
+这两张表的一致性应该由测试保证，而不是靠人记。
+
+**同一轮还发现第三处断链**：修好映射后重跑队列，成片仍然没有道具。
+这次查 agent 的 `generateVideoContent` 工具调用结果（日志里
+`Tool call: generateVideoContent → …`），整份分镜里 `"props"` 出现 **0 次**。
+根因在 `agent-framework/tools/impl/generate-video-content.ts`：
+`StoryboardScene` 类型、`sanitizeScene` 白名单都没有 `props` 字段。
+LLM 就算按 quick-video 的提示词写了声明，进 `sanitizeStoryboard` 时也会被整段抹掉；
+下游的 `normalizeDeclaredProps` / `prop-resolver` / `carry` 全部拿不到输入。
+这与 §14.5 的三处断链是同一类错误——**提示词与白名单必须同时改**。
+
+修法：类型加 `props?: Record<string, unknown>[]`，`sanitizeScene` 只做形状过滤后透传，
+输出模板补一个 `{"name":"洒水壶","place":"hand","heightRatio":0.22}` 的具体例子。
+单测钉住"合法项原样通过、非法项与超量项被挡掉"。
+
+**快速验证工具链的方法**：不要等十分钟的出片。直接
+`npx ts-node -T scripts/probe-video-content-props.ts` 调工具，
+看返回的 `scenes[*].props`。修完后实测 6/6 幕都有声明，
+`hold:洒水壶` / `point:向日葵` 这类引用也都在。
+
+**最终出片验证（taskId=17）**：`engine=dynamic-remotion succeeded`、
+QA 修复轮后成片 54s / 3.4MB。抽帧确认：
+- 第 3 幕「拿来洒水壶」：熊的手上真的挂着一个蓝色洒水壶（黄色壶盖 + 黑色提手），
+  大小约角色身高的 1/4，完整可见；
+- 第 1 幕「花园里的发现」：地面道具「花儿」带标签摆在角色右侧，不挡脸；
+- 无虚线占位框、无白底方块、无文字垃圾。
+
+这条链路至此才真正端到端打通：**声明 → 现画 → 装配 → 动作路由 → 绘制**。
+前面几轮"通过率 100% / 资产几何正确 / 引擎成功"都不是充分条件——
+任何一处白名单或能力表漏字段，都会静默降级成空手画面。

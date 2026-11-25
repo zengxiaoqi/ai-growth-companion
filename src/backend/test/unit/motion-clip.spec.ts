@@ -61,6 +61,10 @@ describe('动作词汇表', () => {
     expect(VERB_AS_MOTION.clap).toBe('clap');
     expect(VERB_AS_MOTION.hips).toBe('hips');
   });
+
+  it('单人 hold 必须映射成木偶姿态，否则手持道具幕会掉进不画道具的分支', () => {
+    expect(VERB_AS_MOTION.hold).toBe('hold');
+  });
 });
 
 describe('关键帧数据', () => {

@@ -169,3 +169,51 @@ describe('generateVideoContent · 一屏不要塞太多概念', () => {
     expect(llm.generateStreaming).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * 道具声明必须穿过分镜工具的 sanitize 白名单。
+ *
+ * 提示词说"先声明、再引用"没有用：LLM 输出里的 props 如果在这里被抹掉，
+ * 后面的 normalizeDeclaredProps / prop-resolver / carry 全部拿不到输入，
+ * 成片里角色空着手，而且没有任何一条日志会报错。
+ */
+describe('generateVideoContent · props 白名单', () => {
+  it('LLM 写出的 props 原样进入 storyboard，非法项与超量项被挡掉', async () => {
+    const raw = JSON.stringify({
+      title: '道具课',
+      visualTheme: {},
+      scenes: CLEAN.map((s, i) => ({
+        id: `scene-${i + 1}`,
+        title: `A${i + 1}`,
+        narration: s.narration,
+        sceneGraph: {
+          relation: 'chain',
+          nodes: s.nodes.map((label, j) => ({ id: `n${j + 1}`, label, subject: label, role: 'object' })),
+        },
+        ...(i === 0
+          ? {
+              props: [
+                { name: '洒水壶', place: 'hand', heightRatio: 0.22 },
+                'not-an-object',
+                { name: '水桶', place: 'floor' },
+                { name: '第四个', place: 'floor' },
+                { name: '第五个', place: 'floor' },
+              ],
+            }
+          : {}),
+      })),
+    });
+    const { tool } = makeTool([raw]);
+    const result = await tool.execute({ topic: '测试' } as any, {} as any);
+    expect(result.success).toBe(true);
+    const scenes = (result.data as VideoStoryboard).scenes;
+    // 4 个对象里只留前 3 个（与 prop-contract 的 MAX_PROPS_PER_SCENE 一致），
+    // 字符串项在形状过滤时就被丢掉。
+    expect(scenes[0].props).toEqual([
+      { name: '洒水壶', place: 'hand', heightRatio: 0.22 },
+      { name: '水桶', place: 'floor' },
+      { name: '第四个', place: 'floor' },
+    ]);
+    expect(scenes[1].props).toBeUndefined();
+  });
+});

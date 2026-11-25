@@ -65,6 +65,14 @@ export type StoryboardScene = {
   /** 句级编排：讲到哪句、强调谁、揭示什么、用什么动效。缺失时渲染层自行推导 */
   beats?: Beat[];
   /**
+   * 这一幕声明的实物（自由名字 + place + heightRatio）。
+   *
+   * 不能只让提示词写"先声明再引用"而在这里漏掉字段：sanitizeScene 是白名单，
+   * LLM 输出的 props 走到这里会被整段抹掉，后面 normalizeDeclaredProps 和
+   * prop-resolver 再正确也拿不到输入。表现是成片角色空着手、日志毫无报错。
+   */
+  props?: Record<string, unknown>[];
+  /**
    * 演出：一幕里的动作序列（`{ actors, actions: [...] }`）。
    * 缺失时渲染层从 interaction 或 visualDescription 确定性提取，但 LLM 直接写最准。
    */
@@ -282,7 +290,7 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       "narration": "string (TTS旁白，40-80个中文字符，2-3个完整句子，温暖师生对话风格)",
       "onScreenText": "string (屏幕显示文字，4-12个中文字符)",
       "visualDescription": "string (30-60字的视觉构图描述：角色动作、物品位置、背景风格)",
-      "props": "array of 0-3 (这一幕画面里真的出现、且孩子需要看见的实物。name 用孩子听得懂的具体名词，≤12字，不要写"东西""物品"这类泛指；heightRatio 是它占角色身高的比例——苹果≈0.1, 水桶≈0.22, 桌子≈0.55，不写按 0.35；place 说明在哪：hand=拿在手里 / floor=放在地上 / worn=穿在身上（暂只支持 hand 与 floor）；holder 可选手持者 id。只写旁白或画面描述里真的出现的，最多 3 个；没有就省略)",
+      "props": "array of 0-3 (先声明、再引用：这里写过的名字，performance.actions[].propId 才能引用。例：[{"name":"洒水壶","place":"hand","heightRatio":0.22}]。name 用孩子听得懂的具体名词，≤12字，不要写"东西""物品"这类泛指；heightRatio 是它占角色身高的比例——苹果≈0.1, 水桶≈0.22, 桌子≈0.55，不写按 0.35；place 说明在哪：hand=拿在手里 / floor=放在地上 / worn=穿在身上（暂只支持 hand 与 floor）；holder 可选手持者 id。只写旁白或画面描述里真的出现的，最多 3 个；没有就省略)",
       "performance": "object|null (这一幕角色真的在动时才填，否则省略。让画面演出动作，不是只把角色摆着)",
       "performance.actors": "array of 1-3 { id, label, role }，只写一次，后续 action 继承。id 用具体名词的英文小写(bear/rabbit/tiger); label 用旁白里的中文叫法(小熊/小兔); role 按动词: handover→giver+receiver, lift-together→helper+helper, speak→speaker+target, 其余→helper",
       "performance.actions": "array of 1-3 动作, 按时间先后排列（最多 3 个）。这是'一幕多动作'的载体: '走过去→指着滑梯→说一句话' 写在同一幕的 3 个 action 里, 不要拆成三幕",
@@ -581,6 +589,16 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         : {}),
       ...(raw?.sceneGraph && typeof raw.sceneGraph === 'object'
         ? { sceneGraph: raw.sceneGraph as Record<string, unknown> }
+        : {}),
+      // 道具声明必须跟着 sanitize 走：这里是分镜从 LLM 进入下游的唯一入口，
+      // 白名单漏一个字段，整条"声明→现画→挂到手上"的链路就会静默失效。
+      // 只做形状过滤，具体校验由 learning 层的 normalizeDeclaredProps 负责。
+      ...(Array.isArray(raw?.props)
+        ? {
+            props: raw.props
+              .filter((p: unknown) => p && typeof p === 'object' && !Array.isArray(p))
+              .slice(0, 3) as Record<string, unknown>[],
+          }
         : {}),
       ...(raw?.performance && typeof raw.performance === 'object'
         ? { performance: raw.performance as Record<string, unknown> }

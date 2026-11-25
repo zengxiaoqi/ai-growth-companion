@@ -102,6 +102,16 @@ export type PuppetMotion = (typeof PUPPET_MOTIONS)[number];
  * 人物语言与单人幕同一套。真正的降级（徽章）只留给未知动词与 3D 不可用时的滑梯。
  */
 export const VERB_AS_MOTION: Partial<Record<InteractionVerb, PuppetMotion>> = {
+  /**
+   * 单人手持也是全身动作，不是徽章分支的专利。
+   *
+   * 漏掉这一条时，`hold` 被 composePerformance 判成"骨架演不了的动作"，
+   * 整幕掉进 ActionStage——而只有 Puppet2D 会把声明为 place:hand 的道具
+   * 挂到手上（GeneratedLesson 的 carry 分支）。表现是资产画好了、几何也
+   * 对，成片里角色却空着手，且没有任何报错。双人 hold 本来就在用这个
+   * 姿态（见 PUPPET_MOTIONS 的注释），单人漏映射只是表抄漏了一行。
+   */
+  hold: 'hold',
   point: 'point',
   speak: 'speak',
   climb: 'climb',

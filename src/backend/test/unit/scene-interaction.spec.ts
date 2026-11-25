@@ -438,6 +438,14 @@ describe('composePerformance', () => {
     expect(composed.dropped).toEqual([]);
   });
 
+  it('单人 hold 可串演：手持道具幕才不会掉进 ActionStage 分支', () => {
+    const composed = composePerformance(perf(['hold', 'speak'], [{ propId: '洒水壶' }]));
+    expect(composed.primary.verb).toBe('hold');
+    expect(composed.primary.propId).toBe('洒水壶');
+    expect(composed.motions).toEqual(['hold', 'speak']);
+    expect(composed.dropped).toEqual([]);
+  });
+
   it('有三维动作时以它为主：先走两步不是这一幕要演的东西', () => {
     const composed = composePerformance(perf(['walk', 'slide']));
     expect(composed.primary.verb).toBe('slide');

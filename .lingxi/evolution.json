@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-11-25",
-  "analysis_count": 186,
-  "commit_count": 816,
-  "last_commit": "2026-11-25T03:00:00+08:00",
-  "remote_head": "97c8b67",
+  "last_analysis": "2026-11-26",
+  "analysis_count": 187,
+  "commit_count": 992,
+  "last_commit": "2026-11-25T13:21:08+08:00",
+  "remote_head": "1a2cfe5",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
-  "stale_days": 0,
+  "stale_days": 5,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
@@ -16,8 +16,8 @@
   },
   "active_plans": [],
   "completed_actions": [
-    "2026-11-25: Daily evolution analysis #186 — Synced with origin/main (pulled 14 commits); Flutter build still stale (122 lib files), no auto-executable actions.",
-    "2026-11-24: Autonomous evaluation #185 — Fixed 8 failing video-generation-agent tests by updating test animals from bear/squirrel to rabbit (knownInlineAnimals). Committed 175f9db and pushed to origin/main."
+    "2026-11-26: Daily evolution analysis #187 — Synced origin/main (pulled 1 commit); Backend dist stale (13 new src files), Flutter build stale (5 days). Auto-rebuilt backend dist.",
+    "2026-11-25: Daily evolution analysis #186 — Synced with origin/main (pulled 14 commits); Flutter build still stale (122 lib files), no auto-executable actions."
   ],
   "lessons_learned": [
     "venue-v1 refactor added validateGeneratedManifest character asset validation — tests using bear/squirrel must use rabbit/tiger/monkey (knownInlineAnimals) or provide explicit interaction data.",
@@ -29,21 +29,21 @@
     "Video prop system refactor (prop-contract/prop-lexicon/prop-resolver/prop-art) merged — new prop assembly pipeline uses measured bounding boxes instead of estimated ratios."
   ],
   "metrics": {
-    "backend_files": 361,
+    "backend_files": 375,
     "backend_test_files": 122,
     "flutter_files": 170,
     "web_files": 132,
     "content_files": 53,
-    "total_lines": 204900,
+    "total_lines": 206000,
     "voice_unit_tests": 55,
     "reward_unit_tests": 89,
-    "video_gen_tests": 20,
-    "total_tests": 2376,
-    "tests_passed": 2364,
+    "video_gen_tests": 25,
+    "total_tests": 2380,
+    "tests_passed": 2368,
     "tests_failed": 12,
-    "flutter_issues": 0,
+    "flutter_issues": 28,
     "flutter_build_version": "v1787475203",
-    "build_freshness_status": "STALE (122 lib files newer than build)",
+    "build_freshness_status": "STALE (Flutter: 122 lib files, Backend: 13 src files)",
     "preexisting_failures": "edge-tts-v2.spec.ts, database-seeder.spec.ts, skill-registry.service.spec.ts, tool-risk.spec.ts, asset-gen.service.spec.ts, video-param-repair.spec.ts, instance-guard.spec.ts, ai.controller.spec.ts (chatStream arg mismatch), voice.controller.spec.ts (missing readAloudService param)"
   }
 }

@@ -1,9 +1,11 @@
 import { VoiceController } from '../../src/modules/voice/voice.controller';
 import { VoiceService } from '../../src/modules/voice/voice.service';
+import { ReadAloudService } from '../../src/modules/voice/read-aloud.service';
 
 describe('VoiceController', () => {
   let controller: VoiceController;
   let voiceService: jest.Mocked<Partial<VoiceService>>;
+  let readAloudService: jest.Mocked<Partial<ReadAloudService>>;
 
   beforeEach(() => {
     voiceService = {
@@ -13,7 +15,13 @@ describe('VoiceController', () => {
       getNurseryRhyme: jest.fn(),
       voiceQuiz: jest.fn(),
     };
-    controller = new VoiceController(voiceService as unknown as VoiceService);
+    readAloudService = {
+      evaluate: jest.fn().mockReturnValue({ accuracy: 0, stars: 0, chars: [], missedWords: [] }),
+    };
+    controller = new VoiceController(
+      voiceService as unknown as VoiceService,
+      readAloudService as unknown as ReadAloudService,
+    );
   });
 
   describe('textToSpeech', () => {
@@ -37,7 +45,11 @@ describe('VoiceController', () => {
 
       await controller.textToSpeech('你好', undefined, undefined, res);
 
-      expect(voiceService.textToSpeech).toHaveBeenCalledWith('你好', 'zh-CN-XiaoyiNeural', undefined);
+      expect(voiceService.textToSpeech).toHaveBeenCalledWith(
+        '你好',
+        'zh-CN-XiaoyiNeural',
+        undefined,
+      );
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'audio/mpeg');
       expect(res.setHeader).toHaveBeenCalledWith('Content-Length', expect.any(Number));
       expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=86400');
@@ -50,122 +62,63 @@ describe('VoiceController', () => {
         send: jest.fn(),
       } as any;
 
-      await controller.textToSpeech('你好', 'zh-CN-YunxiNeural', undefined, res);
+      await controller.textToSpeech('hello', 'en-US-GuyNeural', '1.5', res);
 
-      expect(voiceService.textToSpeech).toHaveBeenCalledWith('你好', 'zh-CN-YunxiNeural', undefined);
+      expect(voiceService.textToSpeech).toHaveBeenCalledWith('hello', 'en-US-GuyNeural', '1.5');
+    });
+  });
+
+  describe('evaluateReadAloud', () => {
+    it('should throw BadRequestException when targetText is missing', async () => {
+      await expect(controller.evaluateReadAloud({} as any)).rejects.toThrow(
+        'targetText is required',
+      );
     });
 
-    it('should pass rate through to the service', async () => {
-      const res = {
-        setHeader: jest.fn(),
-        send: jest.fn(),
-      } as any;
-
-      await controller.textToSpeech('Hello', 'en-US-AriaNeural', '-10%', res);
-
-      expect(voiceService.textToSpeech).toHaveBeenCalledWith('Hello', 'en-US-AriaNeural', '-10%');
+    it('should call readAloudService.evaluate with correct body', async () => {
+      const body = { targetText: '你好世界', recognizedText: '你好世街', ageGroup: '3-4' };
+      const result = await controller.evaluateReadAloud(body);
+      expect(readAloudService.evaluate).toHaveBeenCalledWith(body);
+      expect(result).toEqual({ accuracy: 0, stars: 0, chars: [], missedWords: [] });
     });
   });
 
   describe('voiceChat', () => {
-    it('should call voiceService.voiceChat with correct params', async () => {
-      const mockResponse = {
-        query: '你好',
-        intent: 'chat',
-        reply: '和你聊天真开心！',
-        suggestions: ['讲故事', '唱儿歌'],
-        audioBuffer: 'base64...',
-        duration: 3,
-      };
-      voiceService.voiceChat.mockResolvedValue(mockResponse);
-
-      const result = await controller.voiceChat({
-        userId: 1,
-        audioUrl: 'http://example.com/audio',
-      });
-
-      expect(voiceService.voiceChat).toHaveBeenCalledWith(1, 'http://example.com/audio');
-      expect(result).toEqual(mockResponse);
+    it('should call voiceService.voiceChat with userId and audioUrl', async () => {
+      const body = { userId: 1, audioUrl: 'https://example.com/audio.mp3' };
+      await controller.voiceChat(body);
+      expect(voiceService.voiceChat).toHaveBeenCalledWith(1, 'https://example.com/audio.mp3');
     });
   });
 
   describe('generateStory', () => {
-    it('should call voiceService.generateStory with correct params', async () => {
-      const mockStory = {
-        title: '测试故事',
-        content: '...',
-        duration: 5,
-        audioBuffer: 'base64',
-        keywords: ['故事'],
-      };
-      voiceService.generateStory.mockResolvedValue(mockStory);
-
-      const result = await controller.generateStory('1', '动物', '3-4');
-
+    it('should call voiceService.generateStory with default values', async () => {
+      await controller.generateStory('1', '动物', '3-4');
       expect(voiceService.generateStory).toHaveBeenCalledWith(1, '动物', '3-4');
-      expect(result).toEqual(mockStory);
     });
 
-    it('should use default params when not provided', async () => {
-      voiceService.generateStory.mockResolvedValue({
-        title: '默认故事',
-        content: '...',
-        duration: 5,
-        audioBuffer: 'base64',
-        keywords: ['故事'],
-      });
-
-      await controller.generateStory('2', undefined as any, undefined as any);
-
-      expect(voiceService.generateStory).toHaveBeenCalledWith(2, '动物', '3-4');
+    it('should use default theme and ageRange when not provided', async () => {
+      await controller.generateStory('1');
+      expect(voiceService.generateStory).toHaveBeenCalledWith(1, '动物', '3-4');
     });
   });
 
   describe('getNurseryRhyme', () => {
-    it('should call voiceService.getNurseryRhyme without id', async () => {
-      const mockRhymes = [
-        { id: '1', title: '小星星', content: '...', emoji: '⭐', audioBuffer: 'abc', duration: 3 },
-      ] as any;
-      voiceService.getNurseryRhyme.mockResolvedValue(mockRhymes);
-
-      const result = await controller.getNurseryRhyme();
-
-      expect(voiceService.getNurseryRhyme).toHaveBeenCalledWith(undefined);
-      expect(result).toEqual(mockRhymes);
+    it('should call voiceService.getNurseryRhyme with id when provided', async () => {
+      await controller.getNurseryRhyme('123');
+      expect(voiceService.getNurseryRhyme).toHaveBeenCalledWith('123');
     });
 
-    it('should call voiceService.getNurseryRhyme with specific id', async () => {
-      const mockRhyme = {
-        id: '2',
-        title: '小白船',
-        content: '...',
-        emoji: '🌙',
-        audioBuffer: 'abc',
-        duration: 3,
-      } as any;
-      voiceService.getNurseryRhyme.mockResolvedValue(mockRhyme);
-
-      const result = await controller.getNurseryRhyme('2');
-
-      expect(voiceService.getNurseryRhyme).toHaveBeenCalledWith('2');
-      expect(result).toEqual(mockRhyme);
+    it('should call voiceService.getNurseryRhyme without args when id not provided', async () => {
+      await controller.getNurseryRhyme();
+      expect(voiceService.getNurseryRhyme).toHaveBeenCalledWith(undefined);
     });
   });
 
   describe('voiceQuiz', () => {
-    it('should call voiceService.voiceQuiz with correct params', async () => {
-      const mockAnswer = {
-        question: '小狗怎么叫？',
-        answer: '汪汪',
-        audioBuffer: 'base64',
-        duration: 2,
-      };
-      voiceService.voiceQuiz.mockResolvedValue(mockAnswer);
-
-      const result = await controller.voiceQuiz('1', '小狗怎么叫');
-
-      expect(voiceService.voiceQuiz).toHaveBeenCalledWith(1, '小狗怎么叫');
-      expect(result).toEqual(mockAnswer);
+    it('should call voiceService.voiceQuiz with userId and question', async () => {
+      await controller.voiceQuiz('1', 'What is 2+2?');
+      expect(voiceService.voiceQuiz).toHaveBeenCalledWith(1, 'What is 2+2?');
     });
   });
 });

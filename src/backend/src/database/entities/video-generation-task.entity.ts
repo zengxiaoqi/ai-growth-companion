@@ -9,7 +9,13 @@ import {
 export type VideoGenerationStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 export type VideoApprovalStatus = 'pending_approval' | 'approved' | 'rejected';
-export type VideoRenderEngine = 'auto' | 'hyperframes' | 'remotion' | 'dsh' | 'agent-remotion';
+export type VideoRenderEngine =
+  | 'auto'
+  | 'hyperframes'
+  | 'remotion'
+  | 'dynamic-remotion'
+  | 'dsh'
+  | 'agent-remotion';
 
 @Entity('video_generation_tasks')
 export class VideoGenerationTask {

@@ -5,11 +5,13 @@ import * as path from 'path';
 import {
   type AnimalSubjectConfig,
   ANIMAL_SUBJECTS,
+  animalVariantAssetPath,
   inferAnimalFromText,
+  inferAnimalVariant,
 } from './animal-subjects.config';
 import type { SceneGraph } from './video/scene-graph';
 import type { FigureSpec } from './video/figure-spec';
-import { AssetGenService, type SvgContentBox } from './asset-gen.service';
+import { AssetGenService, stripSvgOuter, type SvgContentBox } from './asset-gen.service';
 
 export type VisualAssetKind = 'character' | 'background' | 'overlay';
 
@@ -335,6 +337,12 @@ export class VisualAssetService {
   }
 
   private async resolveAsset(request: AssetRequest): Promise<VisualAsset | null> {
+    // 明确的外观变体先于模糊别名匹配：白玉蜗牛、条纹蜗牛、缩壳状态都必须
+    // 命中各自的本课 SVG，不能因为都含 "snail" 又退回同一张 generic 素材。
+    if (request.kind === 'character') {
+      const variant = this.resolveLocalAnimalVariant(request);
+      if (variant) return variant;
+    }
     // 主体优先走统一矢量库：同一套作者、同一套配色，跨场景形象天然一致。
     // 背景仍走带版式的本地场景图，网络素材只作为最后的补充。
     if (request.kind === 'character') {
@@ -374,6 +382,40 @@ export class VisualAssetService {
       `[resolveAsset] role="${request.role}" unresolved: all providers returned null`,
     );
     return null;
+  }
+
+  private resolveLocalAnimalVariant(request: AssetRequest): VisualAsset | null {
+    const source = String(request.searchText || request.query || '');
+    const animal = inferAnimalFromText(source);
+    if (!animal) return null;
+    const variant = inferAnimalVariant(source, animal.id);
+    const staticPath = animalVariantAssetPath(animal.id, variant);
+    if (!staticPath) return null;
+    return {
+      id: `${animal.id}-${variant}`,
+      kind: 'character',
+      role: request.role,
+      staticPath,
+      provider: 'local',
+      license: 'cc0',
+      creator: 'lingxi lesson assets',
+      width: 512,
+      height: 512,
+      qualityScore: 96,
+    };
+  }
+
+  /**
+   * 关系图/画板按节点解析外观。先尊重节点自己的“白玉/条纹/缩壳”描述，
+   * 只有 generic 节点才继承整幕上下文，避免一个场景里的多个蜗牛互相污染。
+   */
+  private resolveExplicitAnimalVariant(subject: string, contextText?: string): string | null {
+    const animal = inferAnimalFromText(subject);
+    if (animal?.id !== 'snail') return null;
+    const ownVariant = inferAnimalVariant(subject, animal.id);
+    const variant =
+      ownVariant === 'generic' ? inferAnimalVariant(contextText || '', animal.id) : ownVariant;
+    return animalVariantAssetPath(animal.id, variant);
   }
 
   private async findLocalAsset(request: AssetRequest): Promise<VisualAsset | null> {
@@ -442,15 +484,98 @@ export class VisualAssetService {
    * 匹配不到返回 null，由调用方决定回落策略，不做「最相近」的强行兜底。
    */
   /**
+   * 关系图节点先按“这一张卡在讲什么”选图，再按动物外观选图。
+   * 同一个 subject="蜗牛壳" 在“长大 / 花纹 / 缩壳 / 啄裂”四张卡里必须不同；
+   * 只认 subject 会让总结幕四张卡共用一张插画，视觉上无法表达概念差异。
+   */
+  private resolveNodeTeachingAsset(node: SceneGraph['nodes'][number], contextText = ''): string | null {
+    const subject = String(node.subject || node.label || '').trim();
+    const label = String(node.label || '').trim();
+    const nodeSemantics = `${label} ${subject}`;
+    const semantics = `${nodeSemantics} ${contextText}`;
+    const isSnailShellConcept =
+      inferAnimalFromText(subject)?.id === 'snail' ||
+      inferAnimalFromText(label)?.id === 'snail' ||
+      /蜗牛|壳口|壳纹|缩进壳里|snail/i.test(nodeSemantics);
+    if (isSnailShellConcept) {
+      const ownVariant = inferAnimalVariant(nodeSemantics, 'snail');
+      if (ownVariant !== 'generic') return animalVariantAssetPath('snail', ownVariant);
+      // 正在爬行/背负的节点不能被同幕“缩进壳里”的上下文染成缩壳状态。
+      if (/爬|走|背|探头|伸头|crawl|walk|carry/i.test(label)) {
+        return 'assets/lesson/animals/snail-generic.svg';
+      }
+      if (/缩|躲|休息|retract|hide|rest/i.test(label)) {
+        return 'assets/lesson/animals/snail-retracted.svg';
+      }
+      if (/啄裂|裂纹|不安全|crack/i.test(label)) {
+        return 'assets/lesson/animals/snail-shell-cracked.svg';
+      }
+      if (/长大|新壳|一圈比一圈|壳口.*(?:长|大)|grow|new\s+shell/i.test(label)) {
+        return 'assets/lesson/animals/snail-shell-growth.svg';
+      }
+      if (/花纹|螺旋|生长线|spiral|growth\s+line/i.test(label)) {
+        return 'assets/lesson/animals/snail-shell-pattern.svg';
+      }
+    }
+    if (/牵牛花|晨光花|morning\s+glory/i.test(subject)) {
+      const nodeDescribesBud = /花苞|未开|卷曲|螺旋|bud|spiral/i.test(nodeSemantics);
+      const nodeDescribesOpen =
+        /盛开|开放|open\s+flower/i.test(nodeSemantics) && !nodeDescribesBud;
+      const contextDescribesBud = /花苞|未开|卷曲|螺旋|bud|spiral/i.test(contextText);
+      const contextDescribesOpen = /盛开|开放|open\s+flower/i.test(contextText);
+      if (nodeDescribesOpen) return null;
+      if (nodeDescribesBud || (contextDescribesBud && !contextDescribesOpen)) {
+        return 'assets/lesson/objects/morning-glory-bud.svg';
+      }
+    }
+    if (/羊角|ram(?:'s)?\s+horn/i.test(subject)) {
+      return 'assets/lesson/objects/ram-horn-spiral.svg';
+    }
+    return null;
+  }
+
+  /**
    * 给关系图的每个节点找图标。找不到不是错误——渲染器会用占位形状顶上，
    * 画面结构（关系、箭头、标签）依然成立，只是图标退化成首字。
    * 但每次 miss 都记一笔，这是素材库该往哪儿扩的唯一依据。
    */
-  async resolveGraphIcons(graph: SceneGraph, topic: string): Promise<Record<string, string>> {
+  async resolveGraphIcons(
+    graph: SceneGraph,
+    topic: string,
+    contextText?: string,
+  ): Promise<Record<string, string>> {
     const icons: Record<string, string> = {};
     const budget = { left: MAX_GEN_PER_CALL };
     await Promise.all(
       graph.nodes.map(async (node) => {
+        // 节点语义先于 generic 外观；明确的白玉/条纹变体仍由节点自己的词优先决定。
+        const teachingAsset = this.resolveNodeTeachingAsset(node, contextText);
+        if (teachingAsset) {
+          icons[node.id] = teachingAsset;
+          return;
+        }
+        // 节点自己的外观优先级最高；只有 generic 时才继承整幕状态。
+        // 这样“白玉蜗牛 vs 花蜗牛”不会因为旁白提到缩壳，两张卡一起变成缩壳造型。
+        const explicitVariant = this.resolveExplicitAnimalVariant(node.subject, contextText);
+        if (explicitVariant) {
+          icons[node.id] = explicitVariant;
+          return;
+        }
+        const variantRequest: AssetRequest = {
+          kind: 'character',
+          role: 'graph-node',
+          query: node.subject,
+          tags: [node.subject],
+          minWidth: 0,
+          minHeight: 0,
+          searchText: node.subject,
+          exact: true,
+        };
+        const variant = this.resolveLocalAnimalVariant(variantRequest);
+        if (variant) {
+          icons[node.id] = variant.staticPath;
+          return;
+        }
         const resolved = await this.resolveSubjectIcon(node.subject, topic, budget);
         if (resolved) {
           icons[node.id] = resolved.src;
@@ -469,7 +594,7 @@ export class VisualAssetService {
    * （矢量库精确命中 → 生成层），解析结果写回 shape.iconSrc。
    * 解析不到不报错——渲染器画占位圆，几何结构依然成立。
    */
-  async resolveFigureIcons(figure: FigureSpec, topic: string): Promise<void> {
+  async resolveFigureIcons(figure: FigureSpec, topic: string, contextText?: string): Promise<void> {
     const icons = figure.shapes.filter((s) => s.kind === 'subjectIcon');
     if (icons.length === 0) return;
     const budget = { left: MAX_GEN_PER_CALL };
@@ -477,6 +602,25 @@ export class VisualAssetService {
     const resolved = new Map<string, string>();
     await Promise.all(
       subjects.map(async (subject) => {
+        const explicitVariant = this.resolveExplicitAnimalVariant(subject, contextText);
+        if (explicitVariant) {
+          resolved.set(subject, explicitVariant);
+          return;
+        }
+        const variant = this.resolveLocalAnimalVariant({
+          kind: 'character',
+          role: 'figure-subject',
+          query: subject,
+          tags: [subject],
+          minWidth: 0,
+          minHeight: 0,
+          searchText: subject,
+          exact: true,
+        });
+        if (variant) {
+          resolved.set(subject, variant.staticPath);
+          return;
+        }
         const hit = await this.resolveSubjectIcon(subject, topic, budget);
         if (hit) {
           resolved.set(subject, hit.src);
@@ -509,8 +653,49 @@ export class VisualAssetService {
   async loadPropSvg(
     subject: string,
   ): Promise<{ markup: string; canvas: number; box?: SvgContentBox } | null> {
+    const request: AssetRequest = {
+      kind: 'character',
+      role: 'graph-node',
+      query: subject,
+      tags: [subject],
+      minWidth: 0,
+      minHeight: 0,
+      searchText: subject,
+      exact: true,
+    };
+    // 本课矢量资产必须先于生成层：补出来的"蜗牛/树叶"应与关系图里的同一主体
+    // 同形同色，也不能因为 ASSET_GEN=off 就退化成首字占位件。
+    const local =
+      this.resolveLocalAnimalVariant(request) ||
+      (await this.resolveVectorAsset(request)) ||
+      (await this.resolveVectorAsset({ ...request, kind: 'overlay' }));
+    if (local) {
+      const inline = await this.inlineLocalSvg(local.staticPath);
+      if (inline) return inline;
+    }
     if (!this.assetGen?.isEnabled) return null;
     return this.assetGen.loadSubjectSvg(subject);
+  }
+
+  private async inlineLocalSvg(
+    staticPath: string,
+  ): Promise<{ markup: string; canvas: number; box?: SvgContentBox } | null> {
+    const filePath = path.resolve(this.publicDir, staticPath);
+    if (!filePath.startsWith(this.publicDir + path.sep)) return null;
+    try {
+      const raw = await fs.readFile(filePath, 'utf-8');
+      const inner = stripSvgOuter(raw);
+      if (!inner) return null;
+      return {
+        ...inner,
+        box: this.assetGen?.measureSvgContent(raw, inner.canvas) || undefined,
+      };
+    } catch (error: any) {
+      this.logger.warn(
+        `[loadPropSvg] 本地矢量读取失败 "${staticPath}": ${error?.message || 'unknown'}`,
+      );
+      return null;
+    }
   }
 
   /**

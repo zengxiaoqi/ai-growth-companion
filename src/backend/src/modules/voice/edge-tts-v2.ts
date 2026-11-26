@@ -10,13 +10,17 @@
  * V2 令牌算法参考 MIT 许可的 `node-edge-tts@1.2.12`（dist/drm.js），
  * Copyright (c) node-edge-tts contributors，此处保留归属。
  *
- * 通过替换 `@andresaya/edge-tts` 内部 protocol 模块的两个纯函数实现兼容，
+ * 通过替换 protocol 模块函数，并将 Constants 的端点、版本与 UA 对齐到参考实现，
  * 其余音频拼接 / WordBoundary 解析逻辑继续复用该库，不改动调用方语义。
  */
 import { createHash } from 'crypto';
 
 const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
-const SEC_MS_GEC_VERSION_V2 = '2-143.0.3650.75';
+const CHROMIUM_FULL_VERSION = '143.0.3650.75';
+const SEC_MS_GEC_VERSION_V2 = `2-${CHROMIUM_FULL_VERSION}`;
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0';
 const WINDOWS_FILE_TIME_EPOCH = 11644473600n;
 
 export const LEGACY_EDGE_WSS_URL =
@@ -117,23 +121,38 @@ export function generateSecMsGecV2(unixSeconds = Date.now() / 1000): string {
 
 let installed = false;
 
-/**
- * 给 `@andresaya/edge-tts` 装入 V2 兼容补丁（幂等）。
- * 必须在创建 EdgeTTS 实例前调用；CommonJS 导出对象按引用修改，库内部
- * `protocol.generateSecMsGec(...)` / `protocol.buildSynthesisUrl(...)` 会取到新实现。
- */
+/** Patch the module functions actually called by EdgeTTS instances. */
 export function installEdgeTtsV2Patch(): void {
   if (installed) return;
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const EdgeTTSClass = require('@andresaya/edge-tts').EdgeTTS;
-  EdgeTTSClass.prototype.generateSecMsGec = () => generateSecMsGecV2();
-  // Patch buildSynthesisUrl by overriding synthesize's URL construction
-  // Since the library hard-codes Constants.WSS_URL, we override the constant
+  const protocol = require('@andresaya/edge-tts/dist/core/protocol');
+  protocol.generateSecMsGec = async (_trustedClientToken: string, nowMs: number) =>
+    generateSecMsGecV2(nowMs / 1000);
+  protocol.buildSynthesisUrl = (
+    _base: string,
+    token: string,
+    secMsGec: string,
+    version: string,
+    connectionId: string,
+  ) =>
+    `${LEGACY_EDGE_WSS_URL}?TrustedClientToken=${encodeURIComponent(token)}` +
+    `&Sec-MS-GEC=${encodeURIComponent(secMsGec)}` +
+    `&Sec-MS-GEC-Version=${encodeURIComponent(version)}` +
+    `&ConnectionId=${encodeURIComponent(connectionId)}`;
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const eTTS = require('@andresaya/edge-tts');
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const constants = eTTS.Constants || require('@andresaya/edge-tts/dist/config/constants');
+  const constants = require('@andresaya/edge-tts/dist/config/constants').Constants;
   constants.WSS_URL = LEGACY_EDGE_WSS_URL;
+  constants.CHROMIUM_FULL_VERSION = CHROMIUM_FULL_VERSION;
+  constants.CHROMIUM_MAJOR_VERSION = '143';
   constants.VERSION_MS_GEC = SEC_MS_GEC_VERSION_V2;
+  const getBaseHeaders = constants.getBaseHeaders;
+  constants.getBaseHeaders = () => ({
+    ...getBaseHeaders.call(constants),
+    'User-Agent': USER_AGENT,
+  });
+  constants.WSS_HEADERS['User-Agent'] = USER_AGENT;
+  constants.VOICE_HEADERS['User-Agent'] = USER_AGENT;
+  constants.VOICE_HEADERS['Sec-CH-UA'] =
+    '"Microsoft Edge";v="143", "Chromium";v="143", "Not(A:Brand";v="24"';
   installed = true;
 }

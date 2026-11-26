@@ -20,7 +20,15 @@
 export const FIGURE_WIDTH = 1600;
 export const FIGURE_HEIGHT = 640;
 
-export const FIGURE_KINDS = ['arc', 'line', 'rect', 'circle', 'curve', 'polygon', 'subjectIcon'] as const;
+export const FIGURE_KINDS = [
+  'arc',
+  'line',
+  'rect',
+  'circle',
+  'curve',
+  'polygon',
+  'subjectIcon',
+] as const;
 
 export type FigureKind = (typeof FIGURE_KINDS)[number];
 
@@ -93,7 +101,15 @@ export type FigureShape =
       stroke?: string;
       strokeWidth?: number;
     }
-  | { kind: 'circle'; cx: number; cy: number; r: number; fill: string; stroke?: string; strokeWidth?: number }
+  | {
+      kind: 'circle';
+      cx: number;
+      cy: number;
+      r: number;
+      fill: string;
+      stroke?: string;
+      strokeWidth?: number;
+    }
   | {
       kind: 'curve';
       x1: number;
@@ -122,6 +138,8 @@ export type FigureShape =
 export type FigureGlyph = FigureShape & {
   /** 0..1，只表达先后；同一数值同时出现。渲染器负责映射到讲解进度 */
   reveal: number;
+  /** 可选稳定 id；beats.reveal 用它精确点亮当前旁白讲到的图元 */
+  id?: string;
 };
 
 export type FigureLabel = {
@@ -162,7 +180,13 @@ function toColor(input: unknown, fallback: string): string {
 
 function hexToRgb(hex: string): [number, number, number] {
   const body = hex.replace('#', '');
-  const full = body.length === 3 ? body.split('').map((c) => c + c).join('') : body;
+  const full =
+    body.length === 3
+      ? body
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : body;
   return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)) as [number, number, number];
 }
 
@@ -199,7 +223,13 @@ function mixHex(from: string, to: string, ratio: number): string {
   const a = hexToRgb(from);
   const b = hexToRgb(to);
   const out = a.map((v, i) => Math.round(v + (b[i] - v) * ratio));
-  return '#' + out.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+  return (
+    '#' +
+    out
+      .map((v) => v.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  );
 }
 
 /** 画布内 clamp：普通图元一律不许出界 */
@@ -212,7 +242,8 @@ const inY = (input: unknown, fallback: number) => toNum(input, fallback, 0, FIGU
  * 把圆心限死在画布内就只能画出又小又圆的一坨，看着像彩虹埋在地里。
  */
 const arcX = (input: unknown, fallback: number) => toNum(input, fallback, -600, FIGURE_WIDTH + 600);
-const arcY = (input: unknown, fallback: number) => toNum(input, fallback, -600, FIGURE_HEIGHT + 900);
+const arcY = (input: unknown, fallback: number) =>
+  toNum(input, fallback, -600, FIGURE_HEIGHT + 900);
 
 function normalizePoints(input: unknown): string | null {
   if (typeof input !== 'string') return null;
@@ -518,7 +549,8 @@ function withReadableInk(shapes: FigureGlyph[]): FigureGlyph[] {
     if (isFilled(shape)) {
       if (colorDistance(shape.fill, FIGURE_CANVAS_BG) >= MIN_VISIBLE_DELTA_E) return shape;
       // 横贯画面的色带不需要框：边界就是画布边界，加一圈描边像给地面画了个相框
-      if (shape.kind === 'rect' && shapeBounds(shape).x2 - shapeBounds(shape).x1 >= BAND_WIDTH) return shape;
+      if (shape.kind === 'rect' && shapeBounds(shape).x2 - shapeBounds(shape).x1 >= BAND_WIDTH)
+        return shape;
       if (hasBackdrop(shape, index, shapes)) return shape;
       // 小到放不下一圈轮廓的图形（铁钉那种 14px 细条），描边会把里面填满、
       // 看起来像糊了一块深色 —— 这种直接压深填充，别描边
@@ -552,6 +584,12 @@ export type FigureRejectReason =
 export type FigureResult =
   | { ok: true; spec: FigureSpec }
   | { ok: false; reason: FigureRejectReason };
+
+const labelCoversSolid = (label: FigureLabel, solidBoxes: Bounds[]): boolean =>
+  solidBoxes.some(
+    (solidBox) =>
+      overlapArea(labelBounds(label), solidBox) / Math.max(1, area(labelBounds(label))) > 0.6,
+  );
 
 /**
  * 几何合理性。语法合法不等于画得对：LLM 完全可能交出一堆坐标都在范围内的
@@ -600,13 +638,16 @@ function checkGeometry(spec: FigureSpec): FigureRejectReason | null {
 
   // 标签压在实心图形上读不出来。线条类不比，包围盒判断线条太粗会大量误伤
   const solid = spec.shapes
-    .filter((s) => s.kind === 'circle' || s.kind === 'rect' || s.kind === 'polygon' || s.kind === 'subjectIcon')
+    .filter(
+      (s) =>
+        s.kind === 'circle' ||
+        s.kind === 'rect' ||
+        s.kind === 'polygon' ||
+        s.kind === 'subjectIcon',
+    )
     .map((s) => shapeBounds(s));
   for (const label of spec.labels || []) {
-    const box = labelBounds(label);
-    for (const solidBox of solid) {
-      if (overlapArea(box, solidBox) / Math.max(1, area(box)) > 0.6) return 'label-cover';
-    }
+    if (labelCoversSolid(label, solid)) return 'label-cover';
   }
 
   const colors = new Set<string>();
@@ -638,6 +679,8 @@ export function normalizeFigureSpec(raw: unknown, accent = '#3E63DD'): FigureRes
     if (shapes.length >= MAX_SHAPES) break;
     const normalized = normalizeShape(item, accent);
     if (!normalized) continue;
+    const rawId = cleanText((item as Record<string, unknown>)?.id);
+    const id = /^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(rawId) ? rawId : undefined;
     // 看不见的小弧（土星环、装饰性的小弧线）单独丢掉，别让它废掉整份 spec
     if (normalized.shape.kind === 'arc' && normalized.shape.r < MIN_ARC_R) continue;
     // 完全相同的图元叠着画没有意义，只可能是模型在刷数量
@@ -645,7 +688,7 @@ export function normalizeFigureSpec(raw: unknown, accent = '#3E63DD'): FigureRes
     const count = seen.get(key) || 0;
     if (count >= MAX_IDENTICAL) continue;
     seen.set(key, count + 1);
-    shapes.push({ ...normalized.shape, reveal: normalized.reveal });
+    shapes.push({ ...normalized.shape, reveal: normalized.reveal, ...(id ? { id } : {}) });
   }
 
   if (shapes.length === 0) return { ok: false, reason: 'empty' };
@@ -672,6 +715,28 @@ export function normalizeFigureSpec(raw: unknown, accent = '#3E63DD'): FigureRes
 
   const spec: FigureSpec = { shapes: inked, ...(labels.length ? { labels } : {}) };
   const reject = checkGeometry(spec);
+  if (reject === 'label-cover' && labels.length) {
+    // 标签是可选注释，几何才是知识本体。一个压图标签不应让雨滴、壳口等
+    // 整张画板退化成无关的角色素材；只删冲突项，再按最终画面复验。
+    const solid = inked
+      .filter(
+        (shape) =>
+          shape.kind === 'circle' ||
+          shape.kind === 'rect' ||
+          shape.kind === 'polygon' ||
+          shape.kind === 'subjectIcon',
+      )
+      .map(shapeBounds);
+    const safeLabels = labels.filter((label) => !labelCoversSolid(label, solid));
+    if (safeLabels.length !== labels.length) {
+      const repaired: FigureSpec = {
+        shapes: inked,
+        ...(safeLabels.length ? { labels: safeLabels } : {}),
+      };
+      const retryReject = checkGeometry(repaired);
+      if (!retryReject) return { ok: true, spec: repaired };
+    }
+  }
   if (reject) return { ok: false, reason: reject };
   return { ok: true, spec };
 }
@@ -698,6 +763,8 @@ export function describeFigureGrammar(): string {
     '  系统自动找/生成该主体的插画贴在这里，找不到时画占位圆。不要用它代替几何图形本身。',
     '规则：',
     '- reveal 取 0~1，只表达"先画哪个"，同一数值同时出现。不用你管时长和动画。',
+    '- 每个图元可给稳定 id（如 arc1/rib2，英文字母开头）；beats.reveal 写 id 时，',
+    '  渲染器会在对应旁白拍内点亮该图元。需要跟拍揭示时务必同时提供 id。',
     '- 文字一律不要画。需要标位置时用 labels：[{"text":"水滴","x":250,"y":520}]，每个 ≤6 字，并且不要压在图形上。',
     '- 图元总数 ≤ 32，颜色 ≤ 8 种。',
     '- 图形要铺开：内容占画布面积 1/5 到 4/5，别缩在角落，别撑满。',

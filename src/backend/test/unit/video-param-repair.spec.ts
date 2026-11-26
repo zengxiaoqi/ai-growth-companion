@@ -54,8 +54,8 @@ const BLOCKER = {
   fixHint: '给水蒸气加 focus-ring',
 };
 
-function makeService(generateJson: jest.Mock) {
-  return new VideoParamRepairService({ generateJson } as any);
+function makeService(generateStreaming: jest.Mock) {
+  return new VideoParamRepairService({ generateStreaming } as any);
 }
 
 describe('VideoParamRepairService', () => {

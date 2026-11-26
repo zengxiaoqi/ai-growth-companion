@@ -8,7 +8,7 @@ export interface AnimationTemplateSummary {
   id: string;
   domain: string;
   description: string;
-  engine: 'p5' | 'three';
+  engine: 'p5' | 'three' | 'remotion';
   ageGroups: ('3-4' | '5-6' | 'all')[];
   params: { name: string; type: string; required: boolean; label: string }[];
 }
@@ -92,6 +92,45 @@ export const ANIMATION_TEMPLATES: AnimationTemplateSummary[] = [
         type: 'string[]',
         required: false,
         label: '场景物品列表',
+      },
+    ],
+  },
+  {
+    id: 'language.whiteboard-story',
+    domain: 'language',
+    description: '白板手绘故事，按叙事顺序逐区落墨、添彩，末帧展示完整画面',
+    engine: 'remotion',
+    ageGroups: ['3-4', '5-6'],
+    params: [
+      {
+        name: 'sourceImage',
+        type: 'string',
+        required: true,
+        label: '无文字完整彩图，public/uploads 或 Remotion public 下的 PNG/JPEG 路径',
+      },
+      {
+        name: 'canvas',
+        type: 'object',
+        required: true,
+        label: '原图像素尺寸，例如 {width:1536,height:864}',
+      },
+      {
+        name: 'regions',
+        type: 'object[]',
+        required: true,
+        label: '1–8 个叙事分区，含 id、sequence、region，可附 subtitle/startMs/durationMs/protectedRegions',
+      },
+      {
+        name: 'paper',
+        type: 'color',
+        required: false,
+        label: '纸底颜色，默认 #F6F1E3',
+      },
+      {
+        name: 'colorFill',
+        type: 'string',
+        required: false,
+        label: '上色方式 contour-wipe 或 brush',
       },
     ],
   },

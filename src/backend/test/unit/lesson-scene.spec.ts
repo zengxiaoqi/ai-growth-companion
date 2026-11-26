@@ -117,6 +117,34 @@ describe('lesson-scene helpers', () => {
     });
   });
 
+  it('passes an explicit whiteboard template and its params through Watch derivation', () => {
+    const animationParams = {
+      sourceImage: 'whiteboard/shapes.png',
+      canvas: { width: 1536, height: 864 },
+      regions: [
+        { id: 'circle', sequence: 1, region: { x: 220, y: 250, width: 280, height: 210 } },
+      ],
+    };
+    const scene = deriveWatchSceneDocument(
+      {
+        visualStory: {
+          scenes: [
+            {
+              scene: '认识圆形',
+              narration: '圆形滚来滚去。',
+              animationTemplate: 'language.whiteboard-story',
+              animationParams,
+            },
+          ],
+        },
+      },
+      '认识形状',
+    );
+
+    expect(scene.scenes[0].visual?.templateId).toBe('language.whiteboard-story');
+    expect(scene.scenes[0].visual?.templateParams).toEqual(animationParams);
+  });
+
   it('infers character stroke templates for watch scenes when legacy data omits them', () => {
     const scene = deriveWatchSceneDocument(
       {

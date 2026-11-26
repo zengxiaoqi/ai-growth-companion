@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>Ram horn with a clearly visible spiral ridge</title>
+  <ellipse cx="261" cy="445" rx="153" ry="19" fill="#5B4636" opacity="0.12"/>
+  <path d="M138 389C84 345 83 256 116 185C151 109 233 72 311 96C389 120 432 195 414 271C397 343 332 393 268 378C207 364 173 313 186 257C198 205 251 176 296 192C337 207 357 251 341 290C327 324 291 337 262 323C235 310 222 280 235 256C247 234 272 228 289 240C302 249 304 266 295 276" fill="#E7C99B" stroke="#785638" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M132 369C98 323 105 249 136 193C167 137 218 113 270 120M117 311C125 251 160 209 211 187M137 243C161 208 196 188 235 182M165 190C190 169 220 158 252 157M204 142C226 134 249 133 270 137M254 115C276 117 297 125 314 138M310 139C338 158 356 184 364 213M364 230C367 262 359 292 344 316M340 330C320 352 293 365 265 368" stroke="#A8784A" stroke-width="10" stroke-linecap="round"/>
+  <path d="M111 366C123 397 143 416 168 428" stroke="#785638" stroke-width="20" stroke-linecap="round"/>
+  <path d="M111 366C123 397 143 416 168 428" stroke="#F4DFC0" stroke-width="9" stroke-linecap="round"/>
+</svg>

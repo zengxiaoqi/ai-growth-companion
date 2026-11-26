@@ -3,8 +3,15 @@ import { VisualAssetService } from '../../src/modules/learning/visual-asset.serv
 import { MOTION_DEFAULTS } from '../../src/modules/learning/video/action3d-registry';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { transpileModule, ModuleKind, ScriptTarget } from 'typescript';
 
 describe('VideoGenerationAgentService', () => {
+  const originalPropGen = process.env.PROP_GEN;
+  afterEach(() => {
+    if (originalPropGen === undefined) delete process.env.PROP_GEN;
+    else process.env.PROP_GEN = originalPropGen;
+  });
+
   const createService = (visualAssetService?: VisualAssetService) =>
     new VideoGenerationAgentService(
       { getToolDefinitions: jest.fn().mockReturnValue([]) } as any,
@@ -13,6 +20,21 @@ describe('VideoGenerationAgentService', () => {
       { getSkillsForAgent: jest.fn().mockReturnValue([]) } as any,
       visualAssetService,
     );
+
+  const loadTemplateHelper = (name: string) => {
+    const source = readFileSync(
+      join(__dirname, '../../src/modules/learning/video-generation-agent.service.ts'),
+      'utf8',
+    );
+    const start = source.indexOf(`const ${name}`);
+    const end = source.indexOf('\n};', start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const js = transpileModule(source.slice(start, end + 3), {
+      compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2020 },
+    }).outputText;
+    return new Function(`${js}\nreturn ${name};`)();
+  };
 
   it('extracts the latest raw generateVideoContent tool result from the agent loop', async () => {
     const firstStoryboard = {
@@ -993,5 +1015,756 @@ describe('VideoGenerationAgentService', () => {
     const built = manifest.props.scenes[0] as any;
     expect(built.interaction?.verb).toBe('climb');
     expect(built.interaction?.puppet?.motion).toBe('climb');
+  });
+
+  it('keeps snail identity, appearance variants and vector actions instead of a default bear rig', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(
+      {
+        title: '蜗牛壳上的花纹',
+        topic: '蜗牛壳上的花纹',
+        domain: 'science',
+        totalDurationSec: 18,
+        sceneCount: 3,
+        scenes: [
+          {
+            id: 'scene-1',
+            sequence: 1,
+            title: '蜗牛慢慢爬',
+            concept: '运动',
+            narration: '蜗牛伸出触角，慢慢爬过叶片。',
+            onScreenText: '慢慢爬',
+            visualDescription: 'a small snail walking slowly across a green leaf',
+            durationSec: 6,
+            performance: {
+              actors: [{ id: 'snail', label: '蜗牛', role: 'helper' }],
+              actions: [{ verb: 'walk' }, { verb: 'speak', speech: '我慢慢地爬' }],
+            },
+          },
+          {
+            id: 'scene-2',
+            sequence: 2,
+            title: '不同的壳',
+            concept: '比较',
+            narration: '白玉蜗牛的壳白白的，花蜗牛的壳有深色条纹。',
+            onScreenText: '白色和条纹',
+            visualDescription: 'a white garden snail beside a striped snail',
+            durationSec: 6,
+            sceneGraph: {
+              relation: 'compare',
+              nodes: [
+                { id: 'white', label: '白玉蜗牛', subject: '白玉蜗牛' },
+                { id: 'striped', label: '花蜗牛', subject: '花蜗牛' },
+              ],
+            },
+          },
+          {
+            id: 'scene-3',
+            sequence: 3,
+            title: '保护自己',
+            concept: '保护',
+            narration: '遇到危险，蜗牛把身体缩进壳里，只露出壳保护自己。',
+            onScreenText: '缩进壳里',
+            visualDescription: 'a retracted snail hiding inside its shell',
+            durationSec: 6,
+          },
+        ],
+        visualTheme: {
+          primaryPalette: '#E8F8FF',
+          accentColor: '#8d6e63',
+          mood: 'playful',
+        },
+        narrativeArc: 'intro',
+      } as any,
+      { domain: 'science', ageGroup: '5-6' },
+    );
+
+    const scenes = manifest.props.scenes as any[];
+    expect(scenes[0].assetKey).toBe('snail');
+    expect(scenes[0].interaction?.puppet).toBeUndefined();
+    expect(scenes[0].interaction?.vectorPerformance).toMatchObject({
+      actorId: 'snail',
+      steps: [{ motion: 'walk' }, { motion: 'speak' }],
+    });
+    expect(scenes[0].interaction?.actors[0]).toMatchObject({
+      id: 'snail',
+      assetSrc: 'assets/lesson/animals/snail-generic.svg',
+    });
+    expect(scenes[1].graphIcons).toMatchObject({
+      white: 'assets/lesson/animals/snail-white.svg',
+      striped: 'assets/lesson/animals/snail-striped.svg',
+    });
+    expect(scenes[2].visualAssets?.characterAssetSrc).toBe(
+      'assets/lesson/animals/snail-retracted.svg',
+    );
+
+    const generatedCode = manifest.files.map((file) => file.content).join('\n');
+    expect(generatedCode).toContain('const actionCarriesScene = !figureHasEnvironment');
+    expect(generatedCode).toContain('const hasFigure = !hasInteraction && rawFigure');
+    expect(generatedCode).toContain('activeReveal.has(glyph.id)');
+    expect(generatedCode).toContain('fill={label.color || "#12303a"}');
+    expect(generatedCode).toContain('Math.max(0.28, propRatioOf');
+    expect(generatedCode).toContain('const VectorPerformanceStage');
+    expect(generatedCode).toContain('equalScale={graph.relation === "compare"}');
+    expect(generatedCode).toContain('const validSubtitleTimeline');
+    expect(generatedCode).toContain('const subtitleTokenLines');
+    expect(generatedCode).toContain('rgba(5, 15, 23, 0.92)');
+    expect(generatedCode).toContain('color: isSpoken ? "#fff" : "rgba(255,255,255,0.68)"');
+  });
+
+  it('repairs missing acting subjects in the real garden and retraction scene shapes', async () => {
+    process.env.PROP_GEN = 'on';
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(
+      {
+        title: '蜗牛壳上的花纹',
+        topic: '蜗牛壳上的花纹',
+        domain: 'science',
+        totalDurationSec: 14,
+        sceneCount: 2,
+        scenes: [
+          {
+            id: 'scene-1',
+            sequence: 1,
+            title: '花园里的蜗牛',
+            concept: '认识蜗牛',
+            narration: '小兔在一片叶子上发现了一只小蜗牛，蜗牛背着壳慢慢向前爬。',
+            onScreenText: '花园里的蜗牛',
+            visualDescription: '小兔从左侧走进画面，指向叶子上背壳爬行的小蜗牛',
+            durationSec: 7,
+            props: [
+              { name: '蜗牛壳', place: 'floor', heightRatio: 0.12 },
+              { name: '小黄花', place: 'floor', heightRatio: 0.1 },
+            ],
+            performance: {
+              actors: [{ id: 'rabbit', label: '小兔', role: 'helper' }],
+              actions: [
+                { verb: 'walk' },
+                { verb: 'point', propId: '蜗牛壳' },
+              ],
+            },
+          },
+          {
+            id: 'scene-2',
+            sequence: 2,
+            title: '缩进壳里躲',
+            concept: '壳的保护作用',
+            narration: '遇到危险时，蜗牛会把身体缩进壳里。硬硬的壳能挡住小鸟的啄咬。',
+            onScreenText: '壳是蜗牛的小盾牌',
+            visualDescription: '蜗牛缩进壳里，小鸟在旁边',
+            durationSec: 7,
+            sceneGraph: {
+              relation: 'compare',
+              nodes: [
+                { id: 'n1', label: '缩进壳里', subject: '蜗牛壳', role: 'place' },
+                { id: 'n2', label: '外面危险', subject: '小鸟', role: 'subject' },
+              ],
+            },
+          },
+        ],
+        visualTheme: {
+          primaryPalette: '#F1FBEF',
+          accentColor: '#F59E0B',
+          mood: 'playful',
+        },
+        narrativeArc: 'intro',
+      } as any,
+      { domain: 'science', ageGroup: '5-6' },
+    );
+
+    const scenes = manifest.props.scenes as any[];
+    expect(scenes[0].props.map((prop: any) => prop.label)).toEqual(['树叶', '蜗牛', '小黄花']);
+    expect(
+      scenes[0].props.filter((prop: any) => prop.label === '蜗牛'),
+    ).toHaveLength(1);
+    expect(scenes[0].props.find((prop: any) => prop.label === '蜗牛').heightRatio).toBe(0.34);
+    expect(scenes[0].props[0].art?.markup).toBeTruthy();
+    expect(scenes[0].props[1].art?.markup).toBeTruthy();
+    expect(scenes[0].interaction?.propId).toBe('蜗牛');
+    expect(scenes[1].sceneGraph?.nodes[0].subject).toBe('缩进壳里蜗牛');
+    expect(scenes[1].graphIcons?.n1).toBe('assets/lesson/animals/snail-retracted.svg');
+  });
+
+  it('turns explicit snail-shell lesson semantics into dedicated teaching stages', async () => {
+    const service = createService(new VisualAssetService());
+    const semantics = [
+      [
+        '壳上的螺旋线',
+        '蜗牛壳上的螺旋像棒棒糖花纹。',
+        'Close-up of a snail shell spiral and a lollipop.',
+        'spiral',
+      ],
+      [
+        '放大镜看花纹',
+        '用放大镜看彩色条纹。',
+        'A magnifying glass shows colorful bands on the snail shell.',
+        'magnifier',
+      ],
+      [
+        '壳是怎么长大的',
+        '新的一圈从壳的边缘加上去。',
+        'The snail shell grows at its outer opening edge.',
+        'growth',
+      ],
+      [
+        '壳上的生长线',
+        '蜗牛壳上的螺旋花纹，是慢慢长大留下的记号。',
+        'A close-up of the spiral growth lines on a snail shell.',
+        'spiral',
+      ],
+      [
+        '花纹不是年轮',
+        '蜗牛花纹和大树年轮不一样。',
+        'Compare tree rings with a banded snail shell.',
+        'tree-rings',
+      ],
+      ['小蜗牛出生', '小蜗牛从卵里孵出来。', 'A baby snail hatches from an egg.', 'hatch'],
+      [
+        '一起观察',
+        '数一数壳上的花纹，看看哪一圈最新。',
+        'Count the rings on a snail shell in the garden.',
+        'count',
+      ],
+    ];
+    const manifest = await service.generateRemotionComposition(
+      {
+        title: '蜗牛壳上的花纹',
+        topic: '蜗牛壳上的花纹',
+        domain: 'science',
+        totalDurationSec: 36,
+        sceneCount: semantics.length,
+        scenes: semantics.map(([title, narration, visualDescription], index) => ({
+          id: `scene-${index + 1}`,
+          sequence: index + 1,
+          title,
+          concept: title,
+          narration,
+          onScreenText: title,
+          visualDescription,
+          durationSec: 6,
+        })),
+        visualTheme: { primaryPalette: '#E8F8FF', accentColor: '#8d6e63', mood: 'playful' },
+        narrativeArc: 'intro',
+      } as any,
+      { domain: 'science', ageGroup: '5-6' },
+    );
+
+    expect((manifest.props.scenes as any[]).map((scene) => scene.snailShellStudy)).toEqual(
+      semantics.map((item) => item[3]),
+    );
+    const stage = manifest.files.find((file) => file.path === 'character/SnailShellStudyStage.tsx');
+    expect(stage).toBeDefined();
+    expect(stage!.content).toContain('镜片里：棕色、黄色、黑色条纹');
+    expect(stage!.content).not.toContain('镜片里：棕色、黄色、白色条纹');
+    expect(stage!.content).toContain('新壳从壳口边缘加上去');
+    expect(stage!.content).toContain('蜗牛花纹：不是年轮');
+    expect(stage!.content).toContain('从卵里孵出来');
+    expect(stage!.content).toContain('最外面是较新的一圈');
+    expect(stage!.content).not.toMatch(/Math\.random|Date\.now|performance\.now/);
+    const generated = manifest.files.map((file) => file.content).join('\n');
+    expect(generated).toContain(
+      'import { SnailShellStudyStage } from "./character/SnailShellStudyStage"',
+    );
+    expect(generated).toContain('{scene.snailShellStudy ? (');
+  });
+
+  it('keeps structured comparison and summary scenes out of the snail-shell stage', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(
+      {
+        title: '蜗牛壳上的花纹',
+        topic: '蜗牛壳上的花纹',
+        domain: 'science',
+        totalDurationSec: 24,
+        sceneCount: 4,
+        scenes: [
+          {
+            id: 'scene-1',
+            sequence: 1,
+            title: '小蜗牛来了',
+            concept: '认识蜗牛',
+            narration: '一只小蜗牛慢慢爬过小草，走累了就躲进壳里休息。',
+            onScreenText: '小蜗牛和它的壳',
+            visualDescription: '绿色草地背景，小蜗牛慢慢爬入，背上背着蜗牛壳。',
+            durationSec: 6,
+            emphasis: 'intro',
+            performance: {
+              actors: [{ id: 'snail', label: '小蜗牛', role: 'helper' }],
+              actions: [
+                { verb: 'walk', caption: '小蜗牛慢慢爬过来' },
+                { verb: 'speak', speech: '大家好，我是小蜗牛！' },
+              ],
+            },
+          },
+          {
+            id: 'scene-2',
+            sequence: 2,
+            title: '壳保护蜗牛',
+            concept: '保护',
+            narration: '遇到危险时，蜗牛把身体缩进壳里，只露出壳保护自己。',
+            onScreenText: '缩进壳里',
+            visualDescription: '小蜗牛把身体缩进蜗牛壳里，旁边有一只小鸟好奇地看。',
+            durationSec: 6,
+            emphasis: 'example',
+            sceneGraph: {
+              relation: 'compare',
+              nodes: [
+                { id: 'n1', label: '缩进壳里', subject: '蜗牛壳', role: 'object' },
+                { id: 'n2', label: '小心翼翼', subject: '小蜗牛', role: 'subject' },
+              ],
+            },
+            performance: {
+              actors: [
+                { id: 'snail', label: '小蜗牛', role: 'helper' },
+                { id: 'bird', label: '小鸟', role: 'helper' },
+              ],
+              actions: [
+                { verb: 'speak', speech: '我缩进壳里，安全一点啦！' },
+                { verb: 'point', propId: '蜗牛壳' },
+              ],
+            },
+          },
+          {
+            id: 'scene-3',
+            sequence: 3,
+            title: '找螺旋',
+            concept: '生活中的螺旋',
+            narration: '牵牛花的藤会绕成螺旋形，羊角也是螺旋形的。',
+            onScreenText: '螺旋形找一找',
+            visualDescription: '蜗牛壳、牵牛花藤和羊角三个螺旋形物品并排摆放。',
+            durationSec: 6,
+            emphasis: 'practice',
+            sceneGraph: {
+              relation: 'group',
+              nodes: [
+                { id: 'n1', label: '螺旋形', subject: '螺旋', role: 'abstract', sign: 'orb' },
+                { id: 'n2', label: '蜗牛壳', subject: '蜗牛壳', role: 'object' },
+                { id: 'n3', label: '牵牛花藤', subject: '牵牛花', role: 'object' },
+                { id: 'n4', label: '羊角', subject: '羊角', role: 'object' },
+              ],
+            },
+          },
+          {
+            id: 'scene-4',
+            sequence: 4,
+            title: '记住它',
+            concept: '回顾',
+            narration: '小蜗牛背着蜗牛壳，壳从壳口一点点长大，还能给蜗牛一点保护。',
+            onScreenText: '蜗牛壳的小秘密',
+            visualDescription:
+              '小蜗牛站在画面中央挥手告别，身旁漂浮着螺旋花纹、壳口和盾牌三个小图标。',
+            durationSec: 6,
+            emphasis: 'summary',
+            sceneGraph: {
+              relation: 'chain',
+              nodes: [
+                { id: 'n1', label: '蜗牛壳', subject: '蜗牛壳', role: 'object' },
+                { id: 'n2', label: '螺旋花纹', subject: '螺旋花纹', role: 'abstract', sign: 'orb' },
+                { id: 'n3', label: '壳口长大', subject: '壳口', role: 'object' },
+                { id: 'n4', label: '一点保护', subject: '保护', role: 'abstract', sign: 'orb' },
+              ],
+            },
+            performance: {
+              actors: [{ id: 'snail', label: '小蜗牛', role: 'helper' }],
+              actions: [
+                { verb: 'cheer', caption: '再见啦，小朋友！' },
+                { verb: 'speak', speech: '下次见，记得看看我的壳哦！' },
+              ],
+            },
+          },
+        ],
+        visualTheme: { primaryPalette: '#F2FBF4', accentColor: '#3E9B5F', mood: 'warm' },
+        narrativeArc: 'introduction → exploration → practice → summary',
+      } as any,
+      { domain: 'science', ageGroup: '5-6' },
+    );
+
+    const scenes = manifest.props.scenes as any[];
+    expect(scenes.map((scene) => scene.snailShellStudy)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(scenes[0].interaction?.actors[0].assetSrc).toBe(
+      'assets/lesson/animals/snail-retracted.svg',
+    );
+    expect(scenes[0].interaction?.vectorPerformance?.speech).toBeUndefined();
+    expect(scenes[1].graphIcons).toMatchObject({
+      n1: 'assets/lesson/animals/snail-retracted.svg',
+      n2: 'assets/lesson/animals/snail-retracted.svg',
+    });
+
+    const generated = manifest.files.map((file) => file.content).join('\n');
+    expect(generated).toContain('!!vp.speech && (vp.speechAt === undefined');
+    expect(generated).not.toContain('vp.speech || scene.onScreenText || "我来说一说"');
+    expect(generated).toContain('!["speak", "point", "hold", "wave", "cheer", "idle", "sit"]');
+  });
+
+  it('keeps a single-action vector actor when an explanatory figure is also present', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(
+      {
+        title: '蜗牛壳上的花纹',
+        topic: '蜗牛壳上的花纹',
+        domain: 'science',
+        totalDurationSec: 6,
+        sceneCount: 1,
+        scenes: [
+          {
+            id: 'scene-1',
+            sequence: 1,
+            title: '慢慢爬',
+            narration: '小蜗牛慢慢爬过叶片。',
+            onScreenText: '慢慢爬',
+            visualDescription: 'a snail walking across a green leaf',
+            durationSec: 6,
+            performance: {
+              actors: [{ id: 'snail', label: '蜗牛', role: 'helper' }],
+              actions: [{ verb: 'walk' }],
+            },
+            figure: {
+              shapes: [{ kind: 'circle', cx: 120, cy: 120, r: 60, fill: '#8d6e63', reveal: 0 }],
+            },
+          },
+        ],
+      } as any,
+      { domain: 'science', ageGroup: '5-6' },
+    );
+
+    const scene = manifest.props.scenes[0] as any;
+    expect(scene.backgroundStyle).toBe('environment');
+    expect(scene.interaction?.puppet).toBeUndefined();
+    expect(scene.interaction?.vectorPerformance).toMatchObject({
+      actorId: 'snail',
+      steps: [{ motion: 'walk' }],
+    });
+    expect(scene.interaction?.vectorPerformance.speech).toBeUndefined();
+  });
+
+  it('preserves structured leaf scenes and routes shell semantics without replacing the lesson', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(
+      {
+        title: '蜗牛壳上的花纹',
+        topic: '蜗牛壳上的花纹',
+        domain: 'science',
+        totalDurationSec: 36,
+        sceneCount: 6,
+        scenes: [
+          {
+            id: 'scene-1',
+            sequence: 1,
+            title: '蜗牛爬向树叶',
+            narration: '小蜗牛背着壳，慢慢爬向一片大树叶。',
+            onScreenText: '爬向大树叶',
+            visualDescription: 'a snail walking toward a green leaf',
+            durationSec: 6,
+            figure: {
+              shapes: [
+                { kind: 'subjectIcon', subject: 'snail', x: 240, y: 280, size: 180, reveal: 0 },
+                { kind: 'subjectIcon', subject: '树叶', x: 1100, y: 260, size: 260, reveal: 0 },
+              ],
+            },
+            performance: {
+              actors: [{ id: 'lele', label: '乐乐', role: 'speaker' }],
+              actions: [{ verb: 'walk' }, { verb: 'hold', propId: '放大镜' }],
+            },
+            props: [{ name: '放大镜', place: 'hand', holder: 'lele' }],
+          },
+          {
+            id: 'scene-2',
+            sequence: 2,
+            title: '找到螺旋',
+            narration: '从外圈沿着壳上的螺旋线往里看，终点就是壳口。',
+            onScreenText: '沿着螺旋找壳口',
+            visualDescription: 'the spiral on a snail shell',
+            durationSec: 6,
+          },
+          {
+            id: 'scene-3',
+            sequence: 3,
+            title: '壳口长出新壳',
+            narration: '蜗牛长大时，新壳从壳口边缘加上去。花纹不是年轮，不能猜年龄。',
+            onScreenText: '新壳长在壳口边缘',
+            visualDescription: 'snail shell growth at the opening, not tree rings',
+            durationSec: 6,
+            sceneGraph: {
+              relation: 'chain',
+              nodes: [
+                { id: 'n1', label: '蜗牛', subject: '蜗牛', role: 'subject' },
+                { id: 'n2', label: '壳口', subject: '壳口', role: 'place' },
+                { id: 'n3', label: '新壳', subject: '新壳', role: 'object' },
+              ],
+            },
+          },
+          {
+            id: 'scene-4',
+            sequence: 4,
+            title: '左右旋',
+            narration: '有的蜗牛壳左旋，有的蜗牛壳右旋，绕的方向相反。',
+            onScreenText: '左旋和右旋',
+            visualDescription: 'left and right handed snail shells in mirror directions',
+            durationSec: 6,
+            sceneGraph: {
+              relation: 'compare',
+              nodes: [
+                { id: 'n1', label: '左旋', subject: '蜗牛壳', role: 'object' },
+                { id: 'n2', label: '右旋', subject: '蜗牛壳', role: 'object' },
+              ],
+            },
+          },
+          {
+            id: 'scene-5',
+            sequence: 5,
+            title: '雨天躲雨',
+            narration: '下雨了，雨滴落下来，蜗牛把身体缩进壳里躲雨。',
+            onScreenText: '下雨就缩进壳里',
+            visualDescription: 'rain falling while a snail retracts into its shell',
+            durationSec: 6,
+            figure: {
+              shapes: [
+                { kind: 'circle', cx: 700, cy: 450, r: 200, fill: '#8d6e63', reveal: 0 },
+                {
+                  kind: 'line',
+                  x1: 1050,
+                  y1: 230,
+                  x2: 1000,
+                  y2: 330,
+                  stroke: '#5b8ba8',
+                  reveal: 0,
+                },
+              ],
+            },
+          },
+          {
+            id: 'scene-6',
+            sequence: 6,
+            title: '复习总结',
+            narration: '蜗牛壳有螺旋花纹，壳口会慢慢长大，花纹不是年轮。',
+            onScreenText: '花纹小总结',
+            visualDescription: 'a friendly snail with three shell fact icons',
+            durationSec: 6,
+            emphasis: 'summary',
+          },
+        ],
+        visualTheme: { primaryPalette: '#E8F8FF', accentColor: '#8d6e63', mood: 'playful' },
+        narrativeArc: 'intro',
+      } as any,
+      { domain: 'science', ageGroup: '5-6' },
+    );
+
+    const scenes = manifest.props.scenes as any[];
+    expect(scenes.map((scene) => scene.snailShellStudy)).toEqual([
+      undefined,
+      'spiral',
+      'growth',
+      'chirality',
+      undefined,
+      undefined,
+    ]);
+    expect(scenes[0].figure?.shapes?.length).toBeGreaterThan(0);
+    expect(scenes[0].interaction?.actors?.[0]?.id).toBe('lele');
+    expect(scenes[4].figure?.shapes?.length).toBeGreaterThan(0);
+    const generated = manifest.files.map((file) => file.content).join('\n');
+    expect(generated).toContain('const figureHasEnvironment');
+    expect(generated).toContain('const actionCarriesScene = !figureHasEnvironment');
+    expect(generated).toContain('if (rain) return <SceneBackground scene={scene} />');
+    const stage = manifest.files.find(
+      (file) => file.path === 'character/SnailShellStudyStage.tsx',
+    )!;
+    expect(stage.content).toContain('mode === "chirality"');
+    expect(stage.content).toContain('translate(1390 0) scale(-1 1)');
+    expect(stage.content).toContain('treeRingComparison ?');
+    expect(generated).toContain('treeRingComparison={/年轮|tree\\s+rings?/i.test');
+    expect(generated).toContain('const sceneTitle = scene.onScreenText || scene.title');
+    expect(generated).toContain('{sceneTitle}');
+    // 关系图舞台自己也要声明 sceneTitle：主舞台的同名变量不会进入这个函数作用域。
+    const graphStageSource = generated.slice(
+      generated.indexOf('const SceneGraphStage'),
+      generated.indexOf('const SceneLayer'),
+    );
+    expect(graphStageSource).toContain('const sceneTitle = scene.onScreenText || scene.title');
+    expect(graphStageSource).toContain('isRedundantSceneCaption(graph.caption, sceneTitle)');
+    // 焦点挂词与流光挂词解耦，流光退回时钟时讲解焦点仍按旁白切换。
+    expect(graphStageSource).toContain('if (anchorOrder && !starRelation)');
+    expect(graphStageSource).toContain('applyNarrationGraphFocus(activeIds, visitedIds, anchorOrder, frame)');
+    expect(graphStageSource).toContain('buildBeatActiveIds(');
+    // 对比幕不靠缩放表达焦点（大小是教学语义），所有节点用轻微漂移避免长句冻结。
+    expect(generated).toContain('const ambientY = Math.sin(frame / 14 + item.x / 220) * 6;');
+    expect(generated).toContain('(dy + ambientY) + "px)"');
+    // 720p 兼容成片需要整张关系图一起微动，不能只动占比很小的小卡片。
+    expect(graphStageSource).toContain('const graphDriftY = Math.sin(frame / 18) * 4;');
+    expect(graphStageSource).toContain('const graphBreath = 1 + Math.sin(frame / 36) * 0.003;');
+    expect(graphStageSource).toContain(
+      'transform: "translateY(" + graphDriftY + "px) scale(" + graphBreath + ")"',
+    );
+    // 危险提示必须来自真实 TTS 字边界，并在同一张缩壳卡上切换可见裂纹。
+    expect(graphStageSource).toContain('const crackFrame = narrationCueFrame(scene, /啄裂|裂纹|啄破|crack/i)');
+    expect(graphStageSource).toContain('assets/lesson/animals/snail-shell-cracked.svg');
+    expect(graphStageSource).toContain('warningFrame={crackNodeId === item.node.id ? crackFrame ?? undefined : undefined}');
+    expect(generated).toContain('border: "8px solid #D9534F"');
+    expect(generated).toContain('drop-shadow(0 0 9px rgba(217,83,79,0.72))');
+    // 指认物占用一侧后，同侧装饰必须向外错位，不能把蜗牛和标签压在下面。
+    expect(generated).toContain('let pointPropPlaced = false');
+    expect(generated).toContain('floorPropStep(slot, pointPropPlaced, side, pointSide)');
+    expect(generated).toContain('pointedLeafCarrier(');
+    expect(generated).toContain('y: carrierSize > 0 ? carrierSize + pointSlot.size / 2 - 0.02 : pointSlot.y');
+    // 生长幕不能只写“慢慢变大”：三圈实线必须逐圈画出并带序号。
+    expect(generated).toContain('strokeDashoffset={1 - ringProgress}');
+    expect(generated).toContain('一圈比一圈大');
+    expect(generated).not.toContain('{title || topic}');
+    expect(generated).toContain('const RainOverlay');
+    expect(generated).toContain(') : !rain ? (');
+    expect(generated).toContain('{rain ? <RainOverlay frame={frame} /> : null}');
+  });
+
+  it('only hides a scene caption when its normalized wording equals the title', () => {
+    const isRedundantSceneCaption = loadTemplateHelper('isRedundantSceneCaption');
+
+    expect(isRedundantSceneCaption('背着家，慢慢长大', '背着壳，慢慢长大')).toBe(true);
+    expect(isRedundantSceneCaption('每只蜗牛的花纹都不一样', '背着壳，慢慢长大')).toBe(false);
+    expect(isRedundantSceneCaption('蜗牛壳上的花纹', '花纹')).toBe(false);
+  });
+
+  it('anchors the shell warning to the first real TTS token instead of the scene clock', () => {
+    const narrationCueFrame = loadTemplateHelper('narrationCueFrame');
+    const scene = {
+      narration: '缩进壳里很安全，但壳也可能被啄裂。',
+      durationFrames: 180,
+      subtitlePages: [
+        {
+          tokens: ['缩进', '壳里', '很', '安全', '，', '但', '壳', '也', '可能', '被', '啄裂', '。'],
+          starts: [12, 18, 27, 32, 38, 44, 48, 52, 57, 62, 68, 78],
+        },
+      ],
+    };
+
+    expect(narrationCueFrame(scene, /啄裂|裂纹/)).toBe(68);
+    expect(narrationCueFrame(scene, /盛开/)).toBeNull();
+  });
+
+  it('keeps floor decorations out of the pointed teaching prop slot', () => {
+    const floorPropStep = loadTemplateHelper('floorPropStep');
+
+    expect(floorPropStep(0, true, -1, 1)).toBe(0);
+    expect(floorPropStep(1, true, 1, 1)).toBe(1);
+    expect(floorPropStep(3, true, -1, 1)).toBe(1);
+    expect(floorPropStep(1, true, 1, -1)).toBe(0);
+    expect(floorPropStep(1, false, 1, 1)).toBe(0);
+  });
+
+  it('uses a floor leaf as the carrier only for a pointed snail', () => {
+    const pointedLeafCarrier = loadTemplateHelper('pointedLeafCarrier');
+    const props = [
+      { id: '树叶', label: '树叶', place: 'floor' },
+      { id: '蜗牛', label: '蜗牛', place: 'floor' },
+      { id: '小黄花', label: '小黄花', place: 'floor' },
+    ];
+
+    expect(pointedLeafCarrier(props, '蜗牛', '蜗牛', true)).toBe('树叶');
+    expect(pointedLeafCarrier(props, '蜗牛', '蜗牛', false)).toBeUndefined();
+    expect(pointedLeafCarrier(props, '苹果', '苹果', true)).toBeUndefined();
+    expect(pointedLeafCarrier(props, 'snail', '小蜗牛', true)).toBe('树叶');
+    expect(
+      pointedLeafCarrier(
+        [{ id: '树叶', label: '树叶', place: 'hand' }],
+        '蜗牛',
+        '蜗牛',
+        true,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('moves graph focus by narration order even when flow follows a clock', () => {
+    const applyNarrationGraphFocus = loadTemplateHelper('applyNarrationGraphFocus');
+    const active = new Set<string>(['n1']);
+    const visited = new Set<string>();
+    const anchors = [
+      { id: 'n4', at: 20 },
+      { id: 'n2', at: 50 },
+      { id: 'n3', at: 80 },
+      { id: 'n1', at: 110 },
+    ];
+
+    applyNarrationGraphFocus(active, visited, anchors, 60);
+    expect(Array.from(active)).toEqual(['n2']);
+    expect(Array.from(visited)).toEqual(['n4']);
+
+    applyNarrationGraphFocus(active, visited, anchors, 120);
+    expect(Array.from(active)).toEqual(['n1']);
+    expect(Array.from(visited)).toEqual(['n4', 'n2', 'n3']);
+  });
+
+  it('keeps one narration-focused node even when a beat reveals the whole graph', () => {
+    const buildBeatActiveIds = loadTemplateHelper('buildBeatActiveIds');
+    const source = readFileSync(
+      join(__dirname, '../../src/modules/learning/video-generation-agent.service.ts'),
+      'utf8',
+    );
+    const helperStart = source.indexOf('const buildBeatActiveIds');
+    const helperSource = source.slice(helperStart, source.indexOf('\n};', helperStart));
+
+    // resolveFocusId() 的未匹配分支返回 undefined；模板生成时必须接受这个真实类型。
+    expect(helperSource).toContain('focusId: string | null | undefined');
+    expect(buildBeatActiveIds('n3', 'n1', ['n1', 'n2', 'n3', 'n4'], true)).toEqual(['n3']);
+    expect(buildBeatActiveIds(null, 'n1', ['n1', 'n2', 'n3', 'n4'], false)).toEqual([
+      'n1',
+      'n2',
+      'n3',
+      'n4',
+    ]);
+    expect(buildBeatActiveIds(null, undefined, [null, 'n2', 'n2'], false)).toEqual(['n2']);
+    expect(buildBeatActiveIds(null, null, [null, 'n2', 'n2'], false)).toEqual(['n2']);
+  });
+
+  it('shows snail pattern differences and keeps shell growth scenes on the teaching stage', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition(
+      {
+        title: '蜗牛壳上的花纹',
+        topic: '蜗牛壳上的花纹',
+        domain: 'science',
+        totalDurationSec: 12,
+        sceneCount: 2,
+        scenes: [
+          {
+            id: 'scene-1',
+            sequence: 1,
+            title: '彩色的条纹',
+            narration: '有棕色、黄色，还有黑色。每只蜗牛的花纹都不一样呢！',
+            onScreenText: '每只都不一样',
+            visualDescription: '放大镜观察蜗牛壳上的彩色条纹',
+            durationSec: 6,
+            emphasis: 'core-concept',
+            props: [
+              { id: 'tree', label: '大树', place: 'floor' },
+              { id: 'grass', label: '草地', place: 'floor' },
+            ],
+          },
+          {
+            id: 'scene-2',
+            sequence: 2,
+            title: '壳是怎么长大的',
+            narration: '蜗牛长大一点，壳的边缘也往外长一点，就多出一圈花纹。',
+            onScreenText: '边缘长出新壳',
+            visualDescription: '草地上的蜗牛壳，旧花纹留在原处，壳口边缘长出新壳',
+            durationSec: 6,
+            emphasis: 'core-concept',
+            props: [{ id: 'grass', label: '草地', place: 'floor' }],
+          },
+        ],
+      } as any,
+      { domain: 'science', ageGroup: '5-6' },
+    );
+
+    const scenes = manifest.props.scenes as any[];
+    expect(scenes.map((scene) => scene.snailShellStudy)).toEqual(['magnifier', 'growth']);
+    const generated = manifest.files.map((file) => file.content).join('\n');
+    expect(generated).toContain('comparison={shellComparison}');
+    expect(generated).toContain('variant="white"');
+    expect(generated).toContain('每只蜗牛的花纹都不一样');
+    expect(generated).toContain('棕色、黄色、黑色条纹');
+    expect(generated).not.toContain('棕色、黄色、白色条纹');
   });
 });

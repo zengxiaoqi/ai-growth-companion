@@ -2,6 +2,7 @@ export type AnimationTemplateId =
   | 'language.character-stroke'
   | 'language.word-reveal'
   | 'language.story-scene'
+  | 'language.whiteboard-story'
   | 'math.counting-objects'
   | 'math.shape-builder'
   | 'math.number-line'
@@ -23,6 +24,42 @@ export type AnimationTemplateData = {
 };
 
 export type SlideLayout = "hero" | "grid" | "list";
+
+export type WhiteboardRect = { x: number; y: number; width: number; height: number };
+
+export type ResolvedWhiteboardRegion = {
+  id: string;
+  label?: string;
+  sequence: number;
+  narrativeRole?: string;
+  subtitle?: string;
+  region: WhiteboardRect;
+  startMs?: number;
+  durationMs?: number;
+  protectedRegions?: WhiteboardRect[];
+  cueIndex?: number;
+  reveal?: {
+    direction?: 'left_to_right' | 'right_to_left' | 'top_to_bottom' | 'bottom_to_top';
+    maskPaddingPx?: number;
+    protectedRegions?: WhiteboardRect[];
+  };
+  startFrame: number;
+  durationFrames: number;
+  inkFrames: number;
+  colorFrames: number;
+};
+
+export type ResolvedWhiteboardConfig = {
+  sourceImage: string;
+  paper: string;
+  inkPath: 'grid';
+  colorFill: 'contour-wipe' | 'brush';
+  canvas: { width: number; height: number };
+  regions: ResolvedWhiteboardRegion[];
+  timingSource: 'subtitlePages' | 'authored' | 'estimated';
+};
+
+export type SubtitlePageCue = { tokens: string[]; starts: number[] };
 
 export type SlideItem = {
   emoji: string;
@@ -53,6 +90,9 @@ export type TeachingSlide = {
   narration: string;
   narrationSrc?: string;
   durationFrames?: number;
+  subtitlePages?: SubtitlePageCue[];
+  whiteboardAsset?: string;
+  whiteboard?: ResolvedWhiteboardConfig;
   animationTemplate?: AnimationTemplateData;
   /** Rich visual scene description for SVG-based rendering */
   visual?: SceneVisual;

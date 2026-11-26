@@ -25,16 +25,36 @@ import { RemotionRenderService } from './remotion-render.service';
 import { HyperframesRenderService } from './hyperframes-render.service';
 import { DshBridgeService } from './dsh-bridge.service';
 import { VideoGenerationAgentService } from './video-generation-agent.service';
-import { VisualQaService, type SceneQaInput, type SceneTimelineEntry, type VisualQaVerdict } from './visual-qa.service';
+import {
+  VisualQaService,
+  buildSceneTimeline,
+  type SceneQaInput,
+  type SceneTimelineEntry,
+  type VisualQaVerdict,
+} from './visual-qa.service';
 import { VideoParamRepairService } from './video-param-repair.service';
 import { AgentRemotionService } from './agent-remotion.service';
 import { hasThreeMotionCue } from './video/scene-interaction';
+import { assertTopicSpecificScienceFacts, ScienceFactGateError } from './science-fact-guards';
 import { isWorkerActive, markWorkerInactive, onWorkerActivated } from '../../common/instance-guard';
+import { deriveWatchSceneDocument } from './lesson-scene';
+import {
+  resolveWhiteboardSourcePath,
+  WHITEBOARD_RENDERER_VERSION,
+  WHITEBOARD_TEMPLATE_ID,
+} from './whiteboard';
 
 type ProviderStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'unknown';
 
 type RenderAttemptEngine = VideoRenderEngine | 'dynamic-remotion' | 'agent-remotion';
 type RemotionFailureKind = 'environment' | 'generated-code' | 'unknown';
+
+class VideoQaGateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'VideoQaGateError';
+  }
+}
 
 /**
  * 渲染器语法版本，参与缓存 key 计算。
@@ -56,8 +76,15 @@ type RemotionFailureKind = 'environment' | 'generated-code' | 'unknown';
  *              "统一 0.57 身高"改成"每个道具自己的比例"：苹果不再和桌子一样高。
  *              这一版**画面确实会变**（道具变小、指认幕构图随之变化），必须让旧缓存
  *              失效——否则同一节课里新旧两种苹果会同时存在。
+ *   prop-v2 —— 明确角色动作优先于解释性画板；未登记骨架的动物使用自己的矢量
+ *              演员舞台而非默认小熊骨架；蜗牛外观/缩壳状态使用确定性的本课素材；
+ *              字幕改为完整字形分页、最多两行和高对比底板。旧缓存必须整体失效。
+ *   prop-v4 —— 蜗牛壳生长/左右旋专用舞台、雨天背景和画板标签压图降级；
+ *              只丢弃冲突标签，不再让一个坏标签废掉整张画板。旧缓存必须失效。
  */
-const RENDERER_SCHEMA_VERSION = String(process.env.VIDEO_RENDERER_SCHEMA_VERSION ?? 'prop-v1').trim();
+const RENDERER_SCHEMA_VERSION = String(
+  process.env.VIDEO_RENDERER_SCHEMA_VERSION ?? 'prop-v4',
+).trim();
 
 const FALLBACK_RENDER_ENGINES: RenderAttemptEngine[] = [
   'agent-remotion',
@@ -345,10 +372,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     });
     if (!content) throw new NotFoundException('Content not found');
 
-    const payload = this.syncVideoPayloadFromWatchScene(
-      this.buildPackPayloadFromContent(content),
-    );
-    const cacheKey = this.computeCacheKey(content, payload);
+    const payload = this.syncVideoPayloadFromWatchScene(this.buildPackPayloadFromContent(content));
+    const cacheKey = await this.computeCacheKey(content, payload);
     const normalizedEngine = this.normalizeRenderEngine(renderEngine);
     this.logger.log(
       `[enqueue] contentId=${contentId}, topic="${content.topic || ''}", title="${content.title || ''}", domain="${content.domain || ''}", engine=${normalizedEngine}, force=${force}`,
@@ -480,9 +505,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const now = Date.now();
     if (now - this.lastInactiveWarnAt < 30_000) return;
     this.lastInactiveWarnAt = now;
-    this.logger.warn(
-      '本进程尚未取得端口归属，暂不认领出片任务（多实例启动的失败方应立即退出）',
-    );
+    this.logger.warn('本进程尚未取得端口归属，暂不认领出片任务（多实例启动的失败方应立即退出）');
   }
 
   private async processQueue(): Promise<void> {
@@ -579,7 +602,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         errorMessage: null,
         completedAt: now,
         expiresAt,
-        approvalStatus: 'pending_approval',
+        approvalStatus: task.approvalStatus || 'pending_approval',
       } as any);
       this.logger.log(
         `Video task completed: taskId=${task.id}, size=${buffer.length} bytes, path=${localPath}, provider=${task.provider}`,
@@ -588,7 +611,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       // 超时任务不自动重排队：底层请求还在跑，立刻重领会造成同一任务两个并发
       // 渲染写同一个输出文件。交回给用户判定（retryTask 会重置 attemptCount）。
       const isDeadline = error?.name === 'VideoTaskDeadlineError';
-      const canRetry = !isDeadline && (task.attemptCount || 0) <= this.maxRetries;
+      const isQaGateFailure = error instanceof VideoQaGateError;
+      const canRetry =
+        !isDeadline && !isQaGateFailure && (task.attemptCount || 0) <= this.maxRetries;
       await this.taskRepo.update(task.id, {
         status: canRetry ? 'pending' : 'failed',
         progress: 0,
@@ -724,6 +749,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
             return this.generateVideoBufferWithEngines(task, enrichedPayload);
           }
         } catch (error: any) {
+          if (error instanceof VideoQaGateError || error instanceof ScienceFactGateError) {
+            throw error;
+          }
           this.logger.warn(
             `[generateVideoBuffer] taskId=${task.id} agent pipeline failed, falling back: ${error?.message || 'unknown'}`,
           );
@@ -750,6 +778,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
               return this.generateVideoBufferWithEngines(task, enrichedPayload);
             }
           } catch (fallbackError: any) {
+            if (
+              fallbackError instanceof VideoQaGateError ||
+              fallbackError instanceof ScienceFactGateError
+            ) {
+              throw fallbackError;
+            }
             this.logger.warn(
               `[generateVideoBuffer] taskId=${task.id} fallback storyboard also failed: ${fallbackError?.message || 'unknown'}`,
             );
@@ -769,6 +803,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     storyboard: any,
     quality?: { passed: boolean; score: number },
   ): Record<string, any> {
+    assertTopicSpecificScienceFacts(
+      { scenes: Array.isArray(storyboard.scenes) ? storyboard.scenes : [] },
+      storyboard.topic || payload.topic || '',
+    );
     const scenes = Array.isArray(storyboard.scenes) ? storyboard.scenes : [];
 
     return {
@@ -786,6 +824,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
           durationSec: scene.durationSec || 6,
           animationTemplate: scene.animationTemplate?.id || undefined,
           animationParams: scene.animationTemplate?.params || {},
+          ...(scene.performance ? { performance: scene.performance } : {}),
+          ...(scene.interaction ? { interaction: scene.interaction } : {}),
+          ...(scene.props ? { props: scene.props } : {}),
+          ...(scene.figure ? { figure: scene.figure } : {}),
+          ...(scene.sceneGraph ? { sceneGraph: scene.sceneGraph } : {}),
+          ...(scene.beats ? { beats: scene.beats } : {}),
         })),
         style: storyboard.visualTheme?.mood || 'colorful-educational',
       },
@@ -806,9 +850,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** 课程包场景 → storyboard：字段映射与 enrichPayloadWithStoryboard 互逆，渲染层无感。 */
-  private buildStoryboardFromPackScenes(
-    payload: Record<string, any>,
-  ): Record<string, any> | null {
+  private buildStoryboardFromPackScenes(payload: Record<string, any>): Record<string, any> | null {
     const topic = this.toText(payload?.topic);
     if (!topic) return null;
 
@@ -840,7 +882,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         ),
         durationSec: this.toInt(raw?.durationSec, 12, 4, 30),
         transitionToNext: 'fade',
-        emphasis: index === 0 ? 'intro' : index === capped.length - 1 ? 'summary' : 'core-concept',
+        emphasis: this.toText(
+          raw?.emphasis,
+          index === 0 ? 'intro' : index === capped.length - 1 ? 'summary' : 'core-concept',
+        ),
         ...(template
           ? {
               animationTemplate:
@@ -870,6 +915,27 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     // 全程无旁白的场景序列交给 agent 路径补写，避免渲染出默片。
     if (!scenes.some((scene) => scene.narration)) return null;
 
+    // “文字对齐”不等于“画面可渲染”。快速课程经常只给 imagePrompt/旁白，
+    // 没有 figure/sceneGraph/performance/interaction/props；直接走快路径会把这些
+    // 场景交给通用角色模板，出现“旁白讲蜗牛、画面只有小兔”的 blocker。
+    // 快路径只接收已经声明视觉结构的分镜；缺结构的场景必须经过分镜代理补画，
+    // 不能用一个更便宜的字符串映射冒充视觉编排。
+    const missingVisualStructure = capped
+      .map((raw: any, index: number) => ({
+        index,
+        title: this.toText(raw?.scene || raw?.title, `场景${index + 1}`),
+        raw,
+      }))
+      .filter(({ raw }) => !this.hasExplicitPackVisualStructure(raw))
+      .map(({ index, title }) => `${index + 1}:${title}`);
+    if (missingVisualStructure.length > 0) {
+      this.logger.warn(
+        `[buildStoryboardFromPackScenes] topic="${topic}" 跳过快路径：` +
+          `${missingVisualStructure.length}/${capped.length} 幕缺少显式视觉结构（${missingVisualStructure.join(', ')}）`,
+      );
+      return null;
+    }
+
     return {
       title: this.toText(payload?.title, `${topic} 视频讲解`),
       topic,
@@ -882,6 +948,102 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  /** 课程包是否已经明确声明了渲染器可消费的视觉结构，而非只有一句 imagePrompt。 */
+  private hasExplicitPackVisualStructure(raw: Record<string, any>): boolean {
+    const figureShapes = Array.isArray(raw?.figure?.shapes) ? raw.figure.shapes : [];
+    const graphNodes = Array.isArray(raw?.sceneGraph?.nodes) ? raw.sceneGraph.nodes : [];
+    const actions = Array.isArray(raw?.performance?.actions) ? raw.performance.actions : [];
+    const actors = Array.isArray(raw?.interaction?.actors) ? raw.interaction.actors : [];
+    const props = Array.isArray(raw?.props)
+      ? raw.props.filter((prop: any) => prop && typeof prop === 'object' && prop.id && prop.label)
+      : [];
+    return (
+      figureShapes.length > 0 ||
+      graphNodes.length >= 2 ||
+      actions.length > 0 ||
+      actors.length > 0 ||
+      props.length > 0
+    );
+  }
+
+  /**
+   * Keep quick-generated course details aligned with the storyboard that actually
+   * reached the renderer. Structured course packs retain their original module
+   * layout; only video_lesson records are replaced with the normalized storyboard.
+   */
+  private async persistStoryboardToContent(
+    task: VideoGenerationTask,
+    payload: Record<string, any>,
+  ): Promise<void> {
+    const contentId = Number(task.contentId);
+    const storyboard = payload?.__storyboard;
+    const scenes = payload?.visualStory?.scenes;
+    if (
+      !Number.isFinite(contentId) ||
+      contentId <= 0 ||
+      payload?.__contentSource !== 'quick_generate' ||
+      payload?.__contentType !== 'video_lesson' ||
+      !storyboard ||
+      !Array.isArray(scenes) ||
+      scenes.length === 0
+    ) {
+      return;
+    }
+
+    try {
+      const content = await this.contentRepo.findOne({ where: { id: contentId } });
+      if (!content) return;
+
+      const raw =
+        typeof content.content === 'string' ? this.tryParseJson(content.content) : content.content;
+      const previous = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+      const title =
+        this.toText(payload?.videoLesson?.title) ||
+        this.toText(payload?.title) ||
+        this.toText(previous.title, content.title);
+      const lessonContent = {
+        ...previous,
+        title,
+        topic: this.toText(payload?.topic, previous.topic || content.topic),
+        domain: this.toText(payload?.domain, previous.domain || content.domain),
+        summary: this.toText(payload?.summary, previous.summary || content.subtitle),
+        ageGroup: this.toText(payload?.ageGroup, previous.ageGroup || content.ageRange),
+        videoLesson: {
+          ...(previous.videoLesson && typeof previous.videoLesson === 'object'
+            ? previous.videoLesson
+            : {}),
+          ...(payload.videoLesson || {}),
+          title,
+          shots: payload.videoLesson?.shots || previous.videoLesson?.shots || [],
+        },
+        visualStory: {
+          ...(previous.visualStory && typeof previous.visualStory === 'object'
+            ? previous.visualStory
+            : {}),
+          ...(payload.visualStory || {}),
+          scenes,
+        },
+        generatedStoryboard: storyboard,
+      };
+
+      await this.contentRepo.update(contentId, {
+        content: lessonContent,
+        title,
+        subtitle: lessonContent.summary,
+        domain: lessonContent.domain,
+      });
+      this.logger.log(
+        `[persistStoryboardToContent] contentId=${contentId}, scenes=${scenes.length}`,
+      );
+    } catch (error: any) {
+      // A render checkpoint is still usable when course persistence fails. Keep
+      // the failure visible instead of discarding an otherwise valid video.
+      this.logger.warn(
+        `[persistStoryboardToContent] contentId=${contentId} failed: ${error?.message || 'unknown'}`,
+      );
+    }
+  }
+
   private async generateVideoBufferWithEngines(
     task: VideoGenerationTask,
     payload: Record<string, any>,
@@ -890,6 +1052,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     providerTaskId?: string | null;
     sourceVideoUrl?: string | null;
   }> {
+    await this.persistStoryboardToContent(task, payload);
     payload = this.ensureTopicAlignedVideoPayload(payload);
     const requestedEngine = this.normalizeRenderEngine(task.renderEngine);
     const engineOrder = this.resolveEngineOrder(requestedEngine, payload);
@@ -1013,6 +1176,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
           continue;
         }
       } catch (error: any) {
+        if (error instanceof VideoQaGateError || error instanceof ScienceFactGateError) {
+          throw error;
+        }
         const reason = `${engine}: ${error?.message || 'unknown'}`;
         errors.push(reason);
         this.logger.warn(
@@ -1083,6 +1249,26 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private qaGateMode(): 'off' | 'warn' | 'block' {
+    const mode = String(process.env.VIDEO_QA_GATE || 'block')
+      .trim()
+      .toLowerCase();
+    return mode === 'off' || mode === 'warn' ? mode : 'block';
+  }
+
+  private enforceQaGate(verdict: VisualQaVerdict | null, engine: string): void {
+    const mode = this.qaGateMode();
+    if (mode === 'off') return;
+    if (!verdict) {
+      throw new VideoQaGateError(`${engine} QA returned no verdict`);
+    }
+    if (!verdict.passed) {
+      const message = `${engine} QA failed: score=${verdict.score}, issues=${verdict.issues.length}`;
+      if (mode === 'block') throw new VideoQaGateError(message);
+      this.logger.warn(`[QA gate warn] ${message}`);
+    }
+  }
+
   private async generateByDynamicRemotion(
     task: VideoGenerationTask,
     payload: Record<string, any>,
@@ -1138,7 +1324,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
 
     let sceneTimeline: SceneTimelineEntry[] | undefined;
     try {
-      sceneTimeline = await this.remotionRender.renderGeneratedComposition(task, manifest, outputPath, onProgress);
+      sceneTimeline = await this.remotionRender.renderGeneratedComposition(
+        task,
+        manifest,
+        outputPath,
+        onProgress,
+      );
     } catch (error: any) {
       const failureKind = this.classifyRemotionFailure(error);
       this.logger.warn(
@@ -1174,24 +1365,37 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     } catch {}
 
     // 视觉验收：抽帧送 vision 评审；不达标做 ≤1 轮参数修复重渲。
-    // QA 失败不拦出片——记 qaScore 放行（不静默）；gate 本身出错也只 warn。
-    if (this.visualQa?.isConfigured && process.env.VIDEO_QA_GATE !== 'off') {
+    // 默认拦截未达标成片；显式 VIDEO_QA_GATE=warn 才保留仅记录后放行。
+    if (this.visualQa?.isConfigured && this.qaGateMode() !== 'off') {
       const ageGroup = payload?.ageGroup === '3-4' ? '3-4' : '5-6';
       try {
         let activeStoryboard = storyboard;
         let qaRounds = 0;
-        let verdict = await this.reviewRenderedVideo(task, payload, activeStoryboard, outputPath, 0, sceneTimeline);
+        let verdict = await this.reviewRenderedVideo(
+          task,
+          payload,
+          activeStoryboard,
+          outputPath,
+          0,
+          sceneTimeline,
+        );
         if (verdict && !verdict.passed && this.paramRepair) {
           const repaired = await this.paramRepair.repair(activeStoryboard, verdict, ageGroup);
           if (repaired) {
             qaRounds = 1;
             activeStoryboard = { ...activeStoryboard, scenes: repaired.scenes };
+            const repairedPayload = this.enrichPayloadWithStoryboard(payload, activeStoryboard, {
+              passed: false,
+              score: verdict.score,
+            });
+            await this.taskRepo.update(task.id, { requestPayload: repairedPayload } as any);
+            await this.persistStoryboardToContent(task, repairedPayload);
             this.logger.log(
               `[generateByDynamicRemotion] taskId=${task.id} QA score=${verdict.score} not passed, param-repair round 1 re-render`,
             );
             const repairedManifest = await this.videoGenerationAgent.generateRemotionComposition(
               activeStoryboard,
-              payload,
+              repairedPayload,
               agentFiles,
             );
             sceneTimeline = await this.remotionRender.renderGeneratedComposition(
@@ -1200,7 +1404,14 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
               outputPath,
               onProgress,
             );
-            verdict = await this.reviewRenderedVideo(task, payload, activeStoryboard, outputPath, 1, sceneTimeline);
+            verdict = await this.reviewRenderedVideo(
+              task,
+              payload,
+              activeStoryboard,
+              outputPath,
+              1,
+              sceneTimeline,
+            );
           }
         }
         if (verdict) {
@@ -1209,13 +1420,21 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
             qaPassed: verdict.passed,
             qaRounds,
           });
-          if (!verdict.passed) {
-            this.logger.warn(
-              `[generateByDynamicRemotion] taskId=${task.id} released with QA score=${verdict.score} rounds=${qaRounds} issues=${verdict.issues.length}`,
-            );
-          }
         }
+        this.enforceQaGate(verdict, 'dynamic-remotion');
       } catch (error: any) {
+        if (
+          error instanceof VideoQaGateError ||
+          error instanceof ScienceFactGateError ||
+          this.qaGateMode() === 'block'
+        ) {
+          if (error instanceof ScienceFactGateError) throw error;
+          throw error instanceof VideoQaGateError
+            ? error
+            : new VideoQaGateError(
+                `dynamic-remotion QA gate error: ${error?.message || 'unknown'}`,
+              );
+        }
         this.logger.warn(
           `[generateByDynamicRemotion] taskId=${task.id} QA gate error (release original): ${error?.message || error}`,
         );
@@ -1277,23 +1496,36 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     } catch {}
 
     // 终检：创作闭环已在 stills 层修过 ≤2 轮，这里只评审记录，不做参数修复
-    // （bespoke 代码无法用 beats 参数修复面改）。不达标放行但记 qaScore（不静默）。
-    if (this.visualQa?.isConfigured && process.env.VIDEO_QA_GATE !== 'off') {
+    // （bespoke 代码无法用 beats 参数修复面改）。默认拦截未达标成片。
+    if (this.visualQa?.isConfigured && this.qaGateMode() !== 'off') {
       try {
-        const verdict = await this.reviewRenderedVideo(task, payload, storyboard, outputPath, 0, sceneTimeline);
+        const verdict = await this.reviewRenderedVideo(
+          task,
+          payload,
+          storyboard,
+          outputPath,
+          0,
+          sceneTimeline,
+        );
         if (verdict) {
           await this.taskRepo.update(task.id, {
             qaScore: verdict.score,
             qaPassed: verdict.passed,
             qaRounds: stillsRounds,
           });
-          if (!verdict.passed) {
-            this.logger.warn(
-              `[generateByAgentRemotion] taskId=${task.id} released with QA score=${verdict.score} stillsRounds=${stillsRounds} issues=${verdict.issues.length}`,
-            );
-          }
         }
+        this.enforceQaGate(verdict, 'agent-remotion');
       } catch (error: any) {
+        if (
+          error instanceof VideoQaGateError ||
+          error instanceof ScienceFactGateError ||
+          this.qaGateMode() === 'block'
+        ) {
+          if (error instanceof ScienceFactGateError) throw error;
+          throw error instanceof VideoQaGateError
+            ? error
+            : new VideoQaGateError(`agent-remotion QA gate error: ${error?.message || 'unknown'}`);
+        }
         this.logger.warn(
           `[generateByAgentRemotion] taskId=${task.id} QA gate error (release original): ${error?.message || error}`,
         );
@@ -1326,6 +1558,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     if (scenes.length === 0) return null;
 
     const qaRoot = path.join(this.visualQa.qaDir(task.id), `round-${round}`);
+    // task id 在本地重置数据库后可能复用；先清本轮旧证据，避免把上一轮
+    // verdict/多余帧误当成当前成片的验收结果。
+    await fs.rm(qaRoot, { recursive: true, force: true });
     const inputs: SceneQaInput[] = [];
     let cursorSec = 0;
     for (let i = 0; i < scenes.length; i += 1) {
@@ -1631,6 +1866,46 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(
         `[generateByRemotion] taskId=${task.id} render complete, buffer=${buffer.length} bytes`,
       );
+
+      await this.taskRepo.update(task.id, { actualEngine: 'remotion' });
+      if (this.visualQa?.isConfigured && this.qaGateMode() !== 'off') {
+        try {
+          const storyboard = Array.isArray(payload?.__storyboard?.scenes)
+            ? payload.__storyboard
+            : { scenes: Array.isArray(inputProps?.slides) ? inputProps.slides : [] };
+          const verdict = await this.reviewRenderedVideo(
+            task,
+            payload,
+            storyboard,
+            outputPath,
+            0,
+            buildSceneTimeline(Array.isArray(inputProps?.slides) ? inputProps.slides : []),
+          );
+          if (verdict) {
+            await this.taskRepo.update(task.id, {
+              qaScore: verdict.score,
+              qaPassed: verdict.passed,
+              qaRounds: 0,
+            });
+          }
+          this.enforceQaGate(verdict, 'remotion');
+        } catch (error: any) {
+          if (
+            error instanceof VideoQaGateError ||
+            error instanceof ScienceFactGateError ||
+            this.qaGateMode() === 'block'
+          ) {
+            if (error instanceof ScienceFactGateError) throw error;
+            throw error instanceof VideoQaGateError
+              ? error
+              : new VideoQaGateError(`remotion QA gate error: ${error?.message || 'unknown'}`);
+          }
+          this.logger.warn(
+            `[generateByRemotion] taskId=${task.id} QA warn-only error: ${error?.message || 'unknown'}`,
+          );
+        }
+      }
+
       // Cleanup intermediate file
       try {
         await fs.unlink(outputPath);
@@ -1843,9 +2118,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
    * narration from those legacy fields.
    */
   private syncVideoPayloadFromWatchScene(payload: Record<string, any>): Record<string, any> {
-    const watchScenes = Array.isArray(payload?.watchScene?.scenes)
-      ? payload.watchScene.scenes
-      : [];
+    const watchScenes = Array.isArray(payload?.watchScene?.scenes) ? payload.watchScene.scenes : [];
     if (watchScenes.length === 0) return payload;
 
     const syncBeats = (beats: any[], textKey: 'onScreenText' | 'caption') =>
@@ -1915,6 +2188,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         ageGroup: lesson.ageGroup || content.ageRange || undefined,
         videoLesson: videoLesson || {},
         visualStory: visualStory || {},
+        __contentSource: (content as any).source || '',
+        __contentType: content.contentType || '',
       };
     }
 
@@ -2236,15 +2511,84 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     return 'day';
   }
 
-  private computeCacheKey(content: Content, payload: Record<string, any>): string {
+  private async computeCacheKey(content: Content, payload: Record<string, any>): Promise<string> {
+    const hasWhiteboard = this.payloadHasWhiteboard(payload);
+    const whiteboardAssetHashes = hasWhiteboard
+      ? await this.hashWhiteboardSourceAssets(payload)
+      : {};
     const seed = JSON.stringify({
       contentId: content.id,
       updatedAt: content.updatedAt || '',
       payload,
+      // 源图路径不变但文件内容改变时，也必须重新出片。
+      whiteboardAssetHashes,
       // 渲染器版本进 key：同一份分镜换了渲染语法（2D → 3D 舞台）必须重新出片
-      rendererVersion: RENDERER_SCHEMA_VERSION,
+      rendererVersion: hasWhiteboard
+        ? `${RENDERER_SCHEMA_VERSION}+${WHITEBOARD_RENDERER_VERSION}`
+        : RENDERER_SCHEMA_VERSION,
     });
     return createHash('sha1').update(seed).digest('hex');
+  }
+
+  private effectiveWatchScenes(payload?: Record<string, any>): Record<string, any>[] {
+    if (!payload || typeof payload !== 'object') return [];
+    if (Array.isArray(payload.watchScene?.scenes) && payload.watchScene.scenes.length > 0) {
+      return payload.watchScene.scenes;
+    }
+    try {
+      const document = deriveWatchSceneDocument(
+        {
+          visualStory: payload.visualStory || {},
+          videoLesson: payload.videoLesson || {},
+        },
+        this.toText(payload.topic),
+        this.toText(payload.domain, 'language'),
+      );
+      return Array.isArray(document?.scenes) ? document.scenes : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private isWhiteboardScene(scene: Record<string, any>): boolean {
+    return (
+      this.toText(scene?.visual?.templateId, this.toText(scene?.animationTemplate)) ===
+      WHITEBOARD_TEMPLATE_ID
+    );
+  }
+
+  private whiteboardParamsForScene(scene: Record<string, any>): Record<string, any> {
+    const params = scene?.visual?.templateParams || scene?.animationParams;
+    return params && typeof params === 'object' && !Array.isArray(params) ? params : {};
+  }
+
+  private async hashWhiteboardSourceAssets(
+    payload: Record<string, any>,
+  ): Promise<Record<string, string>> {
+    const sources = new Set<string>();
+    for (const scene of this.effectiveWatchScenes(payload)) {
+      if (!this.isWhiteboardScene(scene)) continue;
+      const sourceImage = this.toText(this.whiteboardParamsForScene(scene).sourceImage);
+      if (sourceImage) sources.add(sourceImage);
+    }
+
+    const remotionDir = path.resolve(__dirname, '../../../../video-remotion');
+    const backendPublicDir = path.resolve(__dirname, '../../../public');
+    const hashes: Record<string, string> = {};
+    for (const sourceImage of sources) {
+      try {
+        const sourcePath = resolveWhiteboardSourcePath(sourceImage, remotionDir, backendPublicDir);
+        const buffer = await fs.readFile(sourcePath);
+        hashes[sourceImage] = createHash('sha1').update(buffer).digest('hex');
+      } catch (error: any) {
+        hashes[sourceImage] = `unavailable:${error?.message || 'unknown error'}`;
+      }
+    }
+    return hashes;
+  }
+
+  private payloadHasWhiteboard(payload?: Record<string, any>): boolean {
+    return this.effectiveWatchScenes(payload).some((scene) => this.isWhiteboardScene(scene));
   }
 
   private resolveProviderName(engine: RenderAttemptEngine): string {
@@ -2272,6 +2616,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       .toLowerCase();
     if (raw === 'hyperframes') return 'hyperframes';
     if (raw === 'remotion') return 'remotion';
+    if (raw === 'dynamic-remotion') return 'dynamic-remotion';
     if (raw === 'dsh') return 'dsh';
     if (raw === 'agent-remotion') return 'agent-remotion';
     return 'auto';
@@ -2282,6 +2627,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     payload?: Record<string, any>,
   ): RenderAttemptEngine[] {
     const base = this.baseEngineOrder(engine);
+    const hasWhiteboard = this.payloadHasWhiteboard(payload);
+    // 白板必须走 TopicVideo 原生模板；dynamic/agent 生成的组件不认识白板契约。
+    // 显式 agent/dsh/hyperframes 仍然尊重调用方，只有 auto 和 remotion 调整顺序。
+    if (hasWhiteboard && (engine === 'auto' || engine === 'remotion')) {
+      return ['remotion', ...base.filter((item) => item !== 'remotion')];
+    }
     // 显式指定引擎时尊重调用方；只有 auto 才为了 3D 幕调整顺序
     if (engine !== 'auto') return base;
     if (!this.shouldPreferBuiltInTemplate(payload)) return base;
@@ -2297,7 +2648,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
    * 避免"分镜判成 3D、引擎却走 agent"的空转。
    */
   private shouldPreferBuiltInTemplate(payload?: Record<string, any>): boolean {
-    if (String(process.env.VIDEO_3D_STAGE ?? 'on').trim().toLowerCase() === 'off') return false;
+    if (
+      String(process.env.VIDEO_3D_STAGE ?? 'on')
+        .trim()
+        .toLowerCase() === 'off'
+    )
+      return false;
     const scenes = Array.isArray(payload?.__storyboard?.scenes) ? payload.__storyboard.scenes : [];
     return scenes.some((scene: Record<string, any>) => {
       const text = `${scene?.visualDescription || ''} ${scene?.narration || ''}`;
@@ -2308,6 +2664,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   private baseEngineOrder(engine: VideoRenderEngine): RenderAttemptEngine[] {
     if (engine === 'hyperframes') return ['hyperframes'];
     if (engine === 'remotion') return ['dynamic-remotion', 'remotion'];
+    if (engine === 'dynamic-remotion') return ['dynamic-remotion'];
     if (engine === 'dsh') return ['dsh', 'dynamic-remotion', 'remotion', 'hyperframes'];
     if (engine === 'agent-remotion') {
       return ['agent-remotion', 'dynamic-remotion', 'remotion', 'hyperframes'];

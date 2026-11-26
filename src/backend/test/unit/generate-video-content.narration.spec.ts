@@ -23,7 +23,12 @@ function storyboardJson(tag: string, scenes: SceneSpec[], relation = 'chain'): s
       narration: s.narration,
       sceneGraph: {
         relation,
-        nodes: s.nodes.map((label, j) => ({ id: `n${j + 1}`, label, subject: label, role: 'object' })),
+        nodes: s.nodes.map((label, j) => ({
+          id: `n${j + 1}`,
+          label,
+          subject: label,
+          role: 'object',
+        })),
       },
     })),
   });
@@ -170,6 +175,37 @@ describe('generateVideoContent · 一屏不要塞太多概念', () => {
   });
 });
 
+describe('generateVideoContent · 蜗牛科学事实门禁', () => {
+  it('高风险分镜必须重试，并把蜗牛壳事实约束写进后续提示词', async () => {
+    const safe: SceneSpec[] = [
+      { narration: '蜗牛壳在壳口边缘逐渐形成，新的壳从壳口长出来。', nodes: ['壳口', '新的壳'] },
+      { narration: '蜗牛壳上的花纹各不相同，不能用来判断年龄。', nodes: ['花纹', '年龄'] },
+      { narration: '蜗牛壳能提供一定保护，但小鸟仍可能啄它。', nodes: ['蜗牛壳', '小鸟'] },
+    ];
+    const { tool, llm } = makeTool([
+      storyboardJson('错误', [
+        { narration: '蜗牛长一岁多一圈，花纹越多说明越老。', nodes: ['蜗牛', '花纹'] },
+        ...safe.slice(1),
+      ]),
+      storyboardJson('正确', safe),
+    ]);
+
+    const result = await tool.execute(
+      { topic: '蜗牛壳上的花纹', domain: 'science' } as any,
+      {} as any,
+    );
+
+    expect(result.success).toBe(true);
+    expect((result.data as VideoStoryboard).scenes[0].title).toBe('正确1');
+    const firstPrompt = String((llm.generateStreaming as jest.Mock).mock.calls[0][0]);
+    const secondPrompt = String((llm.generateStreaming as jest.Mock).mock.calls[1][0]);
+    expect(llm.generateStreaming).toHaveBeenCalledTimes(2);
+    expect(firstPrompt).toContain('蜗牛壳不是年轮');
+    expect(firstPrompt).toContain('壳口边缘逐渐形成');
+    expect(secondPrompt).toContain('science fact gate failed');
+  });
+});
+
 /**
  * 道具声明必须穿过分镜工具的 sanitize 白名单。
  *
@@ -188,7 +224,12 @@ describe('generateVideoContent · props 白名单', () => {
         narration: s.narration,
         sceneGraph: {
           relation: 'chain',
-          nodes: s.nodes.map((label, j) => ({ id: `n${j + 1}`, label, subject: label, role: 'object' })),
+          nodes: s.nodes.map((label, j) => ({
+            id: `n${j + 1}`,
+            label,
+            subject: label,
+            role: 'object',
+          })),
         },
         ...(i === 0
           ? {

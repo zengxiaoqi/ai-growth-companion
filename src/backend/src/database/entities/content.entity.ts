@@ -29,6 +29,10 @@ export class Content {
   @Column({ nullable: true })
   topic: string;
 
+  /** 内容来源；快速生成课程使用 quick_generate，历史内容可为空。 */
+  @Column({ nullable: true, length: 40 })
+  source: string | null;
+
   @Column({ default: 1 })
   difficulty: number;
 

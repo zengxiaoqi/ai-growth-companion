@@ -8,6 +8,7 @@ import { AddCasualToolsToParentControls1762800000000 } from '../../src/database/
 import { CreateKnowledgeCards1794600000000 } from '../../src/database/migrations/1794600000000-CreateKnowledgeCards';
 import { CreateQuestionItems1794700000000 } from '../../src/database/migrations/1794700000000-CreateQuestionItems';
 import { AddVideoQaColumns1795270584987 } from '../../src/database/migrations/1795270584987-AddVideoQaColumns';
+import { AddContentSource1795271000000 } from '../../src/database/migrations/1795271000000-AddContentSource';
 
 /**
  * The baseline migration has exactly one job worth testing: after it runs, the
@@ -56,6 +57,7 @@ async function buildFromMigrations(): Promise<DataSource> {
       CreateKnowledgeCards1794600000000,
       CreateQuestionItems1794700000000,
       AddVideoQaColumns1795270584987,
+      AddContentSource1795271000000,
     ] as any[],
     migrationsRun: false,
     synchronize: false,
@@ -113,6 +115,7 @@ describe('baseline migration', () => {
       'CreateKnowledgeCards1794600000000',
       'CreateQuestionItems1794700000000',
       'AddVideoQaColumns1795270584987',
+      'AddContentSource1795271000000',
     ]);
   });
 
@@ -228,6 +231,35 @@ describe('baseline migration', () => {
     // And the database now matches the entities exactly.
     const pending = await (older.driver.createSchemaBuilder() as any).log();
     expect(pending.upQueries).toHaveLength(0);
+
+    await runner.release();
+    await older.destroy();
+  }, 60000);
+
+  it('adds a nullable content source without changing existing lessons', async () => {
+    const older = new DataSource({
+      type: 'sqljs',
+      database: new Uint8Array(),
+      entities: loadEntities() as any[],
+      migrations: [CreateBaselineSchema1600000000000] as any[],
+      migrationsRun: false,
+      synchronize: false,
+      logging: false,
+    });
+    await older.initialize();
+    await older.runMigrations({ transaction: 'none' });
+    await older.query(
+      `INSERT INTO "contents" ("uuid", "title", "ageRange", "domain", "contentType", "content", "mediaUrls", "status")
+       VALUES ('content-old', '旧课程', '5-6', 'science', 'video_lesson', '{}', '[]', 'published')`,
+    );
+
+    const runner = older.createQueryRunner();
+    const migration = new AddContentSource1795271000000();
+    await migration.up(runner);
+    await migration.up(runner);
+    expect(
+      await older.query(`SELECT "source" FROM "contents" WHERE "uuid" = 'content-old'`),
+    ).toEqual([{ source: null }]);
 
     await runner.release();
     await older.destroy();

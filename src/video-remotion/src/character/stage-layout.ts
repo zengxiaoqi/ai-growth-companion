@@ -251,8 +251,10 @@ export function propBounds(slot: { x: number; y: number; size: number }): Bounds
   return {
     minX: slot.x - slot.size / 2,
     maxX: slot.x + slot.size / 2,
-    minY: 0,
-    maxY: slot.size,
+    // y 是道具中心离地高度。普通道具 y=size/2 时结果仍是 [0,size]；
+    // 被叶片托高的蜗牛则必须把真实上沿算进取景，否则标题带会裁掉它的壳。
+    minY: Math.max(0, slot.y - slot.size / 2),
+    maxY: slot.y + slot.size / 2,
   };
 }
 

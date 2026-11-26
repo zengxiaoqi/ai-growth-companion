@@ -90,6 +90,7 @@ const CN_ANIMAL_MAP: Record<string, string> = {
   青蛙: 'frog',
   蛙: 'frog',
   蝴蝶: 'butterfly',
+  蜗牛: 'snail',
   蜜蜂: 'bee',
   蚂蚁: 'ant',
   企鹅: 'penguin',
@@ -318,6 +319,7 @@ const ANIMAL_VISUAL_TERMS: Record<string, string[]> = {
   turtle: ['turtle', 'shell', 'slow', 'pond'],
   frog: ['frog', 'jump', 'lily-pad', 'pond'],
   butterfly: ['butterfly', 'wings', 'colorful', 'garden'],
+  snail: ['snail', 'shell', 'slow', 'garden'],
   bee: ['bee', 'hive', 'honey', 'flowers'],
   ant: ['ant', 'colony', 'antenna', 'ground'],
   penguin: ['penguin', 'ice', 'waddle', 'snow'],
@@ -363,6 +365,7 @@ export const ANIMAL_EMOJI_MAP: Record<string, string> = {
   turtle: '\u{1F422}',
   frog: '\u{1F438}',
   butterfly: '\u{1F98B}',
+  snail: '\u{1F40C}',
   bee: '\u{1F41D}',
   ant: '\u{1F41C}',
   penguin: '\u{1F427}',
@@ -406,6 +409,52 @@ export const VECTOR_ANIMAL_IDS: string[] = [
   'dragon', 'unicorn',
 ];
 
+export type AnimalVisualVariant = 'generic' | 'white' | 'striped' | 'retracted';
+
+const SNAIL_VARIANT_ASSETS: Record<AnimalVisualVariant, string> = {
+  generic: 'assets/lesson/animals/snail-generic.svg',
+  white: 'assets/lesson/animals/snail-white.svg',
+  striped: 'assets/lesson/animals/snail-striped.svg',
+  retracted: 'assets/lesson/animals/snail-retracted.svg',
+};
+
+/**
+ * Infer explicit appearance variants from scene text.
+ *
+ * Generic vector aliases only answer "which animal"; they cannot distinguish a
+ * white snail from a striped one, or an extended snail from one protected inside
+ * its shell. Keep those variants deterministic and local so clean deployments do
+ * not depend on a generated asset cache.
+ */
+export function inferAnimalVariant(
+  source: string,
+  animalId?: string,
+): AnimalVisualVariant {
+  if (animalId !== 'snail') return 'generic';
+  const text = String(source || '');
+  if (/缩(?:进|到|入)壳|躲(?:进|在)壳|只露(?:出)?壳|保护起来|收起(?:身体|触角)|retract(?:ed|s|ing)?\b/i.test(text)) {
+    return 'retracted';
+  }
+  if (/白玉蜗牛|白色蜗牛|白白净净|雪白|white\s+(?:garden\s+)?snail/i.test(text)) {
+    return 'white';
+  }
+  if (
+    /花蜗牛|条纹蜗牛|深色条纹|花斑|彩色条纹|深浅不同的条纹|棕色.{0,12}黄色|striped\s+snail|colorful\s+bands|brown.{0,30}(?:yellow|cream).{0,30}stripes?/i.test(
+      text,
+    )
+  ) {
+    return 'striped';
+  }
+  return 'generic';
+}
+
+export function animalVariantAssetPath(
+  animalId?: string,
+  variant: AnimalVisualVariant = 'generic',
+): string | null {
+  return animalId === 'snail' ? SNAIL_VARIANT_ASSETS[variant] : null;
+}
+
 /** Accent colors for animals not in ANIMAL_SUBJECTS */
 const ANIMAL_ACCENT_COLORS: Record<string, string> = {
   dolphin: '#4da6ff',
@@ -420,6 +469,7 @@ const ANIMAL_ACCENT_COLORS: Record<string, string> = {
   turtle: '#3a7d44',
   frog: '#4caf50',
   butterfly: '#e91e90',
+  snail: '#8d6e63',
   bee: '#f9a825',
   ant: '#5d4037',
   penguin: '#37474f',

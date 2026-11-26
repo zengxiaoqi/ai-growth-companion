@@ -30,7 +30,7 @@ const ACCENT_RE = /^#[0-9a-fA-F]{6}$/;
  * 确定性路径的参数级修复：QA 不达标时，把 verdict 回喂一次 LLM，
  * 只允许改 beats / backgroundStyle / accentColor 这三类参数（不改几何、不改代码）。
  * 产出过 sanitizeBeats / normalizeSceneGraph 校验后才合并；任何一步失败返回 null，
- * 调用方保留原片放行并记录 qaScore——修复是增益，不是新的失败点。
+ * 调用方保留原片进入终检，并按 VIDEO_QA_GATE 策略记录或拦截。
  */
 @Injectable()
 export class VideoParamRepairService {
@@ -219,7 +219,7 @@ export class VideoParamRepairService {
       }
       return out;
     } catch (error: any) {
-      // 修复调用失败不阻断出片：保留原片，qaScore 照记
+      // 修复调用失败不覆盖原片：保留原片进入终检，qaScore 照记
       this.logger.warn(`[ParamRepair] LLM patch failed: ${error?.message || error}`);
       return [];
     }

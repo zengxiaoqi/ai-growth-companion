@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>Close-up of a single spiral growth line on a snail shell</title>
+  <ellipse cx="256" cy="444" rx="183" ry="22" fill="#5B4636" opacity="0.12"/>
+  <circle cx="256" cy="256" r="204" fill="#E7B77F" stroke="#75492E" stroke-width="12"/>
+  <circle cx="256" cy="256" r="174" fill="#D69A62" stroke="#F2C28F" stroke-width="8"/>
+  <path d="M282 284C232 304 183 280 177 235C171 190 211 155 257 161C304 167 337 208 326 255C315 303 269 331 225 315C181 299 158 254 177 214C196 174 246 153 286 172C326 191 345 235 330 275C315 315 277 339 239 330" stroke="#75492E" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M282 284C232 304 183 280 177 235C171 190 211 155 257 161C304 167 337 208 326 255C315 303 269 331 225 315C181 299 158 254 177 214C196 174 246 153 286 172C326 191 345 235 330 275C315 315 277 339 239 330" stroke="#F2C28F" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="239" cy="330" r="12" fill="#FFD666" stroke="#B97918" stroke-width="6"/>
+  <path d="M125 159C151 108 203 78 260 77" stroke="#FFF0D8" stroke-width="15" stroke-linecap="round" opacity="0.72"/>
+</svg>

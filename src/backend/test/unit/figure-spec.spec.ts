@@ -19,13 +19,83 @@ const rejectReason = (result: ReturnType<typeof normalizeFigureSpec>): string =>
 /** 合法基准：一道彩虹。后面每个用例都在它上面破坏一件事 */
 const rainbow = () => ({
   shapes: [
-    { kind: 'arc', cx: 800, cy: 640, r: 490, from: 4, to: 176, stroke: '#E5484D', width: 34, reveal: 0 },
-    { kind: 'arc', cx: 800, cy: 640, r: 450, from: 4, to: 176, stroke: '#F76B15', width: 34, reveal: 0.1 },
-    { kind: 'arc', cx: 800, cy: 640, r: 410, from: 4, to: 176, stroke: '#FFC53D', width: 34, reveal: 0.2 },
-    { kind: 'arc', cx: 800, cy: 640, r: 370, from: 4, to: 176, stroke: '#30A46C', width: 34, reveal: 0.3 },
-    { kind: 'arc', cx: 800, cy: 640, r: 330, from: 4, to: 176, stroke: '#0091FF', width: 34, reveal: 0.4 },
-    { kind: 'arc', cx: 800, cy: 640, r: 290, from: 4, to: 176, stroke: '#3E63DD', width: 34, reveal: 0.5 },
-    { kind: 'arc', cx: 800, cy: 640, r: 250, from: 4, to: 176, stroke: '#8E4EC6', width: 34, reveal: 0.6 },
+    {
+      kind: 'arc',
+      cx: 800,
+      cy: 640,
+      r: 490,
+      from: 4,
+      to: 176,
+      stroke: '#E5484D',
+      width: 34,
+      reveal: 0,
+    },
+    {
+      kind: 'arc',
+      cx: 800,
+      cy: 640,
+      r: 450,
+      from: 4,
+      to: 176,
+      stroke: '#F76B15',
+      width: 34,
+      reveal: 0.1,
+    },
+    {
+      kind: 'arc',
+      cx: 800,
+      cy: 640,
+      r: 410,
+      from: 4,
+      to: 176,
+      stroke: '#FFC53D',
+      width: 34,
+      reveal: 0.2,
+    },
+    {
+      kind: 'arc',
+      cx: 800,
+      cy: 640,
+      r: 370,
+      from: 4,
+      to: 176,
+      stroke: '#30A46C',
+      width: 34,
+      reveal: 0.3,
+    },
+    {
+      kind: 'arc',
+      cx: 800,
+      cy: 640,
+      r: 330,
+      from: 4,
+      to: 176,
+      stroke: '#0091FF',
+      width: 34,
+      reveal: 0.4,
+    },
+    {
+      kind: 'arc',
+      cx: 800,
+      cy: 640,
+      r: 290,
+      from: 4,
+      to: 176,
+      stroke: '#3E63DD',
+      width: 34,
+      reveal: 0.5,
+    },
+    {
+      kind: 'arc',
+      cx: 800,
+      cy: 640,
+      r: 250,
+      from: 4,
+      to: 176,
+      stroke: '#8E4EC6',
+      width: 34,
+      reveal: 0.6,
+    },
   ],
   labels: [{ text: '水滴', x: 240, y: 560 }],
 });
@@ -37,6 +107,19 @@ describe('normalizeFigureSpec', () => {
     if (!result.ok) return;
     expect(result.spec.shapes).toHaveLength(7);
     expect(result.spec.labels?.[0].text).toBe('水滴');
+  });
+
+  it('preserves safe glyph ids for beat-synchronized reveals', () => {
+    const source: any = rainbow();
+    source.shapes[0] = { ...source.shapes[0], id: 'arc1' };
+    source.shapes[1] = { ...source.shapes[1], id: 'bad id with spaces' };
+    const result = normalizeFigureSpec(source);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.spec.shapes[0].id).toBe('arc1');
+    expect(result.spec.shapes[1].id).toBeUndefined();
+    expect(describeFigureGrammar()).toContain('beats.reveal 写 id');
   });
 
   it('非对象或空数组一律拒绝，不进渲染', () => {
@@ -65,7 +148,16 @@ describe('normalizeFigureSpec', () => {
     const result = normalizeFigureSpec({
       shapes: [
         { kind: 'rect', x: 200, y: 100, w: 5000, h: 5000, rx: 8, fill: '#8B9AA8', reveal: 0 },
-        { kind: 'line', x1: -100, y1: 320, x2: 5000, y2: 320, stroke: '#5A6B7B', width: 4, reveal: 0 },
+        {
+          kind: 'line',
+          x1: -100,
+          y1: 320,
+          x2: 5000,
+          y2: 320,
+          stroke: '#5A6B7B',
+          width: 4,
+          reveal: 0,
+        },
         { kind: 'circle', cx: 800, cy: 360, r: 150, fill: '#3E63DD', reveal: 1 },
       ],
     });
@@ -85,7 +177,16 @@ describe('normalizeFigureSpec', () => {
     // 实测太阳系：轨道 width=2、行星 r=7~15，在 1600 宽画布里缩到成片几乎不可见
     const result = normalizeFigureSpec({
       shapes: [
-        { kind: 'line', x1: 100, y1: 100, x2: 1500, y2: 500, stroke: '#5A6B7B', width: 2, reveal: 0 },
+        {
+          kind: 'line',
+          x1: 100,
+          y1: 100,
+          x2: 1500,
+          y2: 500,
+          stroke: '#5A6B7B',
+          width: 2,
+          reveal: 0,
+        },
         { kind: 'circle', cx: 800, cy: 320, r: 7, fill: '#94A3B8', reveal: 1 },
         { kind: 'circle', cx: 900, cy: 360, r: 150, fill: '#3E63DD', reveal: 2 },
       ],
@@ -101,8 +202,28 @@ describe('normalizeFigureSpec', () => {
   it('弧的圆心允许落在画布外——彩虹本来就要把圆心压到底边之下', () => {
     const result = normalizeFigureSpec({
       shapes: [
-        { kind: 'arc', cx: 800, cy: 900, r: 700, from: 10, to: 170, stroke: '#E5484D', width: 30, reveal: 0 },
-        { kind: 'arc', cx: 800, cy: 900, r: 640, from: 10, to: 170, stroke: '#F76B15', width: 30, reveal: 1 },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 900,
+          r: 700,
+          from: 10,
+          to: 170,
+          stroke: '#E5484D',
+          width: 30,
+          reveal: 0,
+        },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 900,
+          r: 640,
+          from: 10,
+          to: 170,
+          stroke: '#F76B15',
+          width: 30,
+          reveal: 1,
+        },
       ],
     });
     expect(result.ok).toBe(true);
@@ -139,7 +260,17 @@ describe('normalizeFigureSpec', () => {
     const result = normalizeFigureSpec({
       shapes: [
         ...rainbow().shapes,
-        { kind: 'arc', cx: 800, cy: 640, r: 300, from: 90, to: 90, stroke: '#E5484D', width: 20, reveal: 0 },
+        {
+          kind: 'arc',
+          cx: 800,
+          cy: 640,
+          r: 300,
+          from: 90,
+          to: 90,
+          stroke: '#E5484D',
+          width: 20,
+          reveal: 0,
+        },
       ],
     });
     expect(result.ok).toBe(true);
@@ -147,12 +278,27 @@ describe('normalizeFigureSpec', () => {
   });
 
   it('完全相同的图元最多留三个，防止模型刷数量', () => {
-    const dup = { kind: 'line', x1: 200, y1: 100, x2: 1400, y2: 100, stroke: '#5A6B7B', width: 6, reveal: 0 };
+    const dup = {
+      kind: 'line',
+      x1: 200,
+      y1: 100,
+      x2: 1400,
+      y2: 100,
+      stroke: '#5A6B7B',
+      width: 6,
+      reveal: 0,
+    };
     const result = normalizeFigureSpec({ shapes: [dup, dup, dup, dup, dup] });
     // 只剩三个相同的线，覆盖率 1200*1 ≈ 0，会被几何检查拒掉——这里只看去重发生
     expect(result.ok).toBe(false);
     const longer = normalizeFigureSpec({
-      shapes: [dup, dup, dup, dup, { kind: 'circle', cx: 800, cy: 400, r: 200, fill: '#3E63DD', reveal: 0 }],
+      shapes: [
+        dup,
+        dup,
+        dup,
+        dup,
+        { kind: 'circle', cx: 800, cy: 400, r: 200, fill: '#3E63DD', reveal: 0 },
+      ],
     });
     if (longer.ok) {
       const lines = longer.spec.shapes.filter((s) => s.kind === 'line');
@@ -251,7 +397,17 @@ describe('normalizeFigureSpec', () => {
       shapes: [
         { kind: 'rect', x: 200, y: 120, w: 1200, h: 400, rx: 10, fill: '#8B9AA8', reveal: 0 },
         { kind: 'circle', cx: 500, cy: 320, r: 180, fill: '#3E63DD', reveal: 0 },
-        { kind: 'arc', cx: 900, cy: 320, r: 12, from: 0, to: 180, stroke: '#E5484D', width: 6, reveal: 1 },
+        {
+          kind: 'arc',
+          cx: 900,
+          cy: 320,
+          r: 12,
+          from: 0,
+          to: 180,
+          stroke: '#E5484D',
+          width: 6,
+          reveal: 1,
+        },
       ],
     });
     expect(result.ok).toBe(true);
@@ -264,21 +420,38 @@ describe('normalizeFigureSpec', () => {
   it('整张图只有看不见的小弧时仍然拒绝', () => {
     const result = normalizeFigureSpec({
       shapes: [
-        { kind: 'arc', cx: 900, cy: 320, r: 12, from: 0, to: 180, stroke: '#E5484D', width: 6, reveal: 0 },
+        {
+          kind: 'arc',
+          cx: 900,
+          cy: 320,
+          r: 12,
+          from: 0,
+          to: 180,
+          stroke: '#E5484D',
+          width: 6,
+          reveal: 0,
+        },
       ],
     });
     expect(result).toMatchObject({ ok: false, reason: 'empty' });
   });
 
-  it('标签整个压在实心图形上时拒绝', () => {
+  it('标签压在实心图形上时只丢弃冲突标签，保留整张画板', () => {
     const result = normalizeFigureSpec({
       shapes: [
         { kind: 'rect', x: 160, y: 80, w: 1280, h: 480, rx: 8, fill: '#8B9AA8', reveal: 0 },
         { kind: 'circle', cx: 800, cy: 320, r: 200, fill: '#3E63DD', reveal: 0 },
       ],
-      labels: [{ text: '天空', x: 800, y: 320 }],
+      labels: [
+        { text: '天空', x: 800, y: 320 },
+        { text: '地面', x: 800, y: 620 },
+      ],
     });
-    expect(result).toMatchObject({ ok: false, reason: 'label-cover' });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.spec.shapes).toHaveLength(2);
+      expect(result.spec.labels?.map((label) => label.text)).toEqual(['地面']);
+    }
   });
 
   it('颜色过多时拒绝，防止画面变成一锅脏色', () => {
@@ -287,17 +460,27 @@ describe('normalizeFigureSpec', () => {
       cx: 200 + i * 110,
       cy: 320,
       r: 60,
-      fill: ['#E5484D', '#F76B15', '#FFB020', '#FFC53D', '#30A46C', '#12A594', '#0091FF', '#3E63DD', '#8E4EC6', '#D6409F', '#8B9AA8', '#5A6B7B'][i],
+      fill: [
+        '#E5484D',
+        '#F76B15',
+        '#FFB020',
+        '#FFC53D',
+        '#30A46C',
+        '#12A594',
+        '#0091FF',
+        '#3E63DD',
+        '#8E4EC6',
+        '#D6409F',
+        '#8B9AA8',
+        '#5A6B7B',
+      ][i],
       reveal: i / 12,
     }));
     const result = normalizeFigureSpec({ shapes });
     // 12 色等于上限，通过；再加一色就超
     expect(rejectReason(result)).not.toBe('too-many-colors');
     const over = normalizeFigureSpec({
-      shapes: [
-        ...shapes,
-        { kind: 'circle', cx: 800, cy: 120, r: 40, fill: '#123456', reveal: 0 },
-      ],
+      shapes: [...shapes, { kind: 'circle', cx: 800, cy: 120, r: 40, fill: '#123456', reveal: 0 }],
     });
     expect(over.ok).toBe(false);
   });
@@ -321,10 +504,7 @@ describe('normalizeFigureSpec', () => {
  */
 describe('填充色对比度下限', () => {
   const drop = (fill = '#FFFFFF') => ({
-    shapes: [
-      ...rainbow().shapes,
-      { kind: 'circle', cx: 1470, cy: 520, r: 42, fill, reveal: 0.9 },
-    ],
+    shapes: [...rainbow().shapes, { kind: 'circle', cx: 1470, cy: 520, r: 42, fill, reveal: 0.9 }],
   });
 
   it('纯白圆在白底上会补一圈看得见的轮廓', () => {
@@ -340,7 +520,9 @@ describe('填充色对比度下限', () => {
     expect(circle.strokeWidth).toBe(MIN_STROKE);
     // 轮廓必须真的和填充、和底色都分得开，否则补了也白补
     expect(colorDistance(circle.stroke!, circle.fill)).toBeGreaterThanOrEqual(MIN_CONTOUR_DELTA_E);
-    expect(colorDistance(circle.stroke!, FIGURE_CANVAS_BG)).toBeGreaterThanOrEqual(MIN_VISIBLE_DELTA_E);
+    expect(colorDistance(circle.stroke!, FIGURE_CANVAS_BG)).toBeGreaterThanOrEqual(
+      MIN_VISIBLE_DELTA_E,
+    );
   });
 
   it('本身够显眼的填充不动——不能顺手给所有图元描边', () => {
@@ -356,7 +538,20 @@ describe('填充色对比度下限', () => {
     const result = normalizeFigureSpec({
       shapes: [
         ...rainbow().shapes,
-        { kind: 'curve', x1: 1452, y1: 432, c1x: 1440, c1y: 395, c2x: 1445, c2y: 360, x2: 1460, y2: 345, stroke: '#FFFFFF', width: 14, reveal: 0.9 },
+        {
+          kind: 'curve',
+          x1: 1452,
+          y1: 432,
+          c1x: 1440,
+          c1y: 395,
+          c2x: 1445,
+          c2y: 360,
+          x2: 1460,
+          y2: 345,
+          stroke: '#FFFFFF',
+          width: 14,
+          reveal: 0.9,
+        },
       ],
     });
     expect(result.ok).toBe(true);
@@ -364,7 +559,9 @@ describe('填充色对比度下限', () => {
     const curve = result.spec.shapes.find((s) => s.kind === 'curve');
     expect(curve?.kind).toBe('curve');
     if (curve?.kind !== 'curve') return;
-    expect(colorDistance(curve.stroke, FIGURE_CANVAS_BG)).toBeGreaterThanOrEqual(MIN_VISIBLE_DELTA_E);
+    expect(colorDistance(curve.stroke, FIGURE_CANVAS_BG)).toBeGreaterThanOrEqual(
+      MIN_VISIBLE_DELTA_E,
+    );
   });
 
   it('画在深色底上的白色不补轮廓：边界已经由底下的颜色交代了', () => {
@@ -462,8 +659,28 @@ describe('subjectIcon 图元', () => {
   /** 合法基准：一道弧 + 一个主体图标（彩虹下的蝌蚪） */
   const withIcon = (icon: Record<string, unknown>) => ({
     shapes: [
-      { kind: 'arc', cx: 800, cy: 640, r: 490, from: 4, to: 176, stroke: '#E5484D', width: 34, reveal: 0 },
-      { kind: 'arc', cx: 800, cy: 640, r: 430, from: 4, to: 176, stroke: '#0091FF', width: 34, reveal: 0.2 },
+      {
+        kind: 'arc',
+        cx: 800,
+        cy: 640,
+        r: 490,
+        from: 4,
+        to: 176,
+        stroke: '#E5484D',
+        width: 34,
+        reveal: 0,
+      },
+      {
+        kind: 'arc',
+        cx: 800,
+        cy: 640,
+        r: 430,
+        from: 4,
+        to: 176,
+        stroke: '#0091FF',
+        width: 34,
+        reveal: 0.2,
+      },
       icon,
     ],
   });
@@ -494,7 +711,9 @@ describe('subjectIcon 图元', () => {
   });
 
   it('空 subject 的图标被丢弃，不废整份 spec', () => {
-    const result = normalizeFigureSpec(withIcon({ kind: 'subjectIcon', subject: '  ', x: 400, y: 460 }));
+    const result = normalizeFigureSpec(
+      withIcon({ kind: 'subjectIcon', subject: '  ', x: 400, y: 460 }),
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.spec.shapes).toHaveLength(2);
@@ -502,7 +721,13 @@ describe('subjectIcon 图元', () => {
 
   it('subject 截断到 8 字，尺寸 clamp 到上下限', () => {
     const result = normalizeFigureSpec(
-      withIcon({ kind: 'subjectIcon', subject: '一二三四五六七八九十', x: 400, y: 460, size: 9999 }),
+      withIcon({
+        kind: 'subjectIcon',
+        subject: '一二三四五六七八九十',
+        x: 400,
+        y: 460,
+        size: 9999,
+      }),
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -522,7 +747,12 @@ describe('subjectIcon 图元', () => {
     if (icon.kind !== 'subjectIcon') return;
     expect(icon.x).toBe(0);
     expect(icon.y).toBe(FIGURE_HEIGHT);
-    expect(shapeBounds(icon)).toEqual({ x1: -100, y1: FIGURE_HEIGHT - 100, x2: 100, y2: FIGURE_HEIGHT + 100 });
+    expect(shapeBounds(icon)).toEqual({
+      x1: -100,
+      y1: FIGURE_HEIGHT - 100,
+      x2: 100,
+      y2: FIGURE_HEIGHT + 100,
+    });
   });
 
   it('图标不占颜色配额，也不被补轮廓', () => {

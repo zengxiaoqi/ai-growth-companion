@@ -70,7 +70,7 @@ const SIGN_SET = new Set<string>(GRAPH_SIGNS);
 const SWELL_SET = new Set<string>(GRAPH_SWELLS);
 
 /** 每类关系的最少/最多节点数，渲染布局按这个区间设计，超出会导致重叠 */
-const NODE_BOUNDS: Record<GraphRelationType, { min: number; max: number }> = {
+export const GRAPH_NODE_BOUNDS: Record<GraphRelationType, { min: number; max: number }> = {
   cycle: { min: 3, max: 6 },
   chain: { min: 2, max: 5 },
   growth: { min: 3, max: 5 },
@@ -119,7 +119,7 @@ export function normalizeSceneGraph(raw: unknown): SceneGraph | null {
   const relation = cleanText(source.relation).toLowerCase();
   if (!RELATION_SET.has(relation)) return null;
   const type = relation as GraphRelationType;
-  const bounds = NODE_BOUNDS[type];
+  const bounds = GRAPH_NODE_BOUNDS[type];
 
   const rawNodes = Array.isArray(source.nodes) ? source.nodes : [];
   const nodes: GraphNode[] = [];

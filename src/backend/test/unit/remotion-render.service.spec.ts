@@ -633,6 +633,199 @@ describe('RemotionRenderService', () => {
     expect(window.end).toBeGreaterThan(window.start);
   }, 60000);
 
+  it('preserves an explicitly authored whiteboard template when every Watch scene shares its params', () => {
+    const templateParams = {
+      sourceImage: 'assets/lesson/whiteboard/shapes-flat.png',
+      canvas: { width: 1536, height: 864 },
+      regions: [
+        {
+          id: 'circle',
+          sequence: 1,
+          region: { x: 220, y: 250, width: 280, height: 210 },
+        },
+      ],
+    };
+    const slides = (service as any).buildWatchSlides(
+      {
+        topic: '认识形状',
+        watchScene: {
+          scenes: [
+            {
+              title: '圆形',
+              narration: '这是圆形。',
+              visual: {
+                templateId: 'language.whiteboard-story',
+                templateParams,
+              },
+            },
+            {
+              title: '再看圆形',
+              narration: '圆形滚来滚去。',
+              visual: {
+                templateId: 'language.whiteboard-story',
+                templateParams,
+              },
+            },
+          ],
+        },
+      },
+      'language',
+    );
+
+    expect(slides).toHaveLength(2);
+    for (const slide of slides) {
+      expect(slide.animationTemplate).toEqual({
+        id: 'language.whiteboard-story',
+        params: templateParams,
+      });
+    }
+  });
+
+  it('prepares a whiteboard Watch scene with timed subtitles and a copied public asset', async () => {
+    const narration = '圆形。正方形。三角形。';
+    const words = Array.from(narration).filter((ch) => ch !== '。');
+    voiceService.textToSpeechWithTiming.mockResolvedValue({
+      buffer: Buffer.alloc(30000),
+      wordBoundaries: words.map((text, index) => ({
+        text,
+        offset: Math.round(index * 0.45 * 1e7),
+        duration: Math.round(0.3 * 1e7),
+      })),
+      durationMs: 5400,
+    });
+
+    const result = await service.resolveComposition(
+      {
+        topic: '认识形状',
+        title: '认识形状',
+        summary: '画一画圆形、正方形和三角形',
+        ageGroup: '3-4',
+        watchScene: {
+          version: 1,
+          stepType: 'watch',
+          mode: 'playback',
+          scenes: [
+            {
+              id: 'shapes',
+              title: '认识形状',
+              narration,
+              durationSec: 12,
+              animationTemplate: 'language.whiteboard-story',
+              animationParams: {
+                sourceImage: 'assets/lesson/whiteboard/shapes-flat.png',
+                canvas: { width: 1536, height: 864 },
+                regions: [
+                  {
+                    id: 'circle',
+                    sequence: 1,
+                    subtitle: '圆形。',
+                    region: { x: 220, y: 250, width: 280, height: 210 },
+                  },
+                  {
+                    id: 'square',
+                    sequence: 2,
+                    subtitle: '正方形。',
+                    region: { x: 660, y: 250, width: 280, height: 210 },
+                  },
+                  {
+                    id: 'triangle',
+                    sequence: 3,
+                    subtitle: '三角形。',
+                    region: { x: 1080, y: 250, width: 280, height: 210 },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        visualStory: {},
+        videoLesson: {},
+      },
+      '3-4',
+    );
+
+    const slide = result.inputProps.slides[0];
+    try {
+      expect(voiceService.textToSpeech).not.toHaveBeenCalled();
+      expect(voiceService.textToSpeechWithTiming).toHaveBeenCalledWith(narration);
+      expect(slide.subtitlePages?.length).toBeGreaterThan(0);
+      expect(slide.whiteboardAsset).toMatch(/^whiteboard\/whiteboard-/);
+      expect(slide.whiteboard).toMatchObject({
+        sourceImage: slide.whiteboardAsset,
+        timingSource: 'subtitlePages',
+        canvas: { width: 1536, height: 864 },
+      });
+      expect(slide.whiteboard.regions).toHaveLength(3);
+      const last = slide.whiteboard.regions[2];
+      expect(last.startFrame + last.durationFrames).toBeLessThanOrEqual(slide.durationFrames - 15);
+    } finally {
+      await service.cleanupNarrationFiles(result.inputProps);
+    }
+  });
+
+  it('falls back to a standard slide when the whiteboard asset dimensions do not match', async () => {
+    const result = await service.resolveComposition(
+      {
+        topic: '认识形状',
+        title: '认识形状',
+        summary: '',
+        ageGroup: '3-4',
+        watchScene: {
+          version: 1,
+          stepType: 'watch',
+          mode: 'playback',
+          scenes: [
+            {
+              id: 'shapes',
+              title: '认识形状',
+              narration: '这是圆形。',
+              animationTemplate: 'language.whiteboard-story',
+              animationParams: {
+                sourceImage: 'assets/lesson/whiteboard/shapes-flat.png',
+                canvas: { width: 1280, height: 720 },
+                regions: [
+                  {
+                    id: 'circle',
+                    sequence: 1,
+                    region: { x: 10, y: 10, width: 100, height: 100 },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        visualStory: {},
+        videoLesson: {},
+      },
+      '3-4',
+    );
+
+    expect(result.inputProps.slides[0].animationTemplate).toBeUndefined();
+    expect(result.inputProps.slides[0].whiteboard).toBeUndefined();
+    expect(result.inputProps.slides[0].title).toBe('认识形状');
+  });
+
+  it('removes stale runtime whiteboard copies without touching authored assets', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'whiteboard-cleanup-'));
+    const whiteboardDir = path.join(root, 'public', 'whiteboard');
+    const runtimeFile = path.join(whiteboardDir, 'whiteboard-0123456789abcdef-42-deadbeef.png');
+    const authoredFile = path.join(whiteboardDir, 'shapes-flat.png');
+    (service as any).remotionDir = root;
+
+    try {
+      await fs.mkdir(whiteboardDir, { recursive: true });
+      await fs.writeFile(runtimeFile, 'runtime');
+      await fs.writeFile(authoredFile, 'authored');
+
+      await (service as any).cleanupStaleWhiteboardAssets();
+
+      await expect(fs.access(runtimeFile)).rejects.toThrow();
+      await expect(fs.readFile(authoredFile, 'utf-8')).resolves.toBe('authored');
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('keeps the authored checkpoint dir on render failure, cleans otherwise', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'prepared-'));
     const taskDir = path.join(root, 'task-1-abc');

@@ -34,6 +34,7 @@ import {
 import { normalizeSceneGraph } from './video/scene-graph';
 import { resolveSceneVenues, type SceneWorld, type SlideGeometry } from './video/scene-venue';
 import { normalizeFigureSpec } from './video/figure-spec';
+import { repairSceneSubjectCoverage } from './video/scene-subject-coverage';
 import {
   VERB_AS_MOTION,
   composePerformance,
@@ -47,6 +48,7 @@ import {
   type SceneInteraction,
 } from './video/scene-interaction';
 import {
+  ACTOR_RIGS,
   MOTION_DEFAULTS,
   resolveAction3D,
   resolveActorRig,
@@ -55,11 +57,7 @@ import {
 } from './video/action3d-registry';
 import { PROP_LABELS, matchLegacyProps } from './video/prop-lexicon';
 import { isPropDeclarationEnabled, normalizeDeclaredProps } from './video/prop-contract';
-import {
-  attachPropArt,
-  resolveLessonPropArt,
-  type ScenePropEntry,
-} from './video/prop-resolver';
+import { attachPropArt, resolveLessonPropArt, type ScenePropEntry } from './video/prop-resolver';
 import { STAGE_TEMPLATE_FILES } from './video/stage-template';
 import {
   ageMotionProfile,
@@ -72,8 +70,10 @@ import {
   ANIMAL_SUBJECTS,
   ANIMAL_EMOJI_MAP,
   VECTOR_ANIMAL_IDS,
+  animalVariantAssetPath,
   getInlineSvgAssetKeys,
   inferAnimalFromText,
+  inferAnimalVariant,
   findAnimalMentions,
 } from './animal-subjects.config';
 import {
@@ -89,9 +89,12 @@ import {
  * 不需要改代码或重部署。
  */
 function is3dStageEnabled(): boolean {
-  return String(process.env.VIDEO_3D_STAGE ?? 'on').trim().toLowerCase() !== 'off';
+  return (
+    String(process.env.VIDEO_3D_STAGE ?? 'on')
+      .trim()
+      .toLowerCase() !== 'off'
+  );
 }
-
 
 export interface AgentVideoRequest {
   topic: string;
@@ -309,7 +312,6 @@ export class VideoGenerationAgentService {
     );
     return manifest;
   }
-
 
   /**
    * Step 1 only: Generate storyboard via LLM tool without running the full agent loop.
@@ -630,7 +632,8 @@ export class VideoGenerationAgentService {
       lessonHint,
     );
 
-    const builtScenes = renderScenes.map((scene: any, index: number) => {
+    const builtScenes = renderScenes.map((rawScene: any, index: number) => {
+      let scene = rawScene;
       const sceneWorld = sceneWorlds[index];
       const title = this.toText(
         scene?.title || scene?.scene || scene?.shot,
@@ -647,14 +650,34 @@ export class VideoGenerationAgentService {
       ).slice(0, 32);
       const durationSec = this.toInt(scene?.durationSec, 6, 4, 18);
       // 画面描述优先：旁白可能先提"兔兔"再讲"小熊把皮球递出去"，
-      // 但这一幕真正要画的是视觉描述里的角色与物品。
-      const source = `${topic} ${title} ${visualDescription} ${narration} ${onScreenText}`;
+      // 但这一幕真正要画的是视觉描述里的角色与物品。topic 只作最后兜底，
+      // 否则课程标题里的动物会抢走每一幕的视觉主角。
+      const sceneSource = `${visualDescription} ${title} ${narration} ${onScreenText}`;
+      const source = `${sceneSource} ${topic}`;
       const tags = this.inferDynamicAssetTags(source);
       const action = this.inferDynamicAction(source);
       const habitat = this.inferDynamicHabitat(source);
       const animalResult = inferAnimalFromText(source);
       const animalConfig = animalResult?.config ?? null;
       const assetKey = animalResult?.id || 'topic';
+      // 专用舞台优先：壳的生长/螺旋练习不能被补出来的完整动物替换。
+      const snailShellStudy = this.inferSnailShellStudyMode(assetKey, sceneSource, scene);
+      const subjectCoverage = repairSceneSubjectCoverage(scene, {
+        preserveSpecializedStage: !!snailShellStudy,
+      });
+      scene = subjectCoverage.scene;
+      if (subjectCoverage.repairs.length) {
+        this.logger.log(
+          `[buildDynamicSceneProps] 场景${index + 1}「${title}」补全教学主体: ` +
+            subjectCoverage.repairs.map((repair) => `${repair.kind}:${repair.label}`).join(', '),
+        );
+      }
+      if (subjectCoverage.unresolved.length) {
+        this.logger.warn(
+          `[buildDynamicSceneProps] 场景${index + 1}「${title}」仍有未落地的动作主体: ` +
+            subjectCoverage.unresolved.join('、'),
+        );
+      }
       // 台词/视觉描述里点名的实物（皮球、饼干…）也进画面，
       // 否则孩子听到"看看小熊手里的皮球"时画面只有一只动物站着。
       //
@@ -683,11 +706,22 @@ export class VideoGenerationAgentService {
        * 这时必须退到 interaction 而不是直接掉到静态构图——退一步还有画面，
        * 全退就是白卡片。
        */
-      const performance = normalizeScenePerformance(scene?.performance);
+      const speechContext = `${title} ${narration} ${onScreenText}`;
+      const normalizedPerformance = normalizeScenePerformance(scene?.performance);
+      const performance = normalizedPerformance
+        ? {
+            actions: normalizedPerformance.actions.map((action) =>
+              this.stripUnalignedGreeting(action, speechContext),
+            ),
+          }
+        : null;
       const composed = performance ? composePerformance(performance) : null;
+      const declaredInteraction = normalizeSceneInteraction(scene?.interaction);
       const interaction =
         composed?.primary ||
-        normalizeSceneInteraction(scene?.interaction) ||
+        (declaredInteraction
+          ? this.stripUnalignedGreeting(declaredInteraction, speechContext)
+          : null) ||
         deriveInteractionFromText({
           visualDescription,
           narration,
@@ -695,6 +729,9 @@ export class VideoGenerationAgentService {
           mentions,
           propIds: props.map((p) => p.id),
         });
+      const motionActorId = interaction?.puppet?.actorId || interaction?.actors[0]?.id;
+      const actorSupportsRig =
+        !!motionActorId && Object.prototype.hasOwnProperty.call(ACTOR_RIGS, motionActorId);
       // 降级可观测。文案里明明在演一个动作，却没有 interaction 承载它——
       // 绝大多数是回顾/列举幕被主动拦掉（合理），剩下的是路由漏了（bug）。
       // 以前这类降级完全无声，只能靠人眼抽帧；整整两幕就是这样静默丢掉的。
@@ -773,20 +810,26 @@ export class VideoGenerationAgentService {
       if (!figure && !sceneGraph) {
         this.recordGraphSignal(topic, scene, scene?.sceneGraph ? 'invalid' : 'missing');
       }
-
       // beats 是新增的编排层：只有分镜真的带了 beats 才启用解释器。
       // 旧分镜（无 beats 字段）走原路径，已缓存任务重渲逐像素不变——
       // 这也是"未改动场景零差异"回归的边界。
       const choreography =
         Array.isArray(scene?.beats) && scene.beats.length
-          ? this.buildSceneChoreography(scene.beats, narration, durationSec, ageGroup, sceneGraph, figure)
+          ? this.buildSceneChoreography(
+              scene.beats,
+              narration,
+              durationSec,
+              ageGroup,
+              sceneGraph,
+              figure,
+            )
           : undefined;
 
       // 三维动作：分镜只给"谁在什么道具上做什么"，坐标与资产在这里定死。
       // 解析失败（id 写错、动作与道具不匹配、场景太短）就整份丢掉，
       // 渲染层退回 2D 演出——绝不带着半截参数去建几何体。
       const action3d =
-        interaction && is3dStageEnabled()
+        interaction && actorSupportsRig && is3dStageEnabled()
           ? resolveAction3D(interaction.action3d, {
               verb: interaction.verb,
               actorId: interaction.actors[0]?.id,
@@ -794,7 +837,8 @@ export class VideoGenerationAgentService {
               sceneDurationFrames: Math.round(durationSec * 30),
             })
           : null;
-      const { action3d: _declaredAction3d, ...interactionBase } = interaction ?? ({} as SceneInteraction);
+      const { action3d: _declaredAction3d, ...interactionBase } =
+        interaction ?? ({} as SceneInteraction);
       /**
        * 二维全身角色的动作。只在这一幕没有三维动作时才生成——3D 舞台能演连续接触，
        * 2D 演不了，两者同时存在时必须让 3D 赢，否则滑梯会被降级成"沿斜线平移"。
@@ -814,7 +858,7 @@ export class VideoGenerationAgentService {
        * 之间的接触关系，单角色骨架演不了——这才是真正的渲染器能力边界。
        */
       const singleActorGesture =
-        interaction && !action3d && interaction.actors.length === 1
+        interaction && !action3d && actorSupportsRig && interaction.actors.length === 1
           ? (VERB_AS_MOTION[interaction.verb] ?? null)
           : null;
       /**
@@ -825,7 +869,7 @@ export class VideoGenerationAgentService {
        * 把两者混在一条时间线里会得到"滑到一半站起来再走"的空想动作。
        */
       const sequence =
-        composed && !action3d && composed.motions.length > 1
+        composed && !action3d && actorSupportsRig && composed.motions.length > 1
           ? resolvePuppetSequence(composed.motions, {
               actorId: interaction?.actors[0]?.id,
               sceneDurationFrames: Math.round(durationSec * 30),
@@ -844,22 +888,102 @@ export class VideoGenerationAgentService {
        */
       const duoPartner =
         !action3d &&
+        actorSupportsRig &&
         interaction &&
+        interaction.actors.every((actor) =>
+          Object.prototype.hasOwnProperty.call(ACTOR_RIGS, actor.id),
+        ) &&
         (interaction.verb === 'handover' || interaction.verb === 'lift-together') &&
         interaction.actors.length >= 2
           ? interaction.actors[1]
           : null;
       const duoMotion: PuppetMotion | null = duoPartner ? 'hold' : null;
+      /**
+       * 无骨架演员的主动作不能借用 puppetMotion：单动作时 sequence / 手势 / 双人
+       * 三条骨架路径都为空，puppetMotion 也会是 null。直接从演出契约取一个动作，
+       * 才能让"蜗牛慢慢爬"这种只有 walk 的单动作幕也进入矢量演员舞台。
+       */
+      const vectorMotion: PuppetMotion | null =
+        composed?.motions?.[0] ??
+        interaction?.puppet?.motion ??
+        (interaction ? (VERB_AS_MOTION[interaction.verb] ?? null) : null);
 
       const puppetMotion: PuppetMotion | null =
         sequence?.[0]?.motion ?? interaction?.puppet?.motion ?? singleActorGesture ?? duoMotion;
       const puppet =
-        !action3d && puppetMotion
+        !action3d && actorSupportsRig && puppetMotion
           ? resolvePuppet(puppetMotion, {
               actorId: interaction?.puppet?.actorId || interaction?.actors[0]?.id,
               steps: interaction?.puppet?.steps,
               sceneDurationFrames: Math.round(durationSec * 30),
             })
+          : null;
+      /**
+       * 未登记骨架的动物（蜗牛、企鹅等）不能掉进 DEFAULT_ACTOR_RIG：
+       * 那会画成一只棕色小熊。把它们交给矢量演员舞台，保留真实 SVG 形象，
+       * 用位移、呼吸、气泡和道具演出动作；已登记角色仍走原来的全身骨架。
+       */
+      const vectorSequence =
+        !action3d && !puppet && !actorSupportsRig && composed && composed.motions.length > 1
+          ? resolvePuppetSequence(composed.motions, {
+              actorId: motionActorId,
+              sceneDurationFrames: Math.round(durationSec * 30),
+            })
+          : null;
+      const vectorSingle =
+        !action3d && !puppet && !actorSupportsRig && !vectorSequence && vectorMotion
+          ? resolvePuppet(vectorMotion, {
+              actorId: motionActorId,
+              steps: interaction?.puppet?.steps,
+              sceneDurationFrames: Math.round(durationSec * 30),
+            })
+          : null;
+      const vectorSteps = vectorSequence?.length
+        ? vectorSequence
+        : vectorSingle
+          ? [vectorSingle]
+          : [];
+      const vectorSpeech =
+        vectorSteps.length > 0
+          ? ([...(performance?.actions ?? [])].reverse().find((action) => action.speech)?.speech ??
+            interaction?.speech)
+          : undefined;
+      const vectorPropId =
+        vectorSteps.length > 0
+          ? ((performance?.actions ?? []).find(
+              (action) => action.propId && (action.verb === 'point' || action.verb === 'hold'),
+            )?.propId ?? interaction?.propId)
+          : undefined;
+      let vectorSpeechAt: number | undefined;
+      if (vectorSteps.length > 1 && vectorSpeech) {
+        const actions = performance?.actions ?? [];
+        let index = -1;
+        for (let i = actions.length - 1; i >= 0; i -= 1) {
+          if (actions[i].speech) {
+            index = i;
+            break;
+          }
+        }
+        const total = vectorSteps.reduce((sum, step) => sum + step.durationFrames, 0);
+        if (index > 0 && index < vectorSteps.length && total > 0) {
+          const before = vectorSteps
+            .slice(0, index)
+            .reduce((sum, step) => sum + step.durationFrames, 0);
+          vectorSpeechAt = before / total;
+        }
+      }
+      const vectorPerformance =
+        vectorSteps.length > 0 && interaction?.actors[0]
+          ? {
+              actorId: motionActorId,
+              steps: vectorSteps.map((step) => ({
+                motion: step.motion,
+                durationFrames: step.durationFrames,
+              })),
+              propId: vectorPropId,
+              speech: vectorSpeech,
+              ...(vectorSpeechAt !== undefined ? { speechAt: vectorSpeechAt } : {}),
+            }
           : null;
       /**
        * 串演幕的台词与道具挂在哪一节上，需要单独挑：
@@ -892,15 +1016,23 @@ export class VideoGenerationAgentService {
         }
         const total = sequence.reduce((sum, seg) => sum + seg.durationFrames, 0);
         if (index > 0 && index < sequence.length && total > 0) {
-          const before = sequence
-            .slice(0, index)
-            .reduce((sum, seg) => sum + seg.durationFrames, 0);
+          const before = sequence.slice(0, index).reduce((sum, seg) => sum + seg.durationFrames, 0);
           speechAt = before / total;
         }
       }
       const interactionForRender = interaction
         ? {
             ...interactionBase,
+            actors: interaction.actors.map((actor) => {
+              const labelVariant = inferAnimalVariant(actor.label, actor.id);
+              const variant =
+                labelVariant === 'generic'
+                  ? inferAnimalVariant(sceneSource, actor.id)
+                  : labelVariant;
+              const assetSrc = animalVariantAssetPath(actor.id, variant);
+              return assetSrc ? { ...actor, assetSrc } : actor;
+            }),
+            ...(vectorPerformance ? { vectorPerformance } : {}),
             ...(sequencePropId ? { propId: sequencePropId } : {}),
             ...(sequenceSpeech ? { speech: sequenceSpeech } : {}),
             ...(speechAt !== undefined ? { speechAt } : {}),
@@ -927,8 +1059,7 @@ export class VideoGenerationAgentService {
                            */
                           ...(interaction.propId
                             ? {
-                                carryBy:
-                                  interaction.verb === 'handover' ? 'handover' : 'shared',
+                                carryBy: interaction.verb === 'handover' ? 'handover' : 'shared',
                               }
                             : {}),
                         }
@@ -962,6 +1093,7 @@ export class VideoGenerationAgentService {
         visualDescription,
         assetKey,
         assetTags: tags,
+        ...(snailShellStudy ? { snailShellStudy } : {}),
         props,
         interaction: interactionForRender,
         action,
@@ -988,16 +1120,18 @@ export class VideoGenerationAgentService {
             }
           : { world: lessonHint }),
         ...(usesSetpiece ? { setpiece: 'slide' } : {}),
-        // 画板是画面主体，背景必须退到幕后，否则图形和森林草地互相抢
-        backgroundStyle: figure
-          ? 'neutral'
-          : ['environment', 'neutral', 'plain'].includes(scene?.backgroundStyle)
-            ? scene.backgroundStyle
-            : this.resolveBackgroundStyle({
-                source,
-                hasGraph: !!sceneGraph,
-                hasAnimal: !!animalConfig,
-              }),
+        // 画板是画面主体时背景退到幕后；但真实角色互动优先，不能因附带一张
+        // 解释性画板就把正在表演的蜗牛/小兔放进无场地的中性背景。
+        backgroundStyle:
+          figure && !interaction
+            ? 'neutral'
+            : ['environment', 'neutral', 'plain'].includes(scene?.backgroundStyle)
+              ? scene.backgroundStyle
+              : this.resolveBackgroundStyle({
+                  source,
+                  hasGraph: !!sceneGraph,
+                  hasAnimal: !!animalConfig,
+                }),
         template,
         // 渲染模板据此选领域专用画板（art→混色动画），并拿到归一化后的混色对
         domain: this.toText(payload?.domain, '') || undefined,
@@ -1041,12 +1175,20 @@ export class VideoGenerationAgentService {
         const [plan, graphIcons] = await Promise.all([
           this.visualAssetService!.resolveSceneVisualAssets(scene, topic),
           scene.sceneGraph
-            ? this.visualAssetService!.resolveGraphIcons(scene.sceneGraph, topic)
+            ? this.visualAssetService!.resolveGraphIcons(
+                scene.sceneGraph,
+                topic,
+                `${scene.visualDescription} ${scene.title} ${scene.narration} ${scene.onScreenText}`,
+              )
             : Promise.resolve({} as Record<string, string>),
         ]);
         // 画板里的 subjectIcon 与关系图节点走同一条素材查找链（矢量库→生成层）
         if (scene.figure) {
-          await this.visualAssetService!.resolveFigureIcons(scene.figure, topic);
+          await this.visualAssetService!.resolveFigureIcons(
+            scene.figure,
+            topic,
+            `${scene.visualDescription} ${scene.title} ${scene.narration} ${scene.onScreenText}`,
+          );
         }
         return {
           ...scene,
@@ -1116,7 +1258,9 @@ export class VideoGenerationAgentService {
         reason,
         shapeCount: Array.isArray(raw?.shapes) ? raw.shapes.length : 0,
         kinds: Array.isArray(raw?.shapes)
-          ? Array.from(new Set(raw.shapes.map((s: any) => this.toText(s?.kind, '?')).filter(Boolean))).slice(0, 8)
+          ? Array.from(
+              new Set(raw.shapes.map((s: any) => this.toText(s?.kind, '?')).filter(Boolean)),
+            ).slice(0, 8)
           : [],
       }) + '\n';
     const file = path.resolve(__dirname, '../../../storage', 'storyboard-signals.jsonl');
@@ -1240,6 +1384,7 @@ import { Audio } from "@remotion/media";
 import { ThreeActionStage } from "./three/ThreeActionStage";
 import type { ThreeStageScene } from "./three/ThreeActionStage";
 import { Puppet2D } from "./character/Puppet2D";
+import { SnailShellStudyStage } from "./character/SnailShellStudyStage";
 import { WorldLayer } from "./character/WorldLayer";
 import { cameraForWorld, normalizeWorld } from "./character/world";
 import type { MotionOp } from "./character/pose";
@@ -1282,7 +1427,7 @@ type ChoreographyView = {
  * verb 决定布局与动作：handover=递给、lift-together=一起抬、speak=说话气泡、
  * point=指向、hold=手持。演员与道具是开放数据，坐标由下面的布局函数确定。
  */
-type InteractionActorView = { id: string; label: string; role: string };
+type InteractionActorView = { id: string; label: string; role: string; assetSrc?: string };
 /**
  * 三维动作视图（后端 action3d-registry.ts 的解析产物）。
  * 这里的每个数字都已经在后端定死：渲染层不做任何"再猜一次"的计算，
@@ -1371,6 +1516,15 @@ type SceneInteractionView = {
   action3d?: Action3DView;
   /** 二维全身角色动作（爬/走/入场）。与 action3d 互斥，action3d 优先 */
   puppet?: PuppetView;
+  /** 未登记骨架的矢量演员动作；绝不使用 DEFAULT_ACTOR_RIG 冒充其他动物 */
+  vectorPerformance?: {
+    actorId: string;
+    steps: Array<{ motion: MotionOp; durationFrames: number }>;
+    propId?: string;
+    speech?: string;
+    /** 多动作幕中台词动作的起点，0..1；没有就不提前剧透 */
+    speechAt?: number;
+  };
 };
 
 type GeneratedScene = {
@@ -1381,6 +1535,8 @@ type GeneratedScene = {
   visualDescription: string;
   assetKey: string;
   assetTags: string[];
+  /** 明确的蜗牛壳知识语义；命中后由专用教学舞台绘制，不再退化成整只蜗牛。 */
+  snailShellStudy?: 'spiral' | 'magnifier' | 'growth' | 'tree-rings' | 'chirality' | 'hatch' | 'count';
   /**
    * 这一幕的实物。两条来源（见 buildDynamicSceneProps）：
    *  - 新分镜声明：{ id, label, heightRatio, place, holder } —— 名字是自由字符串；
@@ -1486,18 +1642,58 @@ const sceneStarts = (scenes: GeneratedScene[]) => {
   });
 };
 
+const RainOverlay: React.FC<{ frame: number }> = ({ frame }) => (
+  <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(31, 57, 78, 0.68), rgba(65, 96, 112, 0.48))" }} />
+    <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+      <g fill="#526f83" opacity="0.72">
+        <ellipse cx="430" cy="132" rx="290" ry="82" />
+        <ellipse cx="740" cy="110" rx="320" ry="96" />
+        <ellipse cx="1110" cy="160" rx="270" ry="76" />
+      </g>
+      {Array.from({ length: 48 }).map((_, i) => {
+        const x = (i * 197 + 83) % 2020 - 50;
+        const y = ((i * 113 + frame * (13 + (i % 4))) % 1220) - 100;
+        return (
+          <line
+            key={i}
+            x1={x}
+            y1={y}
+            x2={x - 15}
+            y2={y + 38 + (i % 3) * 7}
+            stroke={i % 5 === 0 ? "#e6f5ff" : "#a8cee2"}
+            strokeWidth={i % 5 === 0 ? 4 : 3}
+            strokeLinecap="round"
+            opacity={0.38 + (i % 4) * 0.11}
+          />
+        );
+      })}
+      {Array.from({ length: 18 }).map((_, i) => {
+        const x = (i * 211 + 130) % 1900 + 10;
+        const y = 865 + (i % 4) * 28;
+        return (
+          <ellipse key={i} cx={x} cy={y} rx={24 + (i % 3) * 10} ry={7} fill="none" stroke="#c6e8f5" strokeWidth={3} opacity={0.5} />
+        );
+      })}
+    </svg>
+  </AbsoluteFill>
+);
+
 const SceneBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const frame = useLocalFrame();
   const style = scene.backgroundStyle || "environment";
   const accent = scene.accentColor || "#4d96ff";
   const habitat = scene.habitat || "forest";
   const night = habitat === "night";
+  const rain = /下雨|雨滴|雨水|雨声|\brain(?:ing|y)?\b/i.test(
+    (scene.narration || "") + " " + (scene.visualDescription || ""),
+  );
   const river = habitat === "river" || (scene.assetTags || []).includes("river");
   const meadow = habitat === "grassland";
-  const sky = night ? "#13233f" : meadow ? "#bfeaff" : "#a7e8ff";
-  // 夜晚的地面要跟着暗下去，否则白天草地直接铺在夜空下面
-  const groundGrass = night ? "#2c4636" : meadow ? "#8ed47a" : "#69b66d";
-  const ground = river ? (night ? "#1d3f56" : "#5bc0de") : groundGrass;
+  const sky = rain ? "#678399" : night ? "#13233f" : meadow ? "#bfeaff" : "#a7e8ff";
+  // 夜晚/雨天 的地面要跟着暗下去，否则白天草地直接铺在夜空下面
+  const groundGrass = night ? "#2c4636" : rain ? "#527860" : meadow ? "#8ed47a" : "#69b66d";
+  const ground = river ? (night ? "#1d3f56" : rain ? "#3f7182" : "#5bc0de") : groundGrass;
   const sunPulse = interpolate(Math.sin(frame / 18), [-1, 1], [0.94, 1.06]);
   const sceneDur = Math.max(90, scene.durationFrames || 180);
   const travel = interpolate(frame, [0, sceneDur], [0, 1], { extrapolateRight: "clamp" });
@@ -1576,12 +1772,17 @@ const SceneBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
               : null}
           </g>
         </svg>
+        {rain ? <RainOverlay frame={frame} /> : null}
       </AbsoluteFill>
     );
   }
 
   if (style === "plain") {
-    return <AbsoluteFill style={{ backgroundColor: "#ffffff" }} />;
+    return (
+      <AbsoluteFill style={{ backgroundColor: rain ? "#6f8797" : "#ffffff" }}>
+        {rain ? <RainOverlay frame={frame} /> : null}
+      </AbsoluteFill>
+    );
   }
 
   return (
@@ -1606,8 +1807,8 @@ const SceneBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
       <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
         <defs>
           <linearGradient id={"sky-" + scene.id} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={night ? "#101b36" : "#82ddff"} />
-            <stop offset="100%" stopColor={night ? "#24385e" : "#d8f8ff"} />
+            <stop offset="0%" stopColor={rain ? "#4e6e86" : night ? "#101b36" : "#82ddff"} />
+            <stop offset="100%" stopColor={rain ? "#9bb5bd" : night ? "#24385e" : "#d8f8ff"} />
           </linearGradient>
           <linearGradient id={"water-" + scene.id} x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="#22b8cf" />
@@ -1619,13 +1820,13 @@ const SceneBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
           Array.from({ length: 26 }).map((_, i) => (
             <circle key={i} cx={80 + i * 72} cy={44 + (i % 6) * 42} r={2 + (i % 3)} fill="#fff7b8" opacity={0.45 + (i % 4) * 0.1} />
           ))
-        ) : (
+        ) : !rain ? (
           <g transform={"translate(1620 138) scale(" + sunPulse + ")"}>
             <circle r="69" fill="#ffd166" />
             <circle r="93" fill="#ffd166" opacity="0.2" />
           </g>
-        )}
-        {/* 夜晚用远山剪影代替太阳，画面才不会所有场景都是同一张白天 */}
+        ) : null}
+        {/* 夜晚/雨天 用远山剪影代替太阳，画面才不会所有场景都是同一张白天 */}
         {night ? (
           <path d="M0 742 L250 566 L430 700 L650 512 L880 726 L1140 566 L1390 742 L1640 604 L1920 760 L1920 1080 L0 1080 Z" fill="#0d1a33" opacity="0.85" />
         ) : null}
@@ -1643,9 +1844,9 @@ const SceneBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
             }
             opacity={night ? 0.09 : 0.74}
           >
-            <ellipse cx="0" cy="0" rx="96" ry="42" fill="#ffffff" />
-            <ellipse cx="58" cy="10" rx="66" ry="34" fill="#ffffff" />
-            <ellipse cx="-62" cy="14" rx="58" ry="30" fill="#ffffff" />
+            <ellipse cx="0" cy="0" rx="96" ry="42" fill={rain ? "#657d8d" : "#ffffff"} />
+            <ellipse cx="58" cy="10" rx="66" ry="34" fill={rain ? "#657d8d" : "#ffffff"} />
+            <ellipse cx="-62" cy="14" rx="58" ry="30" fill={rain ? "#657d8d" : "#ffffff"} />
           </g>
         ))}
         {/*
@@ -1725,6 +1926,7 @@ const SceneBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
           );
         })}
       </svg>
+      {rain ? <RainOverlay frame={frame} /> : null}
     </AbsoluteFill>
   );
 };
@@ -2151,8 +2353,9 @@ const ActorFigure: React.FC<{
   gesture: "offer" | "receive" | "wave" | "idle";
   accent: string;
 }> = ({ actor, frame, facing, gesture, accent }) => {
-  const hasVector = VECTOR_ANIMAL_IDS.indexOf(actor.id) >= 0;
+  const hasVector = !!actor.assetSrc || VECTOR_ANIMAL_IDS.indexOf(actor.id) >= 0;
   const emoji = ANIMAL_EMOJI_MAP[actor.id] || "\u{1F43A}";
+  const hasHumanoidArms = ["bear", "monkey", "cat", "dog", "fox", "wolf", "panda", "mouse"].indexOf(actor.id) >= 0;
   // 入场弹性：每幕开头角色从小到大弹入
   const enter = spring({ frame, fps: 30, config: { damping: 13, stiffness: 140 } });
   const scale = 0.55 + enter * 0.45;
@@ -2194,14 +2397,14 @@ const ActorFigure: React.FC<{
         >
           {hasVector ? (
             <Img
-              src={staticFile("assets/vector/animals/" + actor.id + ".svg")}
+              src={staticFile(actor.assetSrc || "assets/vector/animals/" + actor.id + ".svg")}
               style={{ width: 288, height: 288, objectFit: "contain", transform: "scaleX(" + facing + ")" }}
             />
           ) : (
             <span style={{ fontSize: 194, lineHeight: 1, transform: "scaleX(" + facing + ")" }}>{emoji}</span>
           )}
         </div>
-        {gesture !== "idle" ? (
+        {gesture !== "idle" && hasHumanoidArms ? (
           <div
             style={{
               position: "absolute",
@@ -2236,6 +2439,81 @@ const ActorFigure: React.FC<{
         {actor.label}
       </div>
     </div>
+  );
+};
+
+/** 矢量演员舞台：没有程序化骨架的动物也用自己的真实 SVG 演出，不借用小熊骨架。 */
+const VectorPerformanceStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
+  const frame = useLocalFrame();
+  const vp = scene.interaction!.vectorPerformance!;
+  const actor = scene.interaction!.actors.find((item) => item.id === vp.actorId) || scene.interaction!.actors[0];
+  const accent = scene.accentColor || "#4d96ff";
+  const total = vp.steps.reduce((sum, step) => sum + step.durationFrames, 0) || duration;
+  const scaled = (frame / Math.max(1, duration)) * total;
+  let cursor = 0;
+  let stepIndex = 0;
+  for (let i = 0; i < vp.steps.length; i += 1) {
+    if (scaled < cursor + vp.steps[i].durationFrames || i === vp.steps.length - 1) {
+      stepIndex = i;
+      break;
+    }
+    cursor += vp.steps[i].durationFrames;
+  }
+  const step = vp.steps[stepIndex];
+  const local = Math.max(0, scaled - cursor);
+  const progress = interpolate(local, [0, Math.max(1, step.durationFrames)], [0, 1], { extrapolateRight: "clamp" });
+  const moving = step.motion === "walk" || step.motion === "enter";
+  const x = moving ? 300 + progress * 900 : 770;
+  const bob = Math.sin(frame / (moving ? 6 : 14)) * (moving ? 5 : 7);
+  const tilt = step.motion === "sit" ? -5 : step.motion === "cheer" ? Math.sin(frame / 7) * 3 : 0;
+  const speaking =
+    !!vp.speech && (vp.speechAt === undefined || scaled >= total * vp.speechAt);
+  const gesture = step.motion === "point" || step.motion === "wave" || step.motion === "cheer"
+    ? "wave"
+    : step.motion === "hold"
+      ? "receive"
+      : "idle";
+  const propId = vp.propId;
+  return (
+    <AbsoluteFill style={{ overflow: "hidden" }}>
+      <SceneBackdrop scene={scene} frame={frame} />
+      {moving ? (
+        <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+          <path d="M270 782 C420 754 560 812 710 780 S1040 754 1190 782" fill="none" stroke="#D7EFE2" strokeWidth="18" strokeLinecap="round" opacity="0.9" />
+          <path d="M250 801 C410 773 570 831 730 799" fill="none" stroke="#FFFFFF" strokeWidth="7" strokeLinecap="round" opacity="0.8" />
+          {[0, 1, 2].map((i) => (
+            <path key={i} d={"M " + (x - 205 - i * 28) + " " + (590 + i * 34) + " l -52 0"} stroke={accent} strokeWidth="8" strokeLinecap="round" opacity={0.42 - i * 0.08} />
+          ))}
+        </svg>
+      ) : null}
+      <div style={{ position: "absolute", left: x, top: 390 + bob, transform: "rotate(" + tilt + "deg)" }}>
+        <ActorFigure actor={actor} frame={frame} facing={1} gesture={gesture} accent={accent} />
+      </div>
+      {propId ? (
+        <>
+          <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+            <path d={"M " + (x + 190) + " 620 Q 1180 530 1320 610"} fill="none" stroke={accent} strokeWidth="7" strokeDasharray="14 16" opacity="0.55" />
+            <path d="M1294 586 L1322 610 L1292 634" fill="none" stroke={accent} strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <div style={{ position: "absolute", left: 1280, top: 490 }}>
+            <svg width="260" height="260" viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 14px 16px rgba(0,0,0,0.2))" }}>
+              <PropArt glyph={propGlyphOf(scene, propId)} frame={frame} />
+            </svg>
+            <div style={{ textAlign: "center", fontSize: 34, fontWeight: 900, color: accent }}>{propLabelOf(scene, propId)}</div>
+          </div>
+        </>
+      ) : null}
+      {speaking ? <SpeechBubble text={vp.speech || ""} side="left" accent={accent} frame={frame} /> : null}
+      {step.motion === "cheer" || step.motion === "wave" ? (
+        <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+          {[0, 1, 2].map((i) => {
+            const cx = x + 170 + i * 58;
+            const cy = 330 - Math.sin(frame / 8 + i) * 22;
+            return <path key={i} d={"M " + cx + " " + (cy - 18) + " v 36 M " + (cx - 18) + " " + cy + " h 36"} stroke="#FFD666" strokeWidth="8" strokeLinecap="round" />;
+          })}
+        </svg>
+      ) : null}
+    </AbsoluteFill>
   );
 };
 
@@ -2304,6 +2582,12 @@ const SpeechBubble: React.FC<{ text: string; side: "left" | "right"; accent: str
  */
 const SceneBackdrop: React.FC<{ scene: GeneratedScene; frame: number }> = ({ scene, frame }) => {
   if ((scene.backgroundStyle || "environment") !== "environment") return null;
+  const rain = /下雨|雨滴|雨水|雨声|\brain(?:ing|y)?\b/i.test(
+    (scene.narration || "") + " " + (scene.visualDescription || ""),
+  );
+  // WorldLayer 的晴空配方带太阳，会整层盖住 SceneBackground 的雨天。
+  // 雨幕改走同一套冷色雨天背景，角色仍由上层舞台绘制。
+  if (rain) return <SceneBackground scene={scene} />;
   const world = normalizeWorld(scene.world);
   if (!world) return null;
   return <WorldLayer world={world} camera={cameraForWorld(world, "wide")} frame={frame} />;
@@ -2484,7 +2768,7 @@ const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const bob = interpolate(Math.sin(frame / (scene.action === "run" ? 5 : 14)), [-1, 1], [-8, 8]);
   const roarScale = scene.action === "roar" ? interpolate(Math.sin(frame / 6), [-1, 1], [1.0, 1.045]) : 1;
   if (scene.visualAssets?.characterAssetSrc) {
-    const isVector = scene.visualAssets.assetProvider === "vector";
+    const isVector = scene.visualAssets.assetProvider === "vector" || scene.visualAssets.characterAssetSrc.endsWith(".svg");
     const boxW = isVector ? 620 : 660;
     const boxH = isVector ? 470 : 420;
     const imgW = isVector ? 460 : 640;
@@ -2568,29 +2852,53 @@ const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   );
 };
 
-const CJK_BREAK = /[，。！？；：、,.!?;:]/;
+const SUB_OPEN = /^[（(\[【《“‘]/;
+const SUB_CLOSE = /[，。！？；：、,.!?;:）)\]】》”’…—]$/;
+const SUB_PUNCT = /[，。！？；：、,.!?;:）)\]】》”’…—]/;
+const SUB_SENTENCE_END = /[。！？!?；;]$/;
 
-/** 按标点切分旁白，保证每屏不超过 maxLines 行、每行不超过 maxChars 字 */
+/** UTF-16 slice 会劈开 emoji；有 Intl.Segmenter 时按用户看到的完整字形分页。 */
+const splitGraphemes = (text: string): string[] => {
+  const Segmenter = (Intl as any).Segmenter;
+  if (!Segmenter) return Array.from(text || "");
+  return Array.from(new Segmenter(undefined, { granularity: "grapheme" }).segment(text || ""), (entry: any) => entry.segment);
+};
+
+/** 按标点切分旁白，保证每屏不超过 maxLines 行、每行不超过 maxChars 个完整字形。 */
 const splitNarration = (text: string, maxChars: number, maxLines: number): string[] => {
+  const chars = splitGraphemes(String(text || "").trim());
   const limit = maxChars * maxLines;
   const out: string[] = [];
-  let rest = (text || "").trim();
-  if (!rest) return [""];
-  while (rest.length > 0) {
-    if (rest.length <= limit) {
-      out.push(rest);
+  let from = 0;
+  while (from < chars.length) {
+    if (chars.length - from <= limit) {
+      out.push(chars.slice(from).join(""));
       break;
     }
     let cut = -1;
-    for (let i = Math.min(rest.length, limit); i > Math.floor(limit * 0.6); i--) {
-      if (CJK_BREAK.test(rest.charAt(i - 1))) {
+    for (let i = Math.min(chars.length, from + limit); i > from + Math.floor(limit * 0.6); i--) {
+      const prev = chars[i - 1];
+      const next = chars[i] || "";
+      if (SUB_SENTENCE_END.test(prev) && !SUB_OPEN.test(next)) {
         cut = i;
         break;
       }
     }
-    if (cut < 0) cut = limit;
-    out.push(rest.slice(0, cut));
-    rest = rest.slice(cut).trim();
+    const minCut = from + Math.max(1, Math.floor(limit * 0.6));
+    if (cut < 0) cut = from + limit;
+    // 与后端 splitSubtitlePages 同规则：避免最后一页只剩一个字。
+    if (chars.length - cut < 3 && cut > minCut) {
+      let adjusted = Math.max(minCut, cut - (3 - (chars.length - cut)));
+      for (let i = adjusted; i > minCut; i--) {
+        if (SUB_PUNCT.test(chars[i - 1])) {
+          adjusted = i;
+          break;
+        }
+      }
+      cut = adjusted;
+    }
+    out.push(chars.slice(from, cut).join(""));
+    from = cut;
   }
   return out.length > 0 ? out : [""];
 };
@@ -2659,21 +2967,74 @@ const resolveFocusId = (
   return undefined;
 };
 
-const SUB_PUNCT = /[，。！？；：、,.!?;:]/;
-
 /** 有词级时间戳时，换页提前几帧露出下一句（0.2s），给观众预读的时间 */
 const SUB_PRE_ROLL = 6;
 /** 两屏之间至少隔多少帧，避免相邻两句挤在同一秒里来回翻 */
 const SUB_MIN_PAGE = 12;
+const SUB_MAX_CHARS = 26;
+const SUB_MAX_LINES = 2;
 
-/** 把一屏文字切成"字+尾随标点"的 token，标点不单独占一拍 */
+/** 把一屏文字切成"字+尾随标点"的 token，标点不单独占一拍。 */
 const subtitleTokens = (text: string): string[] => {
   const out: string[] = [];
-  for (const ch of Array.from(text)) {
-    if (out.length > 0 && SUB_PUNCT.test(ch)) out[out.length - 1] += ch;
+  for (const ch of splitGraphemes(text)) {
+    if (out.length > 0 && SUB_CLOSE.test(ch)) out[out.length - 1] += ch;
+    else if (out.length > 0 && SUB_OPEN.test(out[out.length - 1])) out[out.length - 1] += ch;
     else out.push(ch);
   }
   return out;
+};
+
+const tokenWidth = (token: string): number => splitGraphemes(token).length;
+
+/**
+ * 主动分成最多两行，不在中文行首丢闭标点，也不让开引号/括号孤零零落在行尾。
+ * timed cue 与 fallback 共用这一套排版，换页时不会因为 browser 自动换行突然多出三行。
+ */
+const subtitleTokenLines = (tokens: string[], maxChars = SUB_MAX_CHARS): string[][] => {
+  if (tokens.length <= maxChars) return [tokens];
+  const total = tokens.reduce((sum, token) => sum + tokenWidth(token), 0);
+  const target = Math.ceil(total / 2);
+  let best = Math.max(1, Math.min(tokens.length - 1, target));
+  let bestScore = Number.POSITIVE_INFINITY;
+  // 按完整字形宽度选切点，而不是按 token 个数猜：标点会粘在前一个字上，
+  // token 数接近一半时实际宽度可能已经超行。遍历全部合法切点可覆盖这种偏斜。
+  for (let i = 1; i < tokens.length; i += 1) {
+    const leftChars = splitGraphemes(tokens.slice(0, i).join(""));
+    const rightChars = splitGraphemes(tokens.slice(i).join(""));
+    if (leftChars.length > maxChars || rightChars.length > maxChars) continue;
+    if (SUB_OPEN.test(leftChars[leftChars.length - 1] || "") || (tokens[i] && SUB_CLOSE.test(tokens[i]))) continue;
+    const punctuationBonus = SUB_SENTENCE_END.test(leftChars[leftChars.length - 1] || "") ? -12 : 0;
+    const score = Math.abs(leftChars.length - target) + punctuationBonus;
+    if (score < bestScore) {
+      bestScore = score;
+      best = i;
+    }
+  }
+  return [tokens.slice(0, best), tokens.slice(best)];
+};
+
+const compactSubtitleText = (text: string): string => splitGraphemes(text).join("").replace(/\s+/g, "");
+
+/** 整条时间轴有一个坏页就整体回退，避免静默少词而不是完整展示旁白。 */
+const validSubtitleTimeline = (scene: GeneratedScene, duration: number): boolean => {
+  const pages = scene.subtitlePages;
+  if (!Array.isArray(pages) || pages.length === 0) return false;
+  let previousStart = -1;
+  let joined = "";
+  for (const page of pages) {
+    if (!page || !Array.isArray(page.tokens) || !Array.isArray(page.starts) || page.tokens.length === 0) return false;
+    if (page.tokens.length !== page.starts.length) return false;
+    if (page.tokens.some((token) => typeof token !== "string" || !token)) return false;
+    if (page.tokens.reduce((sum, token) => sum + tokenWidth(token), 0) > SUB_MAX_CHARS * SUB_MAX_LINES) return false;
+    for (let i = 0; i < page.starts.length; i += 1) {
+      const start = page.starts[i];
+      if (!Number.isFinite(start) || start < 0 || start > duration || start < previousStart) return false;
+      previousStart = start;
+    }
+    joined += page.tokens.join("");
+  }
+  return compactSubtitleText(joined) === compactSubtitleText(scene.narration || "");
 };
 
 /**
@@ -2690,12 +3051,10 @@ const subtitleTokens = (text: string): string[] => {
  */
 const SubtitleTrack: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
   const frame = useLocalFrame();
-  // 有时间戳就用真实的；结构不合法（长度对不上）时当作没有，别让字幕整轨消失
-  const timed = Array.isArray(scene.subtitlePages)
-    ? scene.subtitlePages.filter((p) => Array.isArray(p.tokens) && p.tokens.length > 0 && p.starts.length === p.tokens.length)
-    : [];
-  const useTimed = timed.length > 0;
-  const fallbackPages = useTimed ? [] : splitNarration(scene.narration || "", 15, 2);
+  // 有时间戳且整条文本/时序都合法才用真实的；坏页整体回退，绝不静默少词。
+  const useTimed = validSubtitleTimeline(scene, duration);
+  const timed = useTimed ? scene.subtitlePages! : [];
+  const fallbackPages = useTimed ? [] : splitNarration(scene.narration || "", SUB_MAX_CHARS, SUB_MAX_LINES);
   const pageCount = Math.max(1, useTimed ? timed.length : fallbackPages.length);
   const perPage = Math.max(1, duration / pageCount);
 
@@ -2723,7 +3082,13 @@ const SubtitleTrack: React.FC<{ scene: GeneratedScene; duration: number }> = ({ 
 
   const tokens = useTimed ? timed[pageIndex].tokens : subtitleTokens(fallbackPages[pageIndex] || "");
   const current = tokens.join("");
-  const font = current.length > 20 ? 36 : 42;
+  const font = tokenWidth(current) > 20 ? 36 : 40;
+  let subtitleTokenOffset = 0;
+  const subtitleRows = subtitleTokenLines(tokens).map((line) => {
+    const start = subtitleTokenOffset;
+    subtitleTokenOffset += line.length;
+    return { line, start };
+  });
 
   // 已念到几个字：timed 直接比真实发音帧；否则按屏长均分算拍
   let spoken: number;
@@ -2738,47 +3103,57 @@ const SubtitleTrack: React.FC<{ scene: GeneratedScene; duration: number }> = ({ 
   }
 
   return (
-    <div style={{ position: "absolute", left: 150, right: 150, bottom: 56, display: "flex", justifyContent: "center" }}>
+    <div style={{ position: "absolute", left: 120, right: 120, bottom: 36, display: "flex", justifyContent: "center", zIndex: 30, pointerEvents: "none" }}>
       <div
         style={{
-          maxWidth: font * 16 + 84,
-          borderRadius: 26,
-          background: "rgba(11, 24, 33, 0.78)",
-          padding: "22px 42px",
+          maxWidth: 1180,
+          width: "fit-content",
+          boxSizing: "border-box",
+          borderRadius: 24,
+          // 底板覆盖完整两行文字，不再用顶部透明渐变；未读字也保持可读对比度。
+          background: "rgba(5, 15, 23, 0.92)",
+          padding: "16px 34px",
           color: "#fff",
           fontSize: font,
-          lineHeight: 1.42,
+          lineHeight: 1.28,
           fontWeight: 800,
           textAlign: "center",
           letterSpacing: 1,
+          lineBreak: "strict",
+          overflowWrap: "anywhere",
           opacity: capsuleOpacity,
           transform: "translateY(" + lift + "px)",
         }}
       >
-        <span style={{ opacity: textOpacity }}>
-          {tokens.map((tk, i) => {
-            const isSpoken = i < spoken;
-            // 未念到的字留 28% 亮度占位：布局不跳、观众能预判句子长短，
-            // 点亮时是"变亮"而不是"凭空长出一块白"
-            const isCurrent = i === spoken - 1;
-            return (
-              <span
-                key={i}
-                style={{
-                  // 当前朗读字保持白色（笔画始终可读），用下划线而非实心染色+强光晕标记；
-                  // 之前的 22px 蓝色光晕会把「色/蓝」这类字糊成一团彩色圆点，看起来像 emoji。
-                  color: isSpoken ? "#fff" : "rgba(255,255,255,0.28)",
-                  textShadow: isCurrent ? "0 0 8px rgba(255,255,255,0.45)" : "none",
-                  textDecoration: isCurrent ? "underline" : "none",
-                  textDecorationColor: isCurrent ? accent : "transparent",
-                  textDecorationThickness: isCurrent ? 4 : 0,
-                  textUnderlineOffset: isCurrent ? 8 : 0,
-                }}
-              >
-                {tk}
-              </span>
-            );
-          })}
+        <span style={{ opacity: textOpacity, display: "block" }}>
+          {subtitleRows.map((row, rowIndex) => (
+            <span key={rowIndex} style={{ display: "block", whiteSpace: "nowrap" }}>
+              {row.line.map((tk, i) => {
+                const tokenIndex = row.start + i;
+                const isSpoken = tokenIndex < spoken;
+                // 未念到的字留 68% 亮度占位：布局不跳、观众能预判句子长短，
+                // 点亮时是"变亮"而不是"凭空长出一块白"。
+                const isCurrent = tokenIndex === spoken - 1;
+                return (
+                  <span
+                    key={tokenIndex}
+                    style={{
+                      // 当前朗读字保持白色（笔画始终可读），用下划线而非实心染色+强光晕标记；
+                      // 之前的 22px 蓝色光晕会把「色/蓝」这类字糊成一团彩色圆点，看起来像 emoji。
+                      color: isSpoken ? "#fff" : "rgba(255,255,255,0.68)",
+                      textShadow: isCurrent ? "0 1px 3px rgba(0,0,0,0.9)" : "0 1px 2px rgba(0,0,0,0.65)",
+                      textDecoration: isCurrent ? "underline" : "none",
+                      textDecorationColor: isCurrent ? accent : "transparent",
+                      textDecorationThickness: isCurrent ? 4 : 0,
+                      textUnderlineOffset: isCurrent ? 7 : 0,
+                    }}
+                  >
+                    {tk}
+                  </span>
+                );
+              })}
+            </span>
+          ))}
         </span>
       </div>
     </div>
@@ -2818,7 +3193,7 @@ type FigureShapeView =
   | { kind: "polygon"; points: string; fill: string; stroke?: string; strokeWidth?: number }
   | { kind: "subjectIcon"; subject: string; x: number; y: number; size: number; iconSrc?: string };
 
-type FigureGlyphView = FigureShapeView & { reveal: number };
+type FigureGlyphView = FigureShapeView & { reveal: number; id?: string };
 type FigureLabelView = { text: string; x: number; y: number; color?: string };
 type FigureView = { shapes: FigureGlyphView[]; labels?: FigureLabelView[] };
 
@@ -3309,10 +3684,15 @@ const GraphConnector: React.FC<{ edge: GraphEdge; accent: string }> = ({ edge, a
 const GraphBadge: React.FC<{
   item: GraphItem;
   iconSrc?: string;
+  /** 旁白说到风险时切换的材质，例如从安全缩壳切换到可见裂纹。 */
+  warningIconSrc?: string;
+  warningFrame?: number;
   accent: string;
   active: boolean;
   /** 光点已经走过这个节点：留一道细边，表示"这一步讲完了" */
   visited?: boolean;
+  /** 对比关系只强调边框/高光，不改变卡片尺寸，避免孩子把大小当成区别 */
+  equalScale?: boolean;
   storyProgress: number;
   /** 这个名字被念到的那一段（场景内相对帧）；缺省 = 没有配音/词没命中，回退整屏均摊 */
   cueWindow?: { start: number; end: number } | null;
@@ -3330,9 +3710,14 @@ const GraphBadge: React.FC<{
     amplitude: number;
     delayOverride?: number;
   } | null;
-}> = ({ item, iconSrc, accent, active, visited, storyProgress, cueWindow, enterAt, beat }) => {
+}> = ({ item, iconSrc, warningIconSrc, warningFrame, accent, active, visited, equalScale, storyProgress, cueWindow, enterAt, beat }) => {
   const frame = useLocalFrame();
   const { fps } = useVideoConfig();
+  const warningVisible =
+    !!warningIconSrc && warningFrame !== undefined && frame >= warningFrame;
+  const warningFade = warningVisible
+    ? Math.max(0, Math.min(1, (frame - (warningFrame || 0)) / 6))
+    : 0;
   /**
    * 语义动作的时间基。有锚点就只在"念到这个词 → 这句话说完"之间推进：
    * 锚点之前停在起点（旁白还没提它，不该先演），窗口结束停在终态。
@@ -3390,7 +3775,13 @@ const GraphBadge: React.FC<{
   // 年龄幅度：amp=1（原路径）时 1+0.16=1.16、呼吸 0.05，与旧公式完全一致；
   // 3-4 岁 amp=1.25 → 焦点更大、呼吸更明显，5-6 岁 amp=1.12 → 稍快稍收敛。
   const amp = beat ? beat.amplitude : 1;
-  const focusK = active ? 1 + 0.16 * amp + Math.sin(frame / 5.7) * 0.05 * amp : visited ? 0.97 : 0.86;
+  const focusK = equalScale
+    ? 1
+    : active
+      ? 1 + 0.16 * amp + Math.sin(frame / 5.7) * 0.05 * amp
+      : visited
+        ? 0.97
+        : 0.86;
   // spring-pop 拍：焦点主体带弹性过冲地弹出（低阻尼 spring 天然有过冲），
   // 落定后回到呼吸档。只在 beats 路径且本拍 motion=spring-pop 时生效。
   const popK =
@@ -3400,6 +3791,10 @@ const GraphBadge: React.FC<{
   const scale = (item.grow ? 0.42 + growEase * 0.58 : 0.55 + enter * 0.45) * focusK * swellK * popK;
   const dx = item.enterFrom ? (item.enterFrom.x - item.x) * (1 - travel) : 0;
   const dy = item.enterFrom ? (item.enterFrom.y - item.y) * (1 - travel) : 0;
+  // 对比幕刻意不缩放焦点卡，否则孩子会把大小当成区别；但完全静止又会让长句
+  // 变成数秒的冻结帧。所有关系图节点都做 6px 缓慢漂移：既保留“同样大”的语义，
+  // 也让未点亮节点、旁白停顿和风险提示期间仍有像素变化。
+  const ambientY = Math.sin(frame / 14 + item.x / 220) * 6;
   const role = item.node.role;
   const radius = role === "subject" || role === "abstract" ? "50%" : 34;
   // 抽象节点靠内部符号表达"看不见"，卡框就和其他节点统一成实线，两种虚线叠在一起太乱
@@ -3428,7 +3823,7 @@ const GraphBadge: React.FC<{
         opacity: enter * (active ? 1 : visited ? 0.92 : 0.82),
         // 位移留在外层，缩放只作用在图形盒上：标签不跟着缩放，
         // 否则小尺寸时「幼苗」缩到 13px 根本看不清
-        transform: "translate(" + dx + "px, " + dy + "px)",
+        transform: "translate(" + dx + "px, " + (dy + ambientY) + "px)",
       }}
     >
       <div
@@ -3453,6 +3848,22 @@ const GraphBadge: React.FC<{
               border: "5px solid " + accent,
               // 光环跟着同一个呼吸周期走：两处不同频会互相打架，看起来像抖动而不是呼吸
               opacity: 0.3 + Math.sin(frame / 5.7) * 0.12 * amp,
+            }}
+          />
+        ) : null}
+        {warningVisible ? (
+          <div
+            style={{
+              position: "absolute",
+              left: -24 - warningFade * 8,
+              top: -24 - warningFade * 8,
+              width: size + 48 + warningFade * 16,
+              height: size + 48 + warningFade * 16,
+              borderRadius: radius === "50%" ? "50%" : 54,
+              border: "8px solid #D9534F",
+              boxShadow: "0 0 0 10px rgba(217,83,79,0.14), 0 0 30px rgba(217,83,79,0.38)",
+              opacity: warningFade * (0.72 + Math.sin(frame / 4.2) * 0.2),
+              transform: "scale(" + (0.96 + warningFade * 0.04) + ")",
             }}
           />
         ) : null}
@@ -3495,6 +3906,21 @@ const GraphBadge: React.FC<{
               {glyph}
             </div>
           )}
+          {warningVisible ? (
+            <Img
+              src={staticFile(warningIconSrc!)}
+              style={{
+                position: "absolute",
+                inset: "4%",
+                width: "92%",
+                height: "92%",
+                objectFit: "contain",
+                opacity: warningFade,
+                filter: "drop-shadow(0 0 9px rgba(217,83,79,0.72))",
+                transform: "scale(" + (0.9 + warningFade * 0.12) + ")",
+              }}
+            />
+          ) : null}
         </div>
       </div>
       <div
@@ -3719,7 +4145,16 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
   // 最内两圈还在长。可用区间收到 0.78，窗口 0.14，最后一道在 0.92 收笔。
   const waveSize = 0.14;
   const revealAt = (value: number) => (value / maxReveal) * (1 - waveSize - 0.08);
-  const shapeProgress = (value: number) => Math.max(0, Math.min(1, (progress - revealAt(value)) / waveSize));
+  const activeReveal = new Set<string>((bs && bs.current && bs.current.reveal) || []);
+  const shapeProgress = (glyph: FigureGlyphView) => {
+    const scheduled = Math.max(0, Math.min(1, (progress - revealAt(glyph.reveal)) / waveSize));
+    // 当前旁白拍已经点名的图元必须在这一拍内出现，不能仍等全局 reveal 阈值。
+    // 否则“一道道小棱”讲到一半，画面还只有空壳（QA 连续两轮实测）。
+    if (bs && glyph.id && activeReveal.has(glyph.id)) {
+      return Math.max(scheduled, Math.min(1, 0.28 + bs.beatProgress * 0.72));
+    }
+    return scheduled;
+  };
   const labelProgress = Math.max(0, Math.min(1, (progress - 0.6) / 0.2));
 
   // 标签跟拍：被某拍 reveal/focus 点名的标签，在那一拍开始后 12 帧内浮现；
@@ -3763,7 +4198,7 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
       }}
     >
       {figure.shapes.map((glyph, i) => (
-        <FigureShapePart key={"f" + i} glyph={glyph} p={shapeProgress(glyph.reveal)} />
+        <FigureShapePart key={"f" + i} glyph={glyph} p={shapeProgress(glyph)} />
       ))}
       {(figure.labels || []).map((label, i) => {
         const lp = labelAt(label.text);
@@ -3791,7 +4226,7 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
               textAnchor="middle"
               fontSize={34}
               fontWeight={900}
-              fill={label.color || accent}
+              fill={label.color || "#12303a"}
               // 白色描边垫底：实测"太阳"这种两字标签会正好落在太阳圆面上，
               // 颜色关系和图形撞在一起就读不出来。文字的可读性由模板兜住，不指望模型摆准。
               stroke="#FFFFFF"
@@ -3807,7 +4242,7 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
       })}
     </svg>
     {iconGlyphs.map((glyph, i) => {
-      const p = shapeProgress(glyph.reveal);
+      const p = shapeProgress(glyph);
       if (p <= 0.001) return null;
       const grow = 0.6 + p * 0.4;
       return (
@@ -3848,13 +4283,131 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
   );
 };
 
+/** 找到旁白里某个提示第一次出现的帧；优先用 TTS 字边界，旧任务才按字数比例回退。 */
+const narrationCueFrame = (scene: GeneratedScene, pattern: RegExp): number | null => {
+  const pages = scene.subtitlePages || [];
+  const chars: Array<{ ch: string; start: number }> = [];
+  for (const page of pages) {
+    for (let i = 0; i < (page.tokens || []).length; i += 1) {
+      const token = String(page.tokens[i] || "");
+      const start = Number(page.starts?.[i]);
+      if (!token || !Number.isFinite(start)) continue;
+      for (const ch of Array.from(token)) chars.push({ ch, start });
+    }
+  }
+  if (chars.length) {
+    pattern.lastIndex = 0;
+    const hit = pattern.exec(chars.map((item) => item.ch).join(""));
+    return hit ? chars[hit.index]?.start ?? null : null;
+  }
+  const narration = String(scene.narration || "");
+  pattern.lastIndex = 0;
+  const hit = pattern.exec(narration);
+  if (!hit || !narration.length) return null;
+  const durationFrames = Math.max(2, scene.durationFrames || 180);
+  return Math.min(
+    durationFrames - 1,
+    Math.round(durationFrames * (hit.index + hit[0].length) / narration.length),
+  );
+};
+
+const floorPropStep = (
+  slot: number,
+  pointPropPlaced: boolean,
+  side: 1 | -1,
+  pointSide: 1 | -1,
+): number => Math.floor(slot / 2) + (pointPropPlaced && side === pointSide ? 1 : 0);
+
+/** 旁白说“在叶子上发现蜗牛”时，指认幕必须真的把蜗牛放到叶片上，而不是各画各的。 */
+const pointedLeafCarrier = (
+  props: Array<{ id: string; label?: string; place?: string }>,
+  propId?: string,
+  propLabel = "",
+  pointing = false,
+): string | undefined => {
+  if (!pointing || !propId || !/蜗牛|snail/i.test(propId + " " + propLabel)) return undefined;
+  return props.find(
+    (item) =>
+      item.place === "floor" &&
+      item.id !== propId &&
+      /叶|leaf/i.test(String(item.id || "") + " " + String(item.label || "")),
+  )?.id;
+};
+
+type NarrationGraphAnchor = { id: string; at: number };
+
+/** 焦点只跟旁白词边界走；流光是否挂词不影响孩子此刻应该看哪个节点。 */
+const applyNarrationGraphFocus = (
+  activeIds: Set<string>,
+  visitedIds: Set<string>,
+  anchorOrder: NarrationGraphAnchor[] | null,
+  frame: number,
+): void => {
+  if (!anchorOrder) return;
+  let spokenId: string | null = null;
+  let spokenIndex = -1;
+  for (let i = 0; i < anchorOrder.length; i += 1) {
+    if (anchorOrder[i].at > frame) break;
+    spokenId = anchorOrder[i].id;
+    spokenIndex = i;
+  }
+  if (!spokenId) return;
+  activeIds.clear();
+  activeIds.add(spokenId);
+  for (let i = 0; i < spokenIndex; i += 1) visitedIds.add(anchorOrder[i].id);
+};
+
+/** reveal 只负责“出现”，不负责“此刻看谁”；有旁白锚点时始终保留单一焦点。 */
+const buildBeatActiveIds = (
+  spokenId: string | null,
+  focusId: string | null | undefined,
+  revealedIds: Array<string | null | undefined>,
+  narrationAnchored: boolean,
+): string[] => {
+  const ids: string[] = [];
+  const primary = spokenId || focusId;
+  if (primary) ids.push(primary);
+  if (!narrationAnchored) {
+    for (const id of revealedIds) {
+      if (id && ids.indexOf(id) < 0) ids.push(id);
+    }
+  }
+  return ids;
+};
+
+const isRedundantSceneCaption = (caption: string, title: string): boolean => {
+  const key = (value: string) =>
+    value.replace(/[，。！？、,:;.!?\s]/g, "").replace(/家|壳/g, "");
+  const a = key(caption);
+  const b = key(title);
+  // 只隐藏归一化后完全相同的近义标题；子串包含关系会误删“每只蜗牛的花纹都不一样”这类有效信息。
+  return !!a && a === b;
+};
+
 const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({
   scene,
   duration,
 }) => {
   const frame = useLocalFrame();
   const graph = scene.sceneGraph as SceneGraphView;
+  // 关系图在旁白停顿时也要保持生命感。只动单个小卡片，在 720p 兼容成片上
+  // 仍可能被 freezedetect 判定为大面积冻结；整张图缓慢漂浮 4px 并轻微呼吸，
+  // 连线、容器和所有节点一起变化，不改变教学关系或尺寸对比。
+  const graphDriftY = Math.sin(frame / 18) * 4;
+  const graphBreath = 1 + Math.sin(frame / 36) * 0.003;
+  const sceneTitle = scene.onScreenText || scene.title;
   const icons = scene.graphIcons || {};
+  const crackFrame = narrationCueFrame(scene, /啄裂|裂纹|啄破|crack/i);
+  const crackNodeId =
+    crackFrame === null
+      ? undefined
+      : graph.nodes.find((node) => {
+          const icon = String(icons[node.id] || "");
+          if (/snail-retracted|snail-shell-cracked/.test(icon)) return true;
+          return /缩进|躲进|retract|hide/i.test(String(node.label || "")) && /蜗牛|snail/i.test(
+            String(node.subject || node.label || ""),
+          );
+        })?.id;
   const layout = layoutGraph(graph);
   const count = Math.max(1, graph.nodes.length);
   const warmup = 18;
@@ -4037,7 +4590,7 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
    */
   const anchoredNodes = graph.nodes.filter((node) => cueWindows[node.id]);
   const anchorOrder =
-    flowCueOn &&
+    scene.anchorSigns !== false &&
     anchoredNodes.length >= 2 &&
     anchoredNodes.length >= Math.ceil(graph.nodes.length * 0.7)
       ? anchoredNodes
@@ -4152,6 +4705,12 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
     // 讲过的留一道细边，画面能累积出"讲到第几个了"；否则每一拍都像重新开始
     for (let i = 0; i < current; i += 1) visitedIds.add(graph.nodes[i].id);
   }
+  // 焦点与流光分开：即使图上节点顺序和旁白不同、流光退回时钟，当前讲解对象
+  // 仍必须跟着真实词边界走。总结幕尤其容易“四张卡一直等权”，孩子不知道此刻
+  // 该看哪一张。星形拓扑有独立的并列分组规则，不在这里覆盖。
+  if (anchorOrder && !starRelation) {
+    applyNarrationGraphFocus(activeIds, visitedIds, anchorOrder, frame);
+  }
   // split/group 的第一个节点是这一屏的主题（「大树由这些组成」里的"大树"）。
   // 焦点转到部件之后它会落到"还没讲到"那一档，跟着一起缩到 0.86——
   // 主题跟着配角退场是错的，至少保住"讲过了"的档位。
@@ -4189,16 +4748,12 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
         else break;
       }
     }
-    const activeNow: string[] = [];
-    if (cur) {
-      const fid = spokenNow || resolveFocusId(graph, cur.focus);
-      if (fid) activeNow.push(fid);
-      // reveal 是"这一拍新出现的东西"，与焦点是两件事：按词走时也要保留
-      for (const r of cur.reveal || []) {
-        const rid = resolveFocusId(graph, r);
-        if (rid && activeNow.indexOf(rid) < 0) activeNow.push(rid);
-      }
-    }
+    const activeNow = buildBeatActiveIds(
+      spokenNow,
+      cur ? resolveFocusId(graph, cur.focus) : null,
+      cur ? (cur.reveal || []).map((name) => resolveFocusId(graph, name)) : [],
+      !!anchorOrder,
+    );
     activeNow.forEach((id) => activeIds.add(id));
     // 讲过/揭示过的退到"已讲"档，但当前拍正在讲的不算讲过
     bs.spoken.forEach((name) => {
@@ -4352,9 +4907,16 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           key={item.node.id}
           item={item}
           iconSrc={icons[item.node.id]}
+          warningIconSrc={
+            crackNodeId === item.node.id
+              ? "assets/lesson/animals/snail-shell-cracked.svg"
+              : undefined
+          }
+          warningFrame={crackNodeId === item.node.id ? crackFrame ?? undefined : undefined}
           accent={scene.accentColor}
           active={activeIds.has(item.node.id)}
           visited={visitedIds.has(item.node.id)}
+          equalScale={graph.relation === "compare"}
           storyProgress={storyProgress}
           cueWindow={cueWindows[item.node.id] || null}
           enterAt={cueEnterAt[item.node.id]}
@@ -4384,7 +4946,7 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           <circle cx={beatDot.x} cy={beatDot.y} r={7} fill={scene.accentColor} />
         </svg>
       ) : null}
-      {graph.caption ? (
+      {graph.caption && !isRedundantSceneCaption(graph.caption, sceneTitle) ? (
         <div
           style={{
             position: "absolute",
@@ -4413,7 +4975,12 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   );
 
   return (
-    <AbsoluteFill>
+    <AbsoluteFill
+      style={{
+        transform: "translateY(" + graphDriftY + "px) scale(" + graphBreath + ")",
+        transformOrigin: "center center",
+      }}
+    >
       {pushK > 0 ? (
         <div
           style={{
@@ -4468,11 +5035,30 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
   const breath = 1 + Math.sin(frame / 24) * 0.008;
   const sway = Math.sin(frame / 40) * 0.9;
   // 关系图自带节点标签，屏幕上再叠一行同义文字只会干扰阅读。
-  // 画板优先级最高：图形本身就是知识时，任何"节点+标签"的表达都是降级。
-  const hasFigure = !!(scene.figure && scene.figure.shapes && scene.figure.shapes.length > 0);
-  // 角色交互优先于概念关系图：有"小熊把皮球递给小兔"这种明确动作时，
-  // 就该演出这个动作，而不是退回抽象节点图。
-  const hasInteraction = !hasFigure && !!scene.interaction && (scene.interaction.actors || []).length > 0;
+  // 角色动作与解释性画板按“动作是否承载知识”取舍：走路、攀爬、双人接触等
+  // 真实动作优先；只有 point/speak/hold 的主持式演出不能把整张关系图删掉。
+  // 否则“找找螺旋”会只剩一只兔子，三个被讲解的螺旋全部消失（QA 实测 blocker）。
+  const rawFigure = !!(scene.figure && scene.figure.shapes && scene.figure.shapes.length > 0);
+  const rawGraph = !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
+  // 画板里的树叶/河流等环境锚点是这一幕的空间关系，演员舞台不会自动带上它们。
+  // 这类画板不能被“walk”覆盖；只有不承载环境锚点的解释图才让位给真实动作。
+  const figureHasEnvironment = (scene.figure?.shapes || []).some(
+    (shape) => shape.kind === "subjectIcon" &&
+      /树叶|叶片|叶子|树冠|树枝|大树|花朵|草地|河流|水面|云朵|太阳|leaf|tree|flower|grass|river|water|cloud|sun/i.test(
+        String(shape.subject || ""),
+      ),
+  );
+  const performanceMotions = scene.interaction
+    ? scene.interaction.puppet?.sequence?.map((step) => step.motion) ||
+      scene.interaction.vectorPerformance?.steps?.map((step) => step.motion) || [scene.interaction.verb]
+    : [];
+  const actionCarriesScene = !figureHasEnvironment && performanceMotions.some((motion) =>
+    !["speak", "point", "hold", "wave", "cheer", "idle", "sit"].includes(motion)
+  );
+  const hasInteraction =
+    !!scene.interaction && (scene.interaction.actors || []).length > 0 &&
+    (!(rawFigure || rawGraph) || actionCarriesScene);
+  const hasFigure = !hasInteraction && rawFigure;
   // 三维舞台的准入：动作受支持，且后端已把坐标/资产解析成确定值。
   // 命中就取代 2D 演出；关掉（VIDEO_3D_STAGE=off 或依赖缺失）时同一分镜
   // 仍走 ActionStage 的降级分支，内容不变、只是没有接触关系。
@@ -4487,9 +5073,17 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
    * 这条顺序改错就会出现"滑梯被降级成沿斜线平移"或"爬楼变成 emoji 卡片"。
    */
   const puppet = hasInteraction && !use3d ? scene.interaction!.puppet : undefined;
+  const vectorPerformance = hasInteraction && !use3d ? scene.interaction!.vectorPerformance : undefined;
   const accent = scene.accentColor || "#4d96ff";
   // 3D 用冻结后的局部帧：收尾窗口里画面要钉住，不能自己继续动
   const stageFrame = useLocalFrame();
+  const shellBeat = scene.snailShellStudy ? beatStateAt(scene, stageFrame) : null;
+  const shellComparison = /每只|不一样|各不相同|different|variety/i.test(
+    (scene.narration || "") + " " + (scene.onScreenText || ""),
+  );
+  const sceneTitle = scene.onScreenText || scene.title;
+  // 顶部只保留一个标题；专用舞台内部已有解释文字，不再重复同义 onScreenText。
+  const shellConcept = "";
   const hasGraph =
     !hasFigure && !hasInteraction && !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
   const backgroundStyle = scene.backgroundStyle || "environment";
@@ -4509,7 +5103,9 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
     puppet && puppet.start && puppet.end && puppet.end[0] < puppet.start[0] ? -1 : 1;
   const pointSlot = propSlotForSize(
     pointSide,
-    propSizeFor(propRatioOf(scene, scene.interaction ? scene.interaction.propId : undefined)),
+    // 被指认的教学对象必须看得清。分镜常把蜗牛/叶子写成 0.1，实际只剩几十像素；
+    // 对 point 场景设可见性下限，手持道具仍按真实比例，避免苹果被放大成西瓜。
+    propSizeFor(Math.max(0.28, propRatioOf(scene, scene.interaction ? scene.interaction.propId : undefined))),
   );
 
   /** 声明为"拿在手里"的道具：单人手持时跟着手走，不占地面槽位 */
@@ -4527,6 +5123,7 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
   const stageProps = (() => {
     const list: Array<{ x: number; y: number; size: number; label?: string; node: React.ReactNode }> = [];
     const used = new Set<string>();
+    let pointPropPlaced = false;
     const propId = scene.interaction ? scene.interaction.propId : undefined;
     // 幕级变量在这里读不出来：puppet 可能不存在（徽章/关系图/纯静态幕），
     // 直接 puppet.motion 会让"没有全身角色"的幕整片渲染失败。
@@ -4546,12 +5143,34 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
       placeOf(propId) !== "hand" &&
       isPointing
     ) {
+      const carrierId = pointedLeafCarrier(
+        scene.props || [],
+        propId,
+        propLabelOf(scene, propId),
+        isPointing,
+      );
+      const carrierSize = carrierId
+        ? Math.max(propSizeFor(propRatioOf(scene, carrierId)), pointSlot.size * 1.15)
+        : 0;
+      if (carrierId) {
+        // 承载叶片先画、后画蜗牛；叶片不带文字标签，避免标签盖住壳面花纹。
+        used.add(carrierId);
+        list.push({
+          x: pointSlot.x,
+          y: carrierSize / 2,
+          size: carrierSize,
+          node: <PropArt glyph={propGlyphOf(scene, carrierId)} frame={stageFrame} />,
+        });
+      }
       used.add(propId);
       list.push({
-        ...pointSlot,
+        x: pointSlot.x,
+        y: carrierSize > 0 ? carrierSize + pointSlot.size / 2 - 0.02 : pointSlot.y,
+        size: pointSlot.size,
         label: propLabelOf(scene, propId),
         node: <PropArt glyph={propGlyphOf(scene, propId)} frame={stageFrame} />,
       });
+      pointPropPlaced = true;
     }
     let slot = 0;
     for (const item of scene.props || []) {
@@ -4559,7 +5178,9 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
       if (used.has(item.id)) continue;
       used.add(item.id);
       const side: 1 | -1 = slot % 2 === 0 ? -1 : 1;
-      const step = Math.floor(slot / 2);
+      // 指认物已经占了一侧。同侧装饰若仍从同一槽位起排，会与蜗牛和它的标签完全重叠；
+      // 从外侧第二格开始，既保留左右交替，又让每个标签都有自己的空间。
+      const step = floorPropStep(slot, pointPropPlaced, side, pointSide);
       // 尺寸按这个道具自己的身高比；同侧第二个往外让"一格道具宽 + 一点缝"
       const size = propSizeFor(propRatioOf(scene, item.id));
       const base = propSlotForSize(side, size);
@@ -4611,10 +5232,24 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
             color: "#12303a",
           }}
         >
-          {scene.title}
+          {sceneTitle}
         </div>
       </div>
-      {hasFigure ? (
+      {scene.snailShellStudy ? (
+        <SnailShellStudyStage
+          mode={scene.snailShellStudy}
+          frame={stageFrame}
+          duration={duration}
+          accent={accent}
+          concept={shellConcept}
+          comparison={shellComparison}
+          treeRingComparison={/年轮|tree\s+rings?/i.test(
+            (scene.narration || "") + " " + (scene.onScreenText || ""),
+          )}
+          houseAnalogy={/房子|房间|house|room/i.test(scene.narration || "")}
+          badgeVisible={!!(shellBeat && shellBeat.current && (shellBeat.current.reveal || []).indexOf("observer-badge") >= 0)}
+        />
+      ) : hasFigure ? (
         <FigureStage scene={scene} duration={duration} />
       ) : use3d && action3d ? (
         <ThreeActionStage
@@ -4633,6 +5268,8 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
             label: scene.interaction!.actors[0] ? scene.interaction!.actors[0].label : undefined,
           }}
         />
+      ) : vectorPerformance ? (
+        <VectorPerformanceStage scene={scene} duration={duration} />
       ) : puppet ? (
         <Puppet2D
           frame={stageFrame}
@@ -4707,22 +5344,6 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
           {/* 巨图特写幕也要站在同一处场地里：不然"森林里的小松鼠"这一屏是旧屏保，
               下一屏（全身木偶）才是森林，孩子看到的是两个地方。 */}
           <SceneBackdrop scene={scene} frame={frame} />
-          {scene.onScreenText && scene.onScreenText !== scene.title ? (
-            <div style={{ position: "absolute", left: 0, right: 0, top: 124, display: "flex", justifyContent: "center" }}>
-              <div
-                style={{
-                  borderRadius: 16,
-                  background: "rgba(255, 255, 255, 0.76)",
-                  padding: "6px 26px",
-                  fontSize: 32,
-                  fontWeight: 900,
-                  color: scene.accentColor,
-                }}
-              >
-                {scene.onScreenText}
-              </div>
-            </div>
-          ) : null}
           <div
             style={{
               position: "absolute",
@@ -4763,15 +5384,12 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
         </>
       )}
       <SubtitleTrack scene={scene} duration={duration} />
-      <div style={{ position: "absolute", left: 56, top: 48, fontSize: 26, fontWeight: 800, color: "rgba(0, 0, 0, 0.26)" }}>
-        {"0" + (index + 1)}
-      </div>
     </AbsoluteFill>
     </FrameOverride.Provider>
   );
 };
 
-export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, scenes }) => {
+export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ scenes }) => {
   const starts = sceneStarts(scenes);
   return (
     <AbsoluteFill style={{ backgroundColor: "#ecfff8" }}>
@@ -4792,9 +5410,6 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
           </Sequence>
         );
       })}
-      <div style={{ position: "absolute", top: 18, right: 24, color: "rgba(0,0,0,0.38)", fontSize: 18, fontWeight: 700 }}>
-        {title || topic}
-      </div>
     </AbsoluteFill>
   );
 };
@@ -4855,10 +5470,7 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     }
   }
 
-  private expectedVisualTerms(
-    source: string,
-    scenes: Array<Record<string, any>> = [],
-  ): string[] {
+  private expectedVisualTerms(source: string, scenes: Array<Record<string, any>> = []): string[] {
     // 这里只放"必须真的出现在产物里的视觉词"，不要放 dynamic 这种拼 assetKey 用的前缀：
     // 它以前能命中，纯粹是因为模板里有个叫 dynamicSky 的渐变 id，属于指标造假。
     const terms = new Set<string>(['visual']);
@@ -5004,6 +5616,88 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
    * - 关系图（循环/链式/对比/分类/拆解）、抽象概念 → 中性背景，什么环境元素都不放，
    *   把注意力整块让给节点本身
    */
+  /**
+   * 删除与旁白语境无关的问候气泡。
+   *
+   * LLM 有时会在动作序列里固定加一句“大家好，我是小蜗牛”，即使这一幕讲的是
+   * 缩壳休息或壳的生长。气泡属于画面教学内容，不能引入旁白从未说过的问候。
+   * 只拦明确的问候/自我介绍，不按模糊词相似度删正常对话，避免误伤“谢谢你”
+   * 这类动作本身需要、但旁白不必逐字复述的台词。
+   */
+  private stripUnalignedGreeting<T extends { speech?: string }>(value: T, context: string): T {
+    const speech = String(value.speech || '').trim();
+    if (!speech) return value;
+    const greeting = /^(?:你好|大家好|你们好|嗨|hello\b|hi\b|我是|我叫|欢迎)/i.test(speech);
+    const contextHasGreeting = /你好|大家好|你们好|打招呼|问好|欢迎|hello\b|hi\b/i.test(context);
+    if (!greeting || contextHasGreeting) return value;
+    const next = { ...value };
+    delete next.speech;
+    return next;
+  }
+
+  /**
+   * Course-pack fast paths carry prose but no storyboard agent. Translate only
+   * explicit shell-study semantics into a teaching stage; generic snail walking
+   * or appearance-comparison scenes keep their existing graph/vector renderer.
+   *
+   * 路由必须同时看结构化画面：练习/总结幕，或并列牵牛花、羊角等外部对象的幕，
+   * 即使旁白含“螺旋”“壳口长大”也不能覆盖原 sceneGraph。round-6 的真实 QA
+   * 就是因为只扫文本，把“找螺旋”画成棒棒糖、把总结画成只有壳的生长图。
+   */
+  private inferSnailShellStudyMode(
+    animalId: string,
+    source: string,
+    scene: any,
+  ):
+    | 'spiral'
+    | 'magnifier'
+    | 'growth'
+    | 'tree-rings'
+    | 'chirality'
+    | 'hatch'
+    | 'count'
+    | undefined {
+    if (animalId !== 'snail') return undefined;
+    const hatch = /卵|孵出来|出生|hatch|baby\s+snail/i.test(source);
+    if (!/壳|花纹|螺旋/.test(source) && !hatch) return undefined;
+    const emphasis = this.toText(scene?.emphasis, '').toLowerCase();
+    const rehearsal = ['summary', 'practice', 'review'].includes(emphasis);
+    if (rehearsal) return undefined;
+    const structuredSubjects = [
+      ...((scene?.sceneGraph?.nodes || []) as any[]).flatMap((node) => [
+        this.toText(node?.subject, ''),
+        this.toText(node?.label, ''),
+      ]),
+      ...((scene?.figure?.shapes || []) as any[])
+        .filter((shape) => shape?.kind === 'subjectIcon')
+        .map((shape) => this.toText(shape?.subject, '')),
+      ...((scene?.props || []) as any[]).flatMap((prop) => [
+        this.toText(prop?.name, ''),
+        this.toText(prop?.label, ''),
+      ]),
+    ].filter(Boolean);
+    const shellOnly = structuredSubjects.every((subject) =>
+      /蜗牛|壳口|壳的边缘|新壳|长大|左旋|右旋|年轮|螺旋|花纹|条纹|放大镜|保护|小小科学家|大树|树木|树干|tree|草|云|太阳|森林|地面|房子|房间/i.test(
+        subject,
+      ),
+    );
+    const externalComparison = /牵牛花|羊角|晨光花|morning\s+glory|ram(?:'s)?\s+horn/i.test(source);
+    // 结构化画面优先于关键词：有树叶/牵牛花/练习道具时，不能把整幕替换成壳特写。
+    if (hatch) return 'hatch';
+    if (!shellOnly || externalComparison) return undefined;
+    if (/左旋|右旋|dextral|sinistral/i.test(source)) return 'chirality';
+    if (/放大镜|彩色条纹|深浅不同|magnif|colorful\s+bands/i.test(source)) return 'magnifier';
+    // “壳口”只是螺旋的终点，不等于生长；只有明确新增/长大语义才进入生长幕。
+    if (/新壳|壳口边缘|壳的边缘|新的一圈|\bgrows?\b|outer\s+opening\s+edge/i.test(source))
+      return 'growth';
+    if (/年轮|tree\s+rings?/i.test(source)) return 'tree-rings';
+    if (/数一数|最新|观察|count\s+the\s+rings|outermost/i.test(source)) return 'count';
+    // “慢慢长大留下的生长线”仍在讲螺旋纹，不要因为一个“长大”就把整幕换成壳口特写。
+    if (/螺旋|棒棒糖|spiral|lollipop/i.test(source)) return 'spiral';
+    if (/长大|生长/i.test(source)) return 'growth';
+    return undefined;
+  }
+
   private resolveBackgroundStyle(input: {
     source: string;
     hasGraph: boolean;
@@ -5061,16 +5755,37 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
    * [{ a, b, result }]，颜色名换成渲染层可直接用的十六进制色值。
    * 认不出来的颜色名保留原文，交给渲染层的兜底色板。
    */
-  private normalizeMixPairs(params: any): Array<{ a: string; b: string; result: string; aName: string; bName: string; resultName: string }> {
+  private normalizeMixPairs(params: any): Array<{
+    a: string;
+    b: string;
+    result: string;
+    aName: string;
+    bName: string;
+    resultName: string;
+  }> {
     if (!params || typeof params !== 'object') return [];
     const colorHex: Record<string, string> = {
-      红: '#ef4444', 红色: '#ef4444', red: '#ef4444',
-      黄: '#facc15', 黄色: '#facc15', yellow: '#facc15',
-      蓝: '#3b82f6', 蓝色: '#3b82f6', blue: '#3b82f6',
-      橙: '#fb923c', 橙色: '#fb923c', orange: '#fb923c',
-      绿: '#22c55e', 绿色: '#22c55e', green: '#22c55e',
-      紫: '#a855f7', 紫色: '#a855f7', purple: '#a855f7',
-      靛: '#6366f1', 靛色: '#6366f1', indigo: '#6366f1',
+      红: '#ef4444',
+      红色: '#ef4444',
+      red: '#ef4444',
+      黄: '#facc15',
+      黄色: '#facc15',
+      yellow: '#facc15',
+      蓝: '#3b82f6',
+      蓝色: '#3b82f6',
+      blue: '#3b82f6',
+      橙: '#fb923c',
+      橙色: '#fb923c',
+      orange: '#fb923c',
+      绿: '#22c55e',
+      绿色: '#22c55e',
+      green: '#22c55e',
+      紫: '#a855f7',
+      紫色: '#a855f7',
+      purple: '#a855f7',
+      靛: '#6366f1',
+      靛色: '#6366f1',
+      indigo: '#6366f1',
     };
     const toHex = (v: any): string => {
       const s = this.toText(v);
@@ -5097,14 +5812,16 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
 
     // 形态二：color1 / color2 / resultLabel（单对）
     if (params.color1 || params.color2 || params.resultLabel) {
-      return [{
-        a: toHex(params.color1) || '#ef4444',
-        b: toHex(params.color2) || '#facc15',
-        result: toHex(params.resultLabel) || '#fb923c',
-        aName: toName(params.color1) || '红',
-        bName: toName(params.color2) || '黄',
-        resultName: toName(params.resultLabel) || '橙',
-      }];
+      return [
+        {
+          a: toHex(params.color1) || '#ef4444',
+          b: toHex(params.color2) || '#facc15',
+          result: toHex(params.resultLabel) || '#fb923c',
+          aName: toName(params.color1) || '红',
+          bName: toName(params.color2) || '黄',
+          resultName: toName(params.resultLabel) || '橙',
+        },
+      ];
     }
     return [];
   }

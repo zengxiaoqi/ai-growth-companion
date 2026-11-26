@@ -30,6 +30,23 @@ describe('subtitle-timing: 分词与分屏', () => {
     for (const page of pages) expect(page.length).toBeLessThanOrEqual(30);
     expect(pages.join('')).toBe(narration);
   });
+
+  it('不会把最后一个字单独推到下一屏', () => {
+    const narration = '用放大镜再看一次！壳上还有深浅不同的彩色条纹，棕色、黄色，还有一点点白。';
+    const pages = splitSubtitlePages(narration, 15, 2);
+    expect(pages.length).toBe(2);
+    expect(Array.from(pages[1]).length).toBeGreaterThanOrEqual(3);
+    expect(pages.join('')).toBe(narration);
+    for (const page of pages) expect(Array.from(page).length).toBeLessThanOrEqual(30);
+  });
+
+  it('emoji 按完整字形分屏，不拆开代理对', () => {
+    const narration = '👩‍🏫老师带我们观察蜗牛壳上的花纹，看看螺旋线怎样从中间向外绕。';
+    const pages = splitSubtitlePages(narration, 15, 2);
+    expect(pages.join('')).toBe(narration);
+    const emojiTokens = pages.flatMap(subtitleTokens).filter((token) => /[👩🏫]/u.test(token));
+    expect(emojiTokens).toEqual(['👩‍🏫']);
+  });
 });
 
 describe('subtitle-timing: 词边界 → 逐字时间轴', () => {

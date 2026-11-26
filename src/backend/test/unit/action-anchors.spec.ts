@@ -36,6 +36,31 @@ describe('buildActionAnchors', () => {
     expect(table.a.start).toBe(30);
   });
 
+  it('概念 label 未逐字出现时先匹配动作语义，避免 subject 把多个节点锚到开头', () => {
+    const cue = pages([
+      { text: '蜗牛壳是蜗牛随身带着的家。壳上的螺旋花纹，', from: 3, step: 6 },
+      { text: '是它一圈圈长大留下的记号。爬累了，它就缩进壳里休息，', from: 128, step: 6 },
+    ]);
+    const table = buildActionAnchors(
+      [
+        { id: 'n1', label: '背着壳爬', subject: '蜗牛' },
+        { id: 'n2', label: '壳口长大', subject: '蜗牛壳' },
+        { id: 'n3', label: '螺旋花纹', subject: '蜗牛壳' },
+        { id: 'n4', label: '缩进壳里', subject: '蜗牛壳' },
+      ],
+      cue,
+      { durationFrames: 300 },
+    );
+
+    expect(table.n1?.matched).toBe('带着');
+    expect(table.n2?.matched).toBe('长大');
+    expect(table.n3?.matched).toBe('螺旋花纹');
+    expect(table.n4?.matched).toBe('缩进壳里');
+    expect(table.n1!.start).toBeLessThan(table.n3!.start);
+    expect(table.n3!.start).toBeLessThan(table.n2!.start);
+    expect(table.n2!.start).toBeLessThan(table.n4!.start);
+  });
+
   it('旁白没念到就不给锚点，交给调用方回退', () => {
     const cue = pages([{ text: '太阳把水晒热', from: 0 }]);
     const table = buildActionAnchors([{ id: 'a', label: '白云', subject: '云朵' }], cue, {

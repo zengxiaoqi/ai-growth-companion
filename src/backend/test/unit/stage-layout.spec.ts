@@ -15,6 +15,8 @@ import {
   boundsWidth,
   framingFor,
   portraitFraming,
+  propBounds,
+  propSlotForSize,
   shotForMotion,
   unionAll,
   type Bounds,
@@ -117,6 +119,22 @@ describe('stage-layout / 取景定律', () => {
     expect(STAGE.groundY - p.height).toBeGreaterThanOrEqual(SUBJECT_TOP);
     expect(p.scale).toBeGreaterThan(1);
     expect(p.centerY).toBeCloseTo(STAGE.groundY - p.height / 2, 6);
+  });
+});
+
+describe('stage-layout / 道具承载', () => {
+  it('贴地道具的包围盒仍从地面起算', () => {
+    const slot = propSlotForSize(1, 0.6);
+    expect(slot.y).toBeCloseTo(0.3, 9);
+    expect(propBounds(slot)).toEqual({ minX: slot.x - 0.3, maxX: slot.x + 0.3, minY: 0, maxY: 0.6 });
+  });
+
+  it('被叶片托高的蜗牛会把真实壳顶计入取景', () => {
+    const snail = { x: 1.2, y: 0.92, size: 0.56 };
+    const box = propBounds(snail);
+    expect(box.minY).toBeCloseTo(0.64, 9);
+    expect(box.maxY).toBeCloseTo(1.2, 9);
+    expect(box.maxY).toBeGreaterThan(snail.size);
   });
 });
 

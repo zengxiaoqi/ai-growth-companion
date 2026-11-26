@@ -377,10 +377,12 @@ export const SlideScene: React.FC<SlideSceneProps> = ({ data }) => {
 
   // Delegate to animated scene router when animationTemplate is present
   if (data.animationTemplate) {
+    const hasOwnSubtitles =
+      data.animationTemplate.id === "language.whiteboard-story" && !!data.whiteboard;
     return (
       <>
         <AnimatedSceneRouter data={data} />
-        <SubtitleBar narration={data.narration} accentColor={data.accentColor} />
+        {!hasOwnSubtitles && <SubtitleBar narration={data.narration} accentColor={data.accentColor} />}
       </>
     );
   }

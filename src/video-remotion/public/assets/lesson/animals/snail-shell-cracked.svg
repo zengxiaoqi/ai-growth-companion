@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>Retracted snail shell with a small crack warning</title>
+  <ellipse cx="256" cy="431" rx="183" ry="23" fill="#5B4636" opacity="0.12"/>
+  <path d="M99 397C139 378 365 378 414 397C432 405 425 425 402 430H115C91 430 79 414 99 397Z" fill="#E9A25E" stroke="#875B3B" stroke-width="9"/>
+  <path d="M125 411C205 401 317 401 390 413" stroke="#FFD39B" stroke-width="10" stroke-linecap="round"/>
+  <path d="M114 360C84 319 91 244 136 197C184 147 273 149 321 195C365 236 368 315 331 362C292 411 165 412 114 360Z" fill="#A96F43" stroke="#75492E" stroke-width="11"/>
+  <path d="M140 335C111 302 116 251 150 216C188 177 258 177 299 212C335 242 340 299 313 336C282 377 183 382 140 335Z" fill="#D69A62"/>
+  <path d="M236 324C187 331 160 302 170 265C180 225 227 211 263 227C298 243 309 281 289 308C272 329 252 332 236 324Z" stroke="#8B5E3C" stroke-width="17" stroke-linecap="round"/>
+  <path d="M232 293C207 297 192 280 199 261C206 241 231 236 251 247C270 257 275 277 262 290C254 299 242 299 232 293Z" stroke="#8B5E3C" stroke-width="14" stroke-linecap="round"/>
+  <path d="M228 276C218 278 213 271 217 263C221 255 233 253 240 259C247 265 246 273 240 277C236 280 231 279 228 276Z" fill="#8B5E3C"/>
+  <path d="M323 190L307 220L325 244L304 269L318 294" stroke="#FFF4D6" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M323 190L307 220L325 244L304 269L318 294" stroke="#B64B3A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M405 190L418 213L443 218L418 231L406 256L391 232L366 225L392 211L405 190Z" fill="#FFD666" stroke="#E5A93B" stroke-width="6" stroke-linejoin="round"/>
+</svg>

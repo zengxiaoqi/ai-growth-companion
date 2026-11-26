@@ -405,7 +405,7 @@ export class QuickVideoGenerateDto {
 
   @ApiPropertyOptional({
     description: '渲染引擎',
-    enum: ['auto', 'hyperframes', 'remotion', 'dsh', 'agent-remotion'],
+    enum: ['auto', 'hyperframes', 'remotion', 'dynamic-remotion', 'dsh', 'agent-remotion'],
   })
   @IsOptional()
   @IsString()

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>Snail shell growing at its opening</title>
+  <ellipse cx="252" cy="430" rx="196" ry="22" fill="#5B4636" opacity="0.12"/>
+  <circle cx="235" cy="268" r="174" fill="#F8E9D4" stroke="#9A6B3F" stroke-width="7" stroke-dasharray="15 13"/>
+  <path d="M98 320C76 265 99 191 159 153C220 114 306 133 345 191C384 250 362 331 306 367C251 403 157 389 120 344" fill="#D69A62" stroke="#75492E" stroke-width="11" stroke-linecap="round"/>
+  <path d="M142 320C124 279 141 221 187 196C233 171 290 185 313 224C337 264 320 310 283 328C247 346 195 340 176 312C157 284 170 254 199 245C228 236 260 247 266 270C272 293 255 309 237 307C220 305 213 293 219 281C225 269 239 267 247 276" stroke="#8B5E3C" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M338 344C368 345 390 363 402 394" stroke="#75492E" stroke-width="24" stroke-linecap="round"/>
+  <path d="M338 344C368 345 390 363 402 394" stroke="#F3A65A" stroke-width="12" stroke-linecap="round"/>
+  <path d="M369 255C414 255 451 283 463 324" stroke="#E5A93B" stroke-width="11" stroke-linecap="round" stroke-dasharray="13 11"/>
+  <path d="M448 307L464 327L441 333" stroke="#E5A93B" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="404" cy="394" r="10" fill="#FFD666" stroke="#B97918" stroke-width="6"/>
+</svg>

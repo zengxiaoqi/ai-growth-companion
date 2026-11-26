@@ -99,6 +99,45 @@ function normalizeTerm(value: string | undefined): string | null {
 }
 
 /**
+ * label 是概念短语时，旁白常常不会逐字复述（“壳口长大”会说成“一圈圈长大”）。
+ * 在退回宽泛 subject 之前，先按动作/状态语义找同义说法，避免两个节点同时锚到
+ * 开头的“蜗牛/蜗牛壳”，导致焦点永远只有第一张卡。
+ */
+const LABEL_CUE_ALIASES: Array<{ pattern: RegExp; terms: string[] }> = [
+  { pattern: /背|携带|驮|带着/, terms: ['背着', '带着', '随身带', '驮着'] },
+  { pattern: /爬|行走|走路|走/, terms: ['爬', '走', '向前爬', '向前走'] },
+  { pattern: /长大|生长|变大|增大/, terms: ['长大', '生长', '变大', '一圈圈'] },
+  { pattern: /缩|躲|藏/, terms: ['缩进', '躲进', '藏起来', '缩起来'] },
+  { pattern: /花纹|纹路|螺旋/, terms: ['花纹', '纹路', '螺旋'] },
+  { pattern: /保护|阻挡|挡/, terms: ['保护', '挡住', '阻挡'] },
+  { pattern: /上升|升起|上浮/, terms: ['上升', '升起', '上浮', '向上'] },
+  { pattern: /下降|落下|下沉/, terms: ['下降', '落下', '下沉', '向下'] },
+  { pattern: /融化|化开/, terms: ['融化', '化开', '变成水'] },
+  { pattern: /凝固|结冰/, terms: ['凝固', '结冰', '变成冰'] },
+  { pattern: /蒸发|汽化/, terms: ['蒸发', '汽化', '变成水汽'] },
+  { pattern: /凝结|液化/, terms: ['凝结', '液化', '变成水珠'] },
+  { pattern: /开花|开放/, terms: ['开花', '开放', '盛开'] },
+  { pattern: /结果|长出果实/, terms: ['结果', '长出果实', '果实'] },
+  { pattern: /呼吸/, terms: ['呼吸', '吸气', '呼气'] },
+  { pattern: /旋转|转圈/, terms: ['旋转', '转圈', '转了一圈'] },
+];
+
+function labelCueTerms(value: string | undefined): string[] {
+  const cleaned = Array.from(String(value || ''))
+    .filter((ch) => !NON_SPEECH.test(ch))
+    .join('');
+  if (!cleaned) return [];
+  const terms: string[] = [];
+  for (const cue of LABEL_CUE_ALIASES) {
+    if (!cue.pattern.test(cleaned)) continue;
+    for (const term of cue.terms) {
+      if (term !== cleaned && terms.indexOf(term) < 0) terms.push(term);
+    }
+  }
+  return terms;
+}
+
+/**
  * 给每个节点算动作窗口。返回表里只有"能锚定"的节点，其余由调用方回退。
  */
 export function buildActionAnchors(
@@ -131,11 +170,23 @@ export function buildActionAnchors(
   for (const node of nodes) {
     const id = String(node?.id || '');
     if (!id) continue;
-    // label 优先：屏幕上写的字就是孩子听到的那个词；其次才是 subject（可检索名词）
-    const terms = [normalizeTerm(node.label), normalizeTerm(node.subject)].filter(
-      (term, i, arr): term is string => Boolean(term) && arr.indexOf(term) === i,
-    );
+    // label 优先：屏幕上写的字就是孩子听到的那个词；label 没逐字出现时先找动作/状态
+    // 的同义说法，最后才用 subject（可检索名词）兜底。
+    const terms = [
+      normalizeTerm(node.label),
+      ...labelCueTerms(node.label),
+      normalizeTerm(node.subject),
+    ].filter((term, i, arr): term is string => Boolean(term) && arr.indexOf(term) === i);
     for (const term of terms) {
+      // 语义兜底里可能有“爬/走”这样的单字动作。只有全篇唯一出现时才允许子串命中，
+      // 否则仍按既有边界退回 subject 或放弃锚点，不制造静默错配。
+      if (Array.from(term).length === 1) {
+        const occurrences = spoken.reduce(
+          (sum, page) => sum + page.text.split(term).length - 1,
+          0,
+        );
+        if (occurrences !== 1) continue;
+      }
       let hit: ActionAnchor | null = null;
       for (const page of spoken) {
         const at = page.text.indexOf(term);

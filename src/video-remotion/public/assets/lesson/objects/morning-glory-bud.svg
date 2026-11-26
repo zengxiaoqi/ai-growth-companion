@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>Unopened morning glory bud with a visible spiral</title>
+  <ellipse cx="256" cy="444" rx="132" ry="20" fill="#36543B" opacity="0.12"/>
+  <path d="M254 431C250 353 257 287 249 218" stroke="#3F7D44" stroke-width="17" stroke-linecap="round"/>
+  <path d="M254 344C208 333 170 302 164 261C211 265 249 290 254 344Z" fill="#65A65B" stroke="#3F7D44" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M255 304C294 283 330 252 335 214C294 222 264 250 255 304Z" fill="#7DBB68" stroke="#3F7D44" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M249 254C203 251 169 221 162 181C205 182 241 207 249 254Z" fill="#70B662" stroke="#3F7D44" stroke-width="8"/>
+  <path d="M244 105C180 96 144 147 157 201C169 251 220 271 263 248C302 228 318 184 296 150C276 119 236 109 211 127C187 144 182 177 198 199C213 220 241 225 258 209C273 195 270 174 256 164C244 155 229 160 225 172" fill="#9B7BD1" stroke="#5D438F" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M244 105C180 96 144 147 157 201C169 251 220 271 263 248C302 228 318 184 296 150C276 119 236 109 211 127C187 144 182 177 198 199C213 220 241 225 258 209C273 195 270 174 256 164C244 155 229 160 225 172" stroke="#D8C5F2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M243 105L257 76L270 107" fill="#6AA65A" stroke="#3F7D44" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

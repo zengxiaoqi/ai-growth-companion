@@ -1,6 +1,7 @@
 import { Composition } from "remotion";
 import { NumbersVideo } from "./compositions/NumbersVideo";
 import { TopicVideo } from "./compositions/TopicVideo";
+import { WhiteboardDemo } from "./compositions/WhiteboardDemo";
 import { INTRO_DURATION, NUMBER_SCENE_DURATION, OUTRO_DURATION, TRANSITION_DURATION } from "./theme/animations";
 import {
   DEFAULT_SLIDE_DURATION,
@@ -17,6 +18,7 @@ import {
 } from "./data/test-animation-data";
 import { CHINESE_CHARACTERS_VIDEO } from "./data/chinese-characters";
 import { MONKEY_VIDEO } from "./data/monkey-video";
+import { WHITEBOARD_DEMO_SLIDE } from "./data/whiteboard-demo";
 
 // NumbersVideo: intro + 10*scene + outro - 11 transitions
 // = 90 + 10*210 + 90 - 11*12 = 2148
@@ -55,6 +57,16 @@ export const RemotionRoot = () => {
           durationInFrames: calcTopicVideoFrames(props),
           props,
         })}
+      />
+
+      <Composition
+        id="WhiteboardDemo"
+        component={WhiteboardDemo}
+        fps={30}
+        width={1280}
+        height={720}
+        durationInFrames={WHITEBOARD_DEMO_SLIDE.durationFrames || 840}
+        defaultProps={{ data: WHITEBOARD_DEMO_SLIDE }}
       />
 
       <Composition

@@ -7,7 +7,15 @@ import * as path from 'path';
 import { GenerateVideoDataTool, TeachingVideoData } from '../ai/agent/tools/generate-video-data';
 import { VoiceService } from '../voice/voice.service';
 import { buildWatchTemplateHint, deriveWatchSceneDocument } from './lesson-scene';
-import { buildSubtitleCues, type WordBoundary } from './subtitle-timing';
+import { buildSubtitleCues, type SubtitlePageCue, type WordBoundary } from './subtitle-timing';
+import {
+  parseWhiteboardConfig,
+  readRasterDimensions,
+  resolveWhiteboardTiming,
+  resolveWhiteboardSourcePath,
+  WHITEBOARD_TEMPLATE_ID,
+  type ResolvedWhiteboardConfig,
+} from './whiteboard';
 import { auditFlowOrder, buildActionAnchors, summarizeActionAnchors } from './action-anchors';
 import { beatFramesFromSpeech } from './video/choreography';
 import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
@@ -24,7 +32,11 @@ type ResolveCompositionInput = string | Record<string, any>;
 type OriginalTeachingSlide = TeachingVideoData['slides'][number];
 type TeachingSlide = OriginalTeachingSlide & {
   durationFrames?: number;
+  durationSec?: number;
   narrationSrc?: string;
+  subtitlePages?: SubtitlePageCue[];
+  whiteboardAsset?: string;
+  whiteboard?: ResolvedWhiteboardConfig;
   transitionIn?: 'fade' | 'slide-left' | 'slide-right' | 'zoom';
 };
 type TeachingSlideItem = NonNullable<OriginalTeachingSlide['items']>[number];
@@ -188,6 +200,7 @@ export class RemotionRenderService implements OnModuleInit {
     // On startup no renders are in progress, so all narration-*.mp3 files
     // in public/ (excluding bg-music.mp3) are stale leftovers.
     await this.cleanupStaleNarrationFiles();
+    await this.cleanupStaleWhiteboardAssets();
 
     const result = await checkStaticFiles(this.remotionDir);
     if (result.passed) {
@@ -235,6 +248,35 @@ export class RemotionRenderService implements OnModuleInit {
       for (const file of staleFiles) {
         try {
           await fs.unlink(path.join(publicDir, file));
+        } catch {
+          // best effort
+        }
+      }
+    } catch {
+      // directory may not exist yet — fine
+    }
+  }
+
+  /** Remove runtime whiteboard copies left by a crashed render; authored assets stay untouched. */
+  private async cleanupStaleWhiteboardAssets(): Promise<void> {
+    const targetDir = path.join(this.remotionDir, 'public', 'whiteboard');
+    try {
+      const entries = await fs.readdir(targetDir, { withFileTypes: true });
+      const staleFiles = entries
+        .filter(
+          (entry) =>
+            entry.isFile() &&
+            /^whiteboard-[a-f0-9]{16}-\d+-[a-f0-9]+\.(?:png|jpe?g)$/i.test(entry.name),
+        )
+        .map((entry) => entry.name);
+      if (staleFiles.length === 0) return;
+
+      this.logger.log(
+        `[cleanupStaleWhiteboardAssets] removing ${staleFiles.length} stale whiteboard asset(s)`,
+      );
+      for (const file of staleFiles) {
+        try {
+          await fs.unlink(path.join(targetDir, file));
         } catch {
           // best effort
         }
@@ -618,6 +660,7 @@ export class RemotionRenderService implements OnModuleInit {
     const uniform =
       scenes.length > 1 &&
       !!firstVisual?.templateId &&
+      firstVisual.templateId !== WHITEBOARD_TEMPLATE_ID &&
       scenes.every(
         (s) =>
           s?.visual?.templateId === firstVisual.templateId &&
@@ -1015,9 +1058,13 @@ export class RemotionRenderService implements OnModuleInit {
         ? this.toText(scene?.visual?.caption)
         : this.toText(scene?.title, this.toText(scene?.visual?.caption)));
 
-    // Extract animation template from scene visual data
-    const templateId = this.toText(scene?.visual?.templateId);
-    const templateParams = this.asRecord(scene?.visual?.templateParams);
+    // Extract animation template from scene visual data. Accept the explicit
+    // top-level authoring fields as well as normalized Watch visual fields.
+    const templateId = this.toText(
+      scene?.visual?.templateId,
+      this.toText(scene?.animationTemplate),
+    );
+    const templateParams = this.asRecord(scene?.visual?.templateParams || scene?.animationParams);
     const animationTemplate = templateId ? { id: templateId, params: templateParams } : undefined;
 
     // Build visual scene descriptor from scene data
@@ -1070,6 +1117,7 @@ export class RemotionRenderService implements OnModuleInit {
         this.toText(scene?.narration, '请和老师一起学习。'),
         300,
       ),
+      durationSec: Math.max(3, Math.min(120, Number(scene?.durationSec) || 12)),
       ...(animationTemplate ? { animationTemplate } : {}),
       visual,
       transitionIn,
@@ -1077,8 +1125,11 @@ export class RemotionRenderService implements OnModuleInit {
   }
 
   private resolveSceneTheme(scene: Record<string, any>, index: number): SlideTheme {
-    const templateId = this.toText(scene?.visual?.templateId);
-    const templateParams = this.asRecord(scene?.visual?.templateParams);
+    const templateId = this.toText(
+      scene?.visual?.templateId,
+      this.toText(scene?.animationTemplate),
+    );
+    const templateParams = this.asRecord(scene?.visual?.templateParams || scene?.animationParams);
 
     if (templateId === 'science.seasons-cycle') {
       const focusSeason = this.toSeasonIndex(templateParams.focusSeason);
@@ -1485,9 +1536,17 @@ export class RemotionRenderService implements OnModuleInit {
       }
 
       let buffer: Buffer | null = null;
+      let wordBoundaries: WordBoundary[] = [];
+      const isWhiteboard = slide.animationTemplate?.id === WHITEBOARD_TEMPLATE_ID;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          buffer = await this.voiceService.textToSpeech(slide.narration);
+          if (isWhiteboard) {
+            const speech = await this.voiceService.textToSpeechWithTiming(slide.narration);
+            buffer = speech.buffer;
+            wordBoundaries = speech.wordBoundaries || [];
+          } else {
+            buffer = await this.voiceService.textToSpeech(slide.narration);
+          }
           // Zero-byte responses are a persistent failure (TTS engine down or
           // misconfigured). Retrying won't help — fail fast and fall through
           // to the silent-placeholder path.
@@ -1517,10 +1576,10 @@ export class RemotionRenderService implements OnModuleInit {
         // Fallback: estimate duration from text length (≈4 chars/s for Chinese TTS)
         const chars = slide.narration.replace(/\s+/g, '').length;
         const estimatedSeconds = Math.max(3, chars / 4);
-        slideResults.push({
-          ...slide,
-          durationFrames: Math.ceil(estimatedSeconds * 30) + 30,
-        });
+        const durationFrames = isWhiteboard
+          ? Math.max(90, Math.ceil((slide as any).durationSec * 30) || Math.ceil(estimatedSeconds * 30) + 30)
+          : Math.ceil(estimatedSeconds * 30) + 30;
+        slideResults.push({ ...slide, durationFrames });
         continue;
       }
 
@@ -1529,14 +1588,80 @@ export class RemotionRenderService implements OnModuleInit {
       await fs.writeFile(path.join(publicDir, filename), buffer);
 
       const durationFrames = this.parseMp3DurationFrames(buffer);
+      const subtitlePages =
+        isWhiteboard && wordBoundaries.length > 0
+          ? buildSubtitleCues(slide.narration, wordBoundaries, { fps: 30, sceneFrames: durationFrames })?.pages
+          : undefined;
       slideResults.push({
         ...slide,
         narrationSrc: filename,
         durationFrames,
+        ...(subtitlePages ? { subtitlePages } : {}),
       });
     }
 
-    return { ...data, slides: slideResults };
+    return { ...data, slides: await this.prepareWhiteboardSlides(slideResults) };
+  }
+
+  private async prepareWhiteboardSlides(slides: TeachingSlide[]): Promise<TeachingSlide[]> {
+    const prepared: TeachingSlide[] = [];
+    for (const slide of slides) {
+      if (slide.animationTemplate?.id !== WHITEBOARD_TEMPLATE_ID) {
+        prepared.push(slide);
+        continue;
+      }
+      try {
+        const parsed = parseWhiteboardConfig(slide.animationTemplate.params);
+        if (parsed.error || !parsed.config) throw new Error(parsed.error);
+        const asset = await this.prepareWhiteboardAsset(parsed.config.sourceImage, parsed.config.canvas);
+        const durationFrames = Math.max(90, Math.round((slide.durationFrames || slide.durationSec * 30 || 180) as number));
+        const whiteboard = resolveWhiteboardTiming(parsed.config, {
+          subtitlePages: slide.subtitlePages,
+          durationFrames,
+          fps: 30,
+        });
+        prepared.push({
+          ...slide,
+          bgColor: parsed.config.paper || '#F6F1E3',
+          durationFrames,
+          whiteboardAsset: asset,
+          whiteboard: { ...whiteboard, sourceImage: asset },
+        });
+      } catch (error: any) {
+        this.logger.warn(
+          `[whiteboard] invalid scene "${slide.title}", falling back to the standard slide: ${error?.message || 'unknown error'}`,
+        );
+        const { animationTemplate: _animationTemplate, ...fallback } = slide;
+        prepared.push(fallback);
+      }
+    }
+    return prepared;
+  }
+
+  private async prepareWhiteboardAsset(
+    sourceImage: string,
+    canvas: { width: number; height: number },
+  ): Promise<string> {
+    const publicDir = path.join(this.remotionDir, 'public');
+    const backendPublicDir = path.resolve(__dirname, '../../../public');
+    const sourcePath = resolveWhiteboardSourcePath(sourceImage, this.remotionDir, backendPublicDir);
+    if (!/\.(png|jpe?g)$/i.test(sourcePath)) throw new Error('sourceImage 只支持 PNG/JPEG');
+    const stat = await fs.stat(sourcePath);
+    if (!stat.isFile() || stat.size > 16 * 1024 * 1024) {
+      throw new Error('sourceImage 不存在或超过 16MB');
+    }
+    const buffer = await fs.readFile(sourcePath);
+    const dimensions = readRasterDimensions(buffer);
+    if (!dimensions) throw new Error('无法读取 sourceImage 尺寸');
+    if (dimensions.width !== canvas.width || dimensions.height !== canvas.height) {
+      throw new Error(`sourceImage 尺寸 ${dimensions.width}×${dimensions.height} 与 canvas ${canvas.width}×${canvas.height} 不一致`);
+    }
+    const digest = createHash('sha1').update(buffer).digest('hex').slice(0, 16);
+    const filename = `whiteboard-${digest}-${process.pid}-${Math.random().toString(16).slice(2, 8)}${path.extname(sourcePath).toLowerCase()}`;
+    const targetDir = path.join(publicDir, 'whiteboard');
+    await fs.mkdir(targetDir, { recursive: true });
+    await fs.writeFile(path.join(targetDir, filename), buffer);
+    return `whiteboard/${filename}`;
   }
 
   /**
@@ -1631,9 +1756,12 @@ export class RemotionRenderService implements OnModuleInit {
 
     const publicDir = path.join(this.remotionDir, 'public');
     for (const slide of slides) {
-      if (slide.narrationSrc) {
+      for (const relative of [slide.narrationSrc, slide.whiteboardAsset]) {
+        if (!relative || path.isAbsolute(relative)) continue;
         try {
-          await fs.unlink(path.join(publicDir, slide.narrationSrc));
+          const target = path.resolve(publicDir, relative);
+          if (!target.startsWith(`${publicDir}${path.sep}`)) continue;
+          await fs.unlink(target);
         } catch {
           // best effort cleanup
         }

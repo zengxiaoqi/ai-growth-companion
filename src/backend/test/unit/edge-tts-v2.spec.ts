@@ -21,6 +21,26 @@ describe('Edge TTS V2 compatibility patch', () => {
     );
   });
 
+  it('patches the module function consumed by EdgeTTS instances', async () => {
+    installEdgeTtsV2Patch();
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const protocol = require('@andresaya/edge-tts/dist/core/protocol');
+    await expect(protocol.generateSecMsGec('ignored', 1763664000000)).resolves.toBe(
+      'CA59E35B293077E3-5497547729EA68B46333F7325C22CD0E377274191A6BE965431CD79F44AD3F8C',
+    );
+  });
+
+  it('aligns the handshake version and browser headers', () => {
+    installEdgeTtsV2Patch();
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const constants = require('@andresaya/edge-tts/dist/config/constants');
+    expect(constants.Constants.VERSION_MS_GEC).toBe('2-143.0.3650.75');
+    expect(constants.Constants.getBaseHeaders()['User-Agent']).toContain('Edg/143.0.0.0');
+    expect(constants.Constants.WSS_HEADERS['User-Agent']).toContain('Edg/143.0.0.0');
+    expect(constants.Constants.VOICE_HEADERS['User-Agent']).toContain('Edg/143.0.0.0');
+    expect(constants.Constants.VOICE_HEADERS['Sec-CH-UA']).toContain('Chromium";v="143');
+  });
+
   it('patches the library to use V2 token and legacy endpoint with TrustedClientToken', () => {
     installEdgeTtsV2Patch();
     // eslint-disable-next-line @typescript-eslint/no-var-requires

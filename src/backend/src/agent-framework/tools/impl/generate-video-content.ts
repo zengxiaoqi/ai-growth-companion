@@ -25,8 +25,12 @@ import {
   formatCoverageFeedback,
   formatDensityFeedback,
 } from '../../../modules/learning/video/scene-graph';
-import { describeFigureGrammar, normalizeFigureSpec } from '../../../modules/learning/video/figure-spec';
+import {
+  describeFigureGrammar,
+  normalizeFigureSpec,
+} from '../../../modules/learning/video/figure-spec';
 import { repairFigures, type FigureReject } from '../../../modules/learning/video/figure-repair';
+import { assertTopicSpecificScienceFacts } from '../../../modules/learning/science-fact-guards';
 import {
   describeChoreographyGrammar,
   sanitizeBeats,
@@ -189,7 +193,12 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
     const failures: string[] = [];
     // 重试带话术重掷整份分镜，不是定点修补：实测有样本被掷得更差（缺 2 个节点 → 缺 6 个）。
     // 所以每轮留最好的一份，别让更差的覆盖更好的。
-    let best: { storyboard: VideoStoryboard; mismatches: string[]; missing: number; score: number } | null = null;
+    let best: {
+      storyboard: VideoStoryboard;
+      mismatches: string[];
+      missing: number;
+      score: number;
+    } | null = null;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       try {
@@ -222,10 +231,13 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         }
 
         const storyboard = this.sanitizeStoryboard(parsed, topic, domain, sceneCount, ageGroup);
+        assertTopicSpecificScienceFacts({ scenes: storyboard.scenes }, topic);
         await this.repairRejectedFigures(storyboard);
         const audit = this.auditNarrationCoverage(storyboard);
         if (audit.missingCount === 0 && audit.crowdedCount === 0) {
-          this.logger.log(`Generated storyboard for "${topic}": ${storyboard.scenes.length} scenes`);
+          this.logger.log(
+            `Generated storyboard for "${topic}": ${storyboard.scenes.length} scenes`,
+          );
           return this.ok(storyboard);
         }
         // 画面节点没被旁白念到 = 孩子看见一个没讲过的概念；一屏塞太多概念 = 旁白只能连报。
@@ -309,7 +321,7 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       "visualMode": "figure | graph（先把概念画成图形，图形本身能说明知识就填 figure）",
       "figure": {
         "shapes": [
-          { "kind": "arc | line | curve | circle | rect | polygon", "reveal": "0~1，只表达先后", "...": "其余为该图元的坐标字段，见下方 figure 说明" }
+          { "kind": "arc | line | curve | circle | rect | polygon", "id": "optional stable id such as arc1", "reveal": "0~1，只表达先后", "...": "其余为该图元的坐标字段，见下方 figure 说明" }
         ],
         "labels": [{ "text": "≤6字", "x": 0, "y": 0 }]
       },
@@ -340,12 +352,24 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
   ]
 }`;
 
+    const topicFactRules = /蜗牛/.test(topic)
+      ? [
+          '## Topic-Specific Fact Constraints (MANDATORY):',
+          '- 蜗牛壳不是年轮；禁止根据圈数、花纹数量推断年龄或大小，禁止“长一岁多一圈”或“每长大一点多一圈”。',
+          '- 蜗牛壳在壳口边缘逐渐形成；禁止说从里向外长大。',
+          '- 有壳只表示有一定保护作用；禁止“绝对安全”“不怕被啄咬”等保证。',
+          '- 图形示例必须是蜗牛或旁白明确说明的螺旋形物体，不能把牵牛花、羊角当作蜗牛花纹本身。',
+          '',
+        ].join('\n')
+      : '';
+
     return [
       "You are a senior children's educational video storyboard designer.",
       `Design a structured storyboard for an animated teaching video about: ${topic}`,
       `Domain: ${domain} | Target age: ${ageGroup} years old`,
       `Generate exactly ${sceneCount} scenes with a clear narrative arc.`,
       '',
+      topicFactRules,
       '## CRITICAL Content Requirements:',
       '- ALL text must be in Chinese (Simplified).',
       '- Every scene narration MUST be 40-80 Chinese characters with SPECIFIC knowledge about the topic.',
@@ -548,7 +572,11 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
     return { issues: [...densityIssues, ...issues], missingCount, crowdedCount };
   }
 
-  private sanitizeScene(raw: Record<string, any>, index: number, ageGroup: AgeGroup): StoryboardScene {
+  private sanitizeScene(
+    raw: Record<string, any>,
+    index: number,
+    ageGroup: AgeGroup,
+  ): StoryboardScene {
     const emphasis = this.toText(raw?.emphasis);
     const transition = this.toText(raw?.transitionToNext);
 

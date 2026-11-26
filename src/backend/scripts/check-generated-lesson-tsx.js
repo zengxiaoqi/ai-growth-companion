@@ -29,6 +29,67 @@ const stagePath = path.join(
 );
 const stageSource = fs.existsSync(stagePath) ? fs.readFileSync(stagePath, 'utf8') : '';
 
+/**
+ * 专属 character 舞台也是运行时生成代码，不能只做字符串/语法抽查。
+ * 这里把导出的原始 TSX 落到 Remotion 项目内，用同一套 React/Remotion 类型做一次
+ * 真正的 tsc 检查。此前 foreignObject 里的 div 写了不支持的 xmlns，静帧能渲染，
+ * 但任务级 TS 检查会拒绝；这个闸门就是堵住这类“能渲染但不能出片”的回归。
+ */
+const snailStagePath = path.join(
+  __dirname,
+  '..',
+  'src',
+  'modules',
+  'learning',
+  'video',
+  'snail-shell-study-source.ts',
+);
+const remotionRoot = path.resolve(__dirname, '../../video-remotion');
+const generatedRoot = path.join(remotionRoot, '.generated');
+const stageAnchor = 'export const SNAIL_SHELL_STUDY_STAGE_SOURCE = String.raw`';
+let stageTypeErrors = 0;
+let stageCheckDir = null;
+
+if (fs.existsSync(snailStagePath)) {
+  const snailSource = fs.readFileSync(snailStagePath, 'utf8');
+  const stageStart = snailSource.indexOf(stageAnchor);
+  const stageBodyStart = stageStart < 0 ? -1 : stageStart + stageAnchor.length;
+  const stageEnd = stageBodyStart < 0 ? -1 : snailSource.indexOf('`;', stageBodyStart);
+  if (stageBodyStart < 0 || stageEnd < 0) {
+    console.error('snail stage template anchor/end not found');
+    stageTypeErrors += 1;
+  } else {
+    fs.mkdirSync(generatedRoot, { recursive: true });
+    stageCheckDir = fs.mkdtempSync(path.join(generatedRoot, 'lesson-stage-check-'));
+    const stageFile = path.join(stageCheckDir, 'SnailShellStudyStage.tsx');
+    fs.writeFileSync(stageFile, snailSource.slice(stageBodyStart, stageEnd), 'utf8');
+    const program = ts.createProgram([stageFile], {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      jsx: ts.JsxEmit.ReactJSX,
+      strict: true,
+      esModuleInterop: true,
+      skipLibCheck: true,
+      noEmit: true,
+    });
+    const diagnostics = ts.getPreEmitDiagnostics(program);
+    stageTypeErrors = diagnostics.length;
+    for (const diagnostic of diagnostics) {
+      const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ');
+      if (diagnostic.file && diagnostic.start != null) {
+        const pos = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
+        console.error(`SnailShellStudyStage.tsx:L${pos.line + 1}:C${pos.character + 1} TS${diagnostic.code} ${message}`);
+      } else {
+        console.error(`TS${diagnostic.code} ${message}`);
+      }
+    }
+    fs.rmSync(stageCheckDir, { recursive: true, force: true });
+    stageCheckDir = null;
+  }
+}
+console.log('stage_type_errors=' + stageTypeErrors);
+
 const anchor = 'return String.raw`';
 const start = source.indexOf(anchor);
 if (start < 0) {
@@ -83,6 +144,7 @@ const mustHave = [
   'const GraphConnector',
   'relation === "cycle"',
   'relation === "compare"',
+  'equalScale={graph.relation === "compare"}',
   'relation === "group" || graph.relation === "split"',
   'const hasGraph',
   'normalizeSceneGraph',
@@ -156,7 +218,17 @@ const mustHave = [
   // 拿不到时间戳的场景（TTS 挂了/老任务重渲）整轨字幕会消失
   'scene.subtitlePages',
   'SUB_PRE_ROLL',
-  'splitNarration(scene.narration || "", 15, 2)',
+  'splitNarration(scene.narration || "", SUB_MAX_CHARS, SUB_MAX_LINES)',
+  'const splitGraphemes',
+  'const validSubtitleTimeline',
+  'const subtitleTokenLines',
+  'rgba(5, 15, 23, 0.92)',
+  // 没有骨架的动物必须使用自己的矢量演员舞台，不能掉进默认小熊骨架。
+  'const vectorMotion',
+  'const VectorPerformanceStage',
+  'scene.interaction!.vectorPerformance',
+  'vp.speechAt === undefined',
+  'actor.assetSrc || "assets/vector/animals/"',
   // 场地背景必须覆盖**所有画人物的舞台**。只给全身木偶与三维舞台画世界时，
   // 双人徽章幕和巨图特写幕还是旧 habitat 屏保，同一节课出现两种背景。
   // 少了这个组件，后面再有新舞台也会静默漏掉背景，而且不会有任何报错。
@@ -217,7 +289,12 @@ console.log('missing_relations=' + (missingRelations.length ? missingRelations.j
 console.log('missing_signs=' + (missingSigns.length ? missingSigns.join(',') : 'none'));
 
 process.exit(
-  diagnostics.length === 0 && missing.length === 0 && missingRelations.length === 0 && missingSigns.length === 0 && missingMotions.length === 0
+  diagnostics.length === 0 &&
+  stageTypeErrors === 0 &&
+  missing.length === 0 &&
+  missingRelations.length === 0 &&
+  missingSigns.length === 0 &&
+  missingMotions.length === 0
     ? 0
     : 1,
 );

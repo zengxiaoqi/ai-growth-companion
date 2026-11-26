@@ -47,10 +47,19 @@ const NON_SPEECH = /[\s\p{P}\p{S}]/u;
 
 const CJK_BREAK = /[，。！？；：、,.!?;:]/;
 
+const splitGraphemes = (text: string): string[] => {
+  const Segmenter = (Intl as any).Segmenter;
+  if (!Segmenter) return Array.from(text);
+  return Array.from(
+    new Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
+    (entry: any) => entry.segment,
+  );
+};
+
 /** 把一屏文字切成"字+尾随标点"的 token（与模板 subtitleTokens 同义） */
 export function subtitleTokens(text: string): string[] {
   const out: string[] = [];
-  for (const ch of Array.from(text)) {
+  for (const ch of splitGraphemes(text)) {
     if (out.length > 0 && TOKEN_PUNCT.test(ch)) out[out.length - 1] += ch;
     else out.push(ch);
   }
@@ -59,25 +68,39 @@ export function subtitleTokens(text: string): string[] {
 
 /** 与模板 splitNarration 同义的分屏：按标点优先切，保证每屏不超过 maxChars*maxLines */
 export function splitSubtitlePages(text: string, maxChars = 15, maxLines = 2): string[] {
-  const limit = maxChars * maxLines;
+  const limit = Math.max(1, maxChars * maxLines);
+  const chars = splitGraphemes((text || '').trim());
   const out: string[] = [];
-  let rest = (text || '').trim();
-  if (!rest) return [''];
-  while (rest.length > 0) {
-    if (rest.length <= limit) {
-      out.push(rest);
+  let from = 0;
+  while (from < chars.length) {
+    const remaining = chars.length - from;
+    if (remaining <= limit) {
+      out.push(chars.slice(from).join(''));
       break;
     }
+    const minCut = from + Math.max(1, Math.floor(limit * 0.6));
     let cut = -1;
-    for (let i = Math.min(rest.length, limit); i > Math.floor(limit * 0.6); i--) {
-      if (CJK_BREAK.test(rest.charAt(i - 1))) {
+    for (let i = from + limit; i > minCut; i -= 1) {
+      if (CJK_BREAK.test(chars[i - 1])) {
         cut = i;
         break;
       }
     }
-    if (cut < 0) cut = limit;
-    out.push(rest.slice(0, cut));
-    rest = rest.slice(cut).trim();
+    if (cut < 0) cut = from + limit;
+    // 不把最后一个字单独推到下一屏：孩子会看到“彩色条 / 纹”这种断裂。
+    // 优先回退到附近的标点；没有标点就匀出两格，仍保持每屏容量上限。
+    if (chars.length - cut < 3 && cut > minCut) {
+      let target = Math.max(minCut, cut - (3 - (chars.length - cut)));
+      for (let i = target; i > minCut; i -= 1) {
+        if (CJK_BREAK.test(chars[i - 1])) {
+          target = i;
+          break;
+        }
+      }
+      cut = target;
+    }
+    out.push(chars.slice(from, cut).join(''));
+    from = cut;
   }
   return out.length > 0 ? out : [''];
 }

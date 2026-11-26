@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import { LessonVideoQueueService } from '../../src/modules/learning/lesson-video-queue.service';
+import { ScienceFactGateError } from '../../src/modules/learning/science-fact-guards';
 import {
   announcePortOwner,
   isWorkerActive,
@@ -9,6 +10,7 @@ import {
 describe('LessonVideoQueueService', () => {
   let service: LessonVideoQueueService;
   let taskRepo: { update: jest.Mock; findOne: jest.Mock; save: jest.Mock };
+  let contentRepo: { update: jest.Mock; findOne: jest.Mock };
   let aiService: { renderTeachingVideoFromPack: jest.Mock };
   let remotionRender: {
     resolveComposition: jest.Mock;
@@ -28,6 +30,11 @@ describe('LessonVideoQueueService', () => {
       update: jest.fn().mockResolvedValue(undefined),
       findOne: jest.fn().mockResolvedValue(null),
       save: jest.fn().mockImplementation(async (x) => x),
+    };
+
+    contentRepo = {
+      update: jest.fn().mockResolvedValue(undefined),
+      findOne: jest.fn().mockResolvedValue(null),
     };
 
     aiService = {
@@ -51,7 +58,7 @@ describe('LessonVideoQueueService', () => {
 
     service = new LessonVideoQueueService(
       taskRepo as any,
-      {} as any,
+      contentRepo as any,
       aiService as any,
       remotionRender as any,
       hyperframesRender as any,
@@ -61,6 +68,104 @@ describe('LessonVideoQueueService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('prefers native Remotion for whiteboard scenes in auto and remotion modes only', () => {
+    const payload = {
+      watchScene: {
+        scenes: [
+          {
+            visual: {
+              templateId: 'language.whiteboard-story',
+              templateParams: { sourceImage: 'whiteboard/shapes.png' },
+            },
+          },
+        ],
+      },
+    };
+
+    expect((service as any).resolveEngineOrder('auto', payload)[0]).toBe('remotion');
+    expect((service as any).resolveEngineOrder('remotion', payload)).toEqual([
+      'remotion',
+      'dynamic-remotion',
+    ]);
+    expect((service as any).resolveEngineOrder('agent-remotion', payload)[0]).toBe(
+      'agent-remotion',
+    );
+    expect((service as any).resolveEngineOrder('hyperframes', payload)).toEqual(['hyperframes']);
+    expect((service as any).normalizeRenderEngine('dynamic-remotion')).toBe('dynamic-remotion');
+    expect((service as any).resolveEngineOrder('dynamic-remotion', payload)).toEqual([
+      'dynamic-remotion',
+    ]);
+  });
+
+  it('includes whiteboard region changes and renderer version in the cache key', async () => {
+    const content = { id: 12, updatedAt: new Date('2026-11-24T00:00:00Z') } as any;
+    const payload = {
+      watchScene: {
+        scenes: [
+          {
+            visual: {
+              templateId: 'language.whiteboard-story',
+              templateParams: {
+                sourceImage: 'whiteboard/shapes.png',
+                regions: [{ id: 'circle', region: { x: 10, y: 10, width: 100, height: 100 } }],
+              },
+            },
+          },
+        ],
+      },
+    };
+    const changed = JSON.parse(JSON.stringify(payload));
+    changed.watchScene.scenes[0].visual.templateParams.regions[0].region.x = 20;
+
+    const first = await (service as any).computeCacheKey(content, payload);
+    expect(await (service as any).computeCacheKey(content, changed)).not.toBe(first);
+    expect(await (service as any).computeCacheKey(content, payload)).toBe(first);
+  });
+
+  it('includes whiteboard source image bytes in the cache key', async () => {
+    const content = { id: 13, updatedAt: new Date('2026-11-24T00:00:00Z') } as any;
+    const payload = {
+      watchScene: {
+        scenes: [
+          {
+            visual: {
+              templateId: 'language.whiteboard-story',
+              templateParams: { sourceImage: 'assets/lesson/whiteboard/shapes.png' },
+            },
+          },
+        ],
+      },
+    };
+    const readFile = jest
+      .spyOn(fs, 'readFile')
+      .mockResolvedValueOnce(Buffer.from('first image'))
+      .mockResolvedValueOnce(Buffer.from('second image'));
+
+    const first = await (service as any).computeCacheKey(content, payload);
+    const second = await (service as any).computeCacheKey(content, payload);
+    expect(second).not.toBe(first);
+    expect(readFile).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores stale whiteboard markers outside the effective Watch scenes', () => {
+    const payload = {
+      watchScene: {
+        scenes: [
+          {
+            narration: '普通故事镜头',
+            visual: { templateId: 'language.story-scene' },
+          },
+        ],
+      },
+      visualStory: {
+        __storyboard: { templateId: 'language.whiteboard-story' },
+      },
+    };
+
+    expect((service as any).payloadHasWhiteboard(payload)).toBe(false);
+    expect((service as any).resolveEngineOrder('auto', payload)[0]).not.toBe('remotion');
   });
 
   it('syncs current watch scene text into legacy video payload fields', () => {
@@ -144,6 +249,7 @@ describe('LessonVideoQueueService', () => {
       repairGeneratedRemotionComposition: jest
         .fn()
         .mockResolvedValue(createDynamicManifest('GeneratedLesson_tiger_repair')),
+      generateFallbackStoryboard: jest.fn().mockResolvedValue(null),
       ...overrides,
     };
   }
@@ -151,7 +257,7 @@ describe('LessonVideoQueueService', () => {
   function createAgentBackedService(videoAgent: Record<string, any>) {
     return new LessonVideoQueueService(
       taskRepo as any,
-      {} as any,
+      contentRepo as any,
       aiService as any,
       remotionRender as any,
       hyperframesRender as any,
@@ -159,6 +265,57 @@ describe('LessonVideoQueueService', () => {
       videoAgent as any,
     );
   }
+
+  it('blocks a risky agent storyboard without silently using another fallback', async () => {
+    const videoAgent = createVideoAgent({
+      generateViaAgent: jest.fn().mockResolvedValue({
+        storyboard: {
+          title: '蜗牛壳',
+          topic: '蜗牛壳上的花纹',
+          scenes: [{ title: '壳上的圈', narration: '蜗牛长一岁多一圈。' }],
+        },
+        qualityScore: 99,
+        qualityPassed: true,
+        toolCalls: [],
+        agentFiles: new Map(),
+      }),
+      generateFallbackStoryboard: jest.fn(),
+    });
+    const agentService = createAgentBackedService(videoAgent);
+
+    await expect(
+      (agentService as any).generateVideoBuffer(
+        { id: 61, contentId: 68, cacheKey: 'risky-agent', renderEngine: 'dynamic-remotion' },
+        { topic: '蜗牛壳上的花纹', domain: 'science', ageGroup: '5-6' },
+      ),
+    ).rejects.toBeInstanceOf(ScienceFactGateError);
+    expect(videoAgent.generateFallbackStoryboard).not.toHaveBeenCalled();
+    expect(remotionRender.renderGeneratedComposition).not.toHaveBeenCalled();
+    expect(remotionRender.renderComposition).not.toHaveBeenCalled();
+    expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
+  });
+
+  it('blocks a risky fallback storyboard instead of degrading to legacy rendering', async () => {
+    const videoAgent = createVideoAgent({
+      generateViaAgent: jest.fn().mockRejectedValue(new Error('agent unavailable')),
+      generateFallbackStoryboard: jest.fn().mockResolvedValue({
+        title: '蜗牛壳',
+        topic: '蜗牛壳上的花纹',
+        scenes: [{ title: '保护作用', narration: '有壳就不怕被小鸟啄。' }],
+      }),
+    });
+    const agentService = createAgentBackedService(videoAgent);
+
+    await expect(
+      (agentService as any).generateVideoBuffer(
+        { id: 62, contentId: 68, cacheKey: 'risky-fallback', renderEngine: 'auto' },
+        { topic: '蜗牛壳上的花纹', domain: 'science', ageGroup: '5-6' },
+      ),
+    ).rejects.toBeInstanceOf(ScienceFactGateError);
+    expect(remotionRender.renderGeneratedComposition).not.toHaveBeenCalled();
+    expect(remotionRender.renderComposition).not.toHaveBeenCalled();
+    expect(aiService.renderTeachingVideoFromPack).not.toHaveBeenCalled();
+  });
 
   it('builds remotion payload from structured lesson watch content', () => {
     const watchScene = {
@@ -389,7 +546,7 @@ describe('LessonVideoQueueService', () => {
     };
     const agentService = new LessonVideoQueueService(
       taskRepo as any,
-      {} as any,
+      contentRepo as any,
       aiService as any,
       remotionRender as any,
       hyperframesRender as any,
@@ -571,6 +728,68 @@ describe('LessonVideoQueueService', () => {
     expect(result.buffer).toEqual(Buffer.from('video-remotion'));
   });
 
+  it('blocks a failed native Remotion QA verdict before releasing the buffer', async () => {
+    const previousGate = process.env.VIDEO_QA_GATE;
+    delete process.env.VIDEO_QA_GATE;
+    const visualQa = {
+      isConfigured: true,
+      qaDir: jest.fn().mockReturnValue('qa-dir'),
+      sceneSampleTimes: jest.fn().mockReturnValue([0, 1]),
+      extractFrames: jest.fn().mockResolvedValue([]),
+      reviewVideo: jest.fn().mockResolvedValue({
+        passed: false,
+        score: 62,
+        blockers: ['subtitle unreadable'],
+        issues: ['subtitle unreadable'],
+        scenes: [],
+        framesReviewed: 2,
+      }),
+    };
+    const qaService = new LessonVideoQueueService(
+      taskRepo as any,
+      contentRepo as any,
+      aiService as any,
+      remotionRender as any,
+      hyperframesRender as any,
+      dshBridge as any,
+      undefined,
+      visualQa as any,
+    );
+    remotionRender.resolveComposition.mockResolvedValue({
+      compositionId: 'TopicVideo',
+      inputProps: {
+        slides: [{ title: '第一幕', narration: '这是旁白。', durationFrames: 240 }],
+      },
+    });
+    remotionRender.renderComposition.mockResolvedValue(undefined);
+    jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
+    jest.spyOn(fs, 'rm').mockResolvedValue(undefined);
+    jest.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('video-remotion'));
+    jest.spyOn(fs, 'unlink').mockResolvedValue(undefined);
+
+    try {
+      await expect(
+        (qaService as any).generateByRemotion(
+          { id: 12, cacheKey: 'qa-cache' },
+          {
+            topic: '蜗牛',
+            __storyboard: {
+              scenes: [{ title: '第一幕', narration: '这是旁白。', durationSec: 8 }],
+            },
+          },
+        ),
+      ).rejects.toThrow('remotion QA failed: score=62');
+      expect(visualQa.reviewVideo).toHaveBeenCalledTimes(1);
+      expect(taskRepo.update).toHaveBeenCalledWith(
+        12,
+        expect.objectContaining({ qaPassed: false, qaScore: 62 }),
+      );
+    } finally {
+      if (previousGate === undefined) delete process.env.VIDEO_QA_GATE;
+      else process.env.VIDEO_QA_GATE = previousGate;
+    }
+  });
+
   it('uses hyperframes only when renderEngine is hyperframes', async () => {
     hyperframesRender.renderLessonVideo.mockResolvedValue(Buffer.from('video-hf'));
 
@@ -631,6 +850,10 @@ describe('LessonVideoQueueService', () => {
             durationSec: 12,
             animationTemplate: 'science.animal-intro',
             animationParams: { animal: 'tiger' },
+            performance: {
+              actors: [{ id: 'tiger', label: '老虎', role: 'helper' }],
+              actions: [{ verb: 'walk', caption: '老虎从森林里走出来' }],
+            },
           },
           {
             scene: '老虎捕食',
@@ -638,6 +861,13 @@ describe('LessonVideoQueueService', () => {
             narration: '老虎爱吃肉，会安静观察再行动。',
             onScreenText: '爱吃肉',
             durationSec: 10,
+            sceneGraph: {
+              relation: 'compare',
+              nodes: [
+                { id: 'tiger', label: '老虎', subject: '老虎', role: 'subject' },
+                { id: 'prey', label: '猎物', subject: '猎物', role: 'object' },
+              ],
+            },
           },
         ],
       },
@@ -677,6 +907,37 @@ describe('LessonVideoQueueService', () => {
         expect.any(Map),
       );
       expect(result.buffer).toEqual(Buffer.from('pack-video'));
+    });
+
+    it('runs the storyboard agent when aligned pack scenes only have prose visuals', async () => {
+      const videoAgent = createVideoAgent();
+      const agentService = createAgentBackedService(videoAgent);
+      remotionRender.renderGeneratedComposition.mockResolvedValue(undefined);
+      jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
+      jest.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('agent-video'));
+      jest.spyOn(fs, 'unlink').mockResolvedValue(undefined);
+
+      await (agentService as any).generateVideoBuffer(
+        { id: 42, contentId: 62, childId: 3, cacheKey: 'prose-pack', renderEngine: 'auto' },
+        {
+          ...alignedPayload,
+          visualStory: {
+            scenes: alignedPayload.visualStory.scenes.map((scene: any) => {
+              const proseOnly = { ...scene };
+              delete proseOnly.performance;
+              delete proseOnly.sceneGraph;
+              return proseOnly;
+            }),
+          },
+        },
+      );
+
+      expect(videoAgent.generateViaAgent).toHaveBeenCalledTimes(1);
+      expect(videoAgent.generateRemotionComposition).toHaveBeenCalledWith(
+        expect.objectContaining({ topic: '认识动物老虎' }),
+        expect.anything(),
+        expect.any(Map),
+      );
     });
 
     it('still runs the storyboard agent when pack scenes are off-topic', async () => {
@@ -719,14 +980,33 @@ describe('LessonVideoQueueService', () => {
         domain: 'science',
         visualStory: {},
         watchScene: {
-          scenes: [{ title: '老虎登场', narration: '老虎有条纹。', durationSec: 99 }],
+          scenes: [
+            {
+              title: '老虎登场',
+              narration: '老虎有条纹。',
+              durationSec: 99,
+              sceneGraph: {
+                relation: 'compare',
+                nodes: [
+                  { id: 'tiger', label: '老虎', subject: '老虎', role: 'subject' },
+                  { id: 'stripe', label: '条纹', subject: '黑色条纹', role: 'object' },
+                ],
+              },
+            },
+          ],
         },
       });
 
       expect(storyboard).toMatchObject({
         topic: '认识动物老虎',
         sceneCount: 1,
-        scenes: [expect.objectContaining({ title: '老虎登场', durationSec: 30 })],
+        scenes: [
+          expect.objectContaining({
+            title: '老虎登场',
+            durationSec: 30,
+            sceneGraph: expect.objectContaining({ relation: 'compare' }),
+          }),
+        ],
       });
     });
   });
@@ -826,7 +1106,148 @@ describe('LessonVideoQueueService', () => {
         }),
       );
     });
+
+    it('writes the rendered agent storyboard back into quick-generated course content', async () => {
+      const videoAgent = createVideoAgent();
+      const agentService = createAgentBackedService(videoAgent);
+      contentRepo.findOne.mockResolvedValue({
+        id: 62,
+        title: '认识老虎',
+        subtitle: '',
+        topic: '认识老虎',
+        domain: 'language',
+        ageRange: '5-6',
+        content: { content: null, finishReason: 'length' },
+      });
+      remotionRender.renderGeneratedComposition.mockResolvedValue(undefined);
+      jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
+      jest.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('video'));
+      jest.spyOn(fs, 'unlink').mockResolvedValue(undefined);
+
+      await (agentService as any).generateVideoBuffer(
+        { id: 44, contentId: 62, childId: 3, cacheKey: 'content-cache', renderEngine: 'auto' },
+        {
+          topic: '认识动物老虎',
+          ageGroup: '5-6',
+          domain: 'science',
+          __contentSource: 'quick_generate',
+          __contentType: 'video_lesson',
+        },
+      );
+
+      expect(contentRepo.update).toHaveBeenCalledWith(
+        62,
+        expect.objectContaining({
+          title: '认识动物老虎视频',
+          domain: 'science',
+          content: expect.objectContaining({
+            topic: '认识动物老虎',
+            domain: 'science',
+            generatedStoryboard: expect.objectContaining({ topic: '认识动物老虎' }),
+            visualStory: expect.objectContaining({
+              scenes: [
+                expect.objectContaining({
+                  scene: '老虎登场',
+                  narration: '老虎是大型猫科动物，身上有黑色条纹。',
+                }),
+              ],
+            }),
+            videoLesson: expect.objectContaining({
+              title: '认识动物老虎视频',
+              shots: [
+                expect.objectContaining({ narration: '老虎是大型猫科动物，身上有黑色条纹。' }),
+              ],
+            }),
+          }),
+        }),
+      );
+    });
   });
+
+  describe('final QA release policy', () => {
+    const originalQaGate = process.env.VIDEO_QA_GATE;
+    const failedVerdict = {
+      passed: false,
+      score: 67,
+      issues: [{ severity: 'blocker' }],
+    } as any;
+
+    afterEach(() => {
+      if (originalQaGate === undefined) delete process.env.VIDEO_QA_GATE;
+      else process.env.VIDEO_QA_GATE = originalQaGate;
+    });
+
+    it('blocks a failed final QA verdict by default', () => {
+      delete process.env.VIDEO_QA_GATE;
+      expect(() => (service as any).enforceQaGate(failedVerdict, 'dynamic-remotion')).toThrow(
+        'dynamic-remotion QA failed: score=67',
+      );
+    });
+
+    it('allows an explicit warn-only mode without silently changing the default', () => {
+      process.env.VIDEO_QA_GATE = 'warn';
+      expect(() => (service as any).enforceQaGate(failedVerdict, 'dynamic-remotion')).not.toThrow();
+    });
+
+    it('allows QA to be explicitly disabled', () => {
+      process.env.VIDEO_QA_GATE = 'off';
+      expect(() => (service as any).enforceQaGate(null, 'dynamic-remotion')).not.toThrow();
+    });
+
+    it('blocks a missing verdict when the gate is enabled', () => {
+      delete process.env.VIDEO_QA_GATE;
+      expect(() => (service as any).enforceQaGate(null, 'dynamic-remotion')).toThrow(
+        'QA returned no verdict',
+      );
+    });
+
+    it('releases a passing verdict', () => {
+      delete process.env.VIDEO_QA_GATE;
+      expect(() =>
+        (service as any).enforceQaGate(
+          { ...failedVerdict, passed: true, score: 90 },
+          'dynamic-remotion',
+        ),
+      ).not.toThrow();
+    });
+  });
+
+  it.each(['approved', 'pending_approval'])(
+    'preserves %s approval status after rendering completes',
+    async (approvalStatus) => {
+      const task = {
+        id: 45,
+        contentId: 62,
+        childId: 3,
+        cacheKey: 'approval-cache',
+        renderEngine: 'hyperframes',
+        attemptCount: 1,
+        approvalStatus,
+        requestPayload: { topic: '认识老虎' },
+      };
+      taskRepo.findOne.mockResolvedValueOnce(task).mockResolvedValueOnce(task);
+      const chain: any = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      (taskRepo as any).createQueryBuilder = jest.fn().mockReturnValue(chain);
+      jest
+        .spyOn(service as any, 'generateVideoBuffer')
+        .mockResolvedValue({ buffer: Buffer.from('video') });
+      jest
+        .spyOn(service as any, 'writeVideoToCache')
+        .mockResolvedValue('storage/lesson-videos/approval-cache.mp4');
+
+      await (service as any).processNextTask();
+
+      expect(taskRepo.update).toHaveBeenCalledWith(
+        45,
+        expect.objectContaining({ status: 'completed', approvalStatus }),
+      );
+    },
+  );
 
   /**
    * 单实例闸门。这两个用例对应真实事故：`nest start --watch` 留下了旧进程，

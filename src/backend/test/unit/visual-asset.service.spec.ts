@@ -16,6 +16,15 @@ describe('VisualAssetService', () => {
     jest.restoreAllMocks();
   });
 
+  it('inlines the local snail variant for props even when generation is disabled', async () => {
+    const service = new VisualAssetService();
+    const svg = await service.loadPropSvg('蜗牛');
+
+    expect(svg?.canvas).toBeGreaterThan(0);
+    expect(svg?.markup).toContain('<');
+    expect(svg?.markup).not.toContain('<svg');
+  });
+
   it('resolves local CC0 tiger assets before external providers', async () => {
     const fetchSpy = jest
       .spyOn(global as any, 'fetch')
@@ -303,5 +312,126 @@ describe('VisualAssetService', () => {
     });
 
     expect(asset).toBeNull();
+  });
+
+  it('selects explicit snail appearance assets before fuzzy vector aliases', async () => {
+    const fetchSpy = jest
+      .spyOn(global as any, 'fetch')
+      .mockRejectedValue(new Error('network should not be used'));
+    const service = new VisualAssetService();
+
+    const plan = await service.resolveSceneVisualAssets(
+      {
+        title: '保护自己',
+        narration: '蜗牛把身体缩进壳里，只露出壳保护自己。',
+        visualDescription: 'a retracted snail hiding inside its shell',
+        assetKey: 'snail',
+        assetTags: ['snail', 'shell', 'garden'],
+        action: 'rest',
+        habitat: 'garden',
+      },
+      '蜗牛壳上的花纹',
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(plan.mainCharacter).toMatchObject({
+      provider: 'local',
+      license: 'cc0',
+      staticPath: 'assets/lesson/animals/snail-retracted.svg',
+    });
+  });
+
+  it('uses distinct teaching assets for snail summary concepts', async () => {
+    const service = new VisualAssetService();
+    const icons = await service.resolveGraphIcons(
+      {
+        relation: 'cycle',
+        nodes: [
+          { id: 'walk', label: '背着壳爬', subject: '蜗牛', role: 'subject' },
+          { id: 'grow', label: '壳口长大', subject: '蜗牛壳', role: 'object' },
+          { id: 'pattern', label: '螺旋花纹', subject: '蜗牛壳', role: 'object' },
+          { id: 'rest', label: '缩进壳里', subject: '蜗牛壳', role: 'place' },
+        ],
+      },
+      '蜗牛壳上的花纹',
+      '蜗牛背着壳爬，爬累了就缩进壳里休息。',
+    );
+
+    expect(icons).toEqual({
+      walk: 'assets/lesson/animals/snail-generic.svg',
+      grow: 'assets/lesson/animals/snail-shell-growth.svg',
+      pattern: 'assets/lesson/animals/snail-shell-pattern.svg',
+      rest: 'assets/lesson/animals/snail-retracted.svg',
+    });
+    expect(new Set(Object.values(icons)).size).toBe(4);
+  });
+
+  it('uses a spiral bud and ridged horn for the comparison practice', async () => {
+    const service = new VisualAssetService();
+    const icons = await service.resolveGraphIcons(
+      {
+        relation: 'group',
+        nodes: [
+          { id: 'shell', label: '蜗牛壳', subject: '蜗牛壳', role: 'object' },
+          { id: 'horn', label: '羊角', subject: '羊角', role: 'object' },
+          { id: 'bud', label: '牵牛花', subject: '牵牛花', role: 'object' },
+        ],
+      },
+      '蜗牛壳上的花纹',
+      '弯弯的羊角有螺旋，牵牛花的花苞也有螺旋。',
+    );
+
+    expect(icons.horn).toBe('assets/lesson/objects/ram-horn-spiral.svg');
+    expect(icons.bud).toBe('assets/lesson/objects/morning-glory-bud.svg');
+  });
+
+  it('resolves shell-only concept labels without requiring an animal word in the node', async () => {
+    const service = new VisualAssetService();
+    const icons = await service.resolveGraphIcons(
+      {
+        relation: 'group',
+        nodes: [
+          { id: 'grow', label: '壳口长大', subject: '壳口', role: 'object' },
+          { id: 'pattern', label: '螺旋花纹', subject: '壳纹', role: 'object' },
+        ],
+      },
+      '蜗牛壳上的花纹',
+    );
+
+    expect(icons).toEqual({
+      grow: 'assets/lesson/animals/snail-shell-growth.svg',
+      pattern: 'assets/lesson/animals/snail-shell-pattern.svg',
+    });
+  });
+
+  it('keeps an explicitly open morning glory separate from a bud in mixed context', () => {
+    const service = new VisualAssetService() as any;
+    const context = '牵牛花的花苞卷曲，盛开的牵牛花开放。';
+
+    expect(
+      service.resolveNodeTeachingAsset({ label: '花苞', subject: '牵牛花' }, context),
+    ).toBe('assets/lesson/objects/morning-glory-bud.svg');
+    expect(
+      service.resolveNodeTeachingAsset({ label: '盛开的牵牛花', subject: '牵牛花' }, context),
+    ).toBeNull();
+  });
+
+  it('resolves comparison graph nodes to distinct white and striped snails', async () => {
+    const service = new VisualAssetService();
+    const icons = await service.resolveGraphIcons(
+      {
+        relation: 'compare',
+        nodes: [
+          { id: 'white', label: '白玉蜗牛', subject: '白玉蜗牛', role: 'subject' },
+          { id: 'striped', label: '花蜗牛', subject: '花蜗牛', role: 'subject' },
+        ],
+      },
+      '蜗牛壳上的花纹',
+    );
+
+    expect(icons).toEqual({
+      white: 'assets/lesson/animals/snail-white.svg',
+      striped: 'assets/lesson/animals/snail-striped.svg',
+    });
   });
 });

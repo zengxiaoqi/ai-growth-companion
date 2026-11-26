@@ -8,6 +8,7 @@ import { AbacusScene } from "../animated/math/AbacusScene";
 import { CharacterStrokeScene } from "../animated/language/CharacterStrokeScene";
 import { WordRevealScene } from "../animated/language/WordRevealScene";
 import { StorySceneScene } from "../animated/language/StorySceneScene";
+import { WhiteboardStoryScene } from "../animated/language/WhiteboardStoryScene";
 import { SeasonsCycleScene } from "../animated/science/SeasonsCycleScene";
 import { WaterCycleScene } from "../animated/science/WaterCycleScene";
 import { RainbowScene } from "../animated/science/RainbowScene";
@@ -32,6 +33,7 @@ const SCENE_MAP: Record<AnimationTemplateId, React.FC<{ data: TeachingSlide; wid
   "language.character-stroke": CharacterStrokeScene,
   "language.word-reveal": WordRevealScene,
   "language.story-scene": StorySceneScene,
+  "language.whiteboard-story": WhiteboardStoryScene,
   "science.water-cycle": WaterCycleScene,
   "science.day-night-cycle": DayNightCycleScene,
   "science.plant-growth": PlantGrowthScene,
@@ -49,6 +51,9 @@ export const AnimatedSceneRouter: React.FC<RouterProps> = ({ data }) => {
   const templateId = data.animationTemplate?.id;
 
   if (!templateId || !SCENE_MAP[templateId]) {
+    return <HeroLayout data={data} />;
+  }
+  if (templateId === "language.whiteboard-story" && !data.whiteboard) {
     return <HeroLayout data={data} />;
   }
 

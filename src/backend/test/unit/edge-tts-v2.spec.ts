@@ -33,16 +33,21 @@ describe('Edge TTS V2 compatibility patch', () => {
     expect(constants.Constants.VOICE_HEADERS['Sec-CH-UA']).toContain('Chromium";v="143');
   });
 
-  it('patches the library to use V2 token and legacy endpoint with TrustedClientToken', () => {
+  it('patches the library to use V2 token and legacy endpoint with TrustedClientToken', async () => {
     installEdgeTtsV2Patch();
-    // Verify the prototype was patched - should return a non-empty token
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const EdgeTTSClass = require('@andresaya/edge-tts').EdgeTTS;
-    const token = EdgeTTSClass.prototype.generateSecMsGec();
-    // Just verify it returns a non-empty string with a dash
-    expect(token).toBeDefined();
-    expect(typeof token).toBe('string');
-    expect(token.includes('-')).toBe(true);
-    expect(token.length).toBeGreaterThan(20);
+    const protocol = require('@andresaya/edge-tts/dist/core/protocol');
+    const token = await protocol.generateSecMsGec('ignored', 1763664000000);
+    const url = protocol.buildSynthesisUrl(
+      'wss://unused.example',
+      'token123',
+      token,
+      '2-143.0.3650.75',
+      'cid789',
+    );
+    expect(url).toContain('speech.platform.bing.com');
+    expect(url).toContain('TrustedClientToken=token123');
+    expect(url).toContain(`Sec-MS-GEC=${encodeURIComponent(token)}`);
+    expect(url).not.toContain('Ocp-Apim-Subscription-Key');
   });
 });
